@@ -1,0 +1,38 @@
+schema_version: "1.2"
+
+precision_teaching_context:
+  subject: ""
+  grade: ""
+  textbook_version_and_chapter: ""
+  precision_teaching_topic: ""
+  precision_teaching_goals: []
+  precision_teaching_content: []
+
+teacher_instructional_context:
+  teaching_content_and_curriculum_analysis: ""
+  teaching_focus_and_difficulty_analysis: ""
+  planned_duration_minutes: 45
+  teaching_environment_and_ai_support_conditions: ""
+  teacher_lesson_conception: null
+
+diagnostic_task_context:
+  task_id: ""
+  task_title: null
+  task_text: ""
+  task_materials_summary: null
+  response_mode: ""
+  task_requirements: ""
+  source_ref: null
+
+class_diagnosis_result: {}
+goal_path_design: {}
+activity_formative_design: {}
+
+integration_preferences:
+  plan_title: "精准教学干预方案"
+  class_name: null
+  teacher_name: null
+  teaching_date: null
+  show_student_names: false
+  include_review_appendix: true
+  wording_density: "concise"

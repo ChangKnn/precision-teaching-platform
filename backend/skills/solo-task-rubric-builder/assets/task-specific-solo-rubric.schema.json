@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.codex/skills/solo-task-rubric-builder/task-specific-solo-rubric.schema.json",
+  "title": "Task-specific SOLO rubric",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source_basis",
+    "task_analysis",
+    "levels",
+    "usage_notes"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.1"},
+    "source_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["diagnostic_task_source", "general_rubric_source", "general_rubric_anchors"],
+      "properties": {
+        "diagnostic_task_source": {"type": ["string", "null"]},
+        "general_rubric_source": {"type": ["string", "null"]},
+        "general_rubric_anchors": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {"$ref": "#/$defs/generalAnchor"}
+        },
+        "teacher_context_used": {
+          "description": "Legacy schema 1.1 field name. Record the precision_teaching_context keys actually used in analysis.",
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "student_responses_role": {"enum": ["not_provided", "empirical_only"]},
+        "source_uncertainties": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "task_analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["true_cognitive_demand", "elements", "relations", "abstractions", "task_affordance"],
+      "properties": {
+        "true_cognitive_demand": {"type": "string", "minLength": 1},
+        "elements": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/element"}},
+        "relations": {"$ref": "#/$defs/relationLayer"},
+        "abstractions": {"type": "array", "items": {"$ref": "#/$defs/abstraction"}},
+        "task_affordance": {"$ref": "#/$defs/taskAffordance"}
+      }
+    },
+    "levels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["P", "U", "M", "R", "EA"],
+      "properties": {
+        "P": {"$ref": "#/$defs/level"},
+        "U": {"$ref": "#/$defs/level"},
+        "M": {"$ref": "#/$defs/level"},
+        "R": {"$ref": "#/$defs/level"},
+        "EA": {"$ref": "#/$defs/level"}
+      }
+    },
+    "usage_notes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_sufficiency", "boundary_risks", "downstream_instructions"],
+      "properties": {
+        "evidence_sufficiency": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "boundary_risks": {"type": "array", "items": {"type": "string"}},
+        "downstream_instructions": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+      }
+    }
+  },
+  "$defs": {
+    "generalAnchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "level", "definition", "source_locator"],
+      "properties": {
+        "id": {"enum": ["G-P", "G-U", "G-M", "G-R", "G-EA"]},
+        "level": {"enum": ["P", "U", "M", "R", "EA"]},
+        "definition": {"type": ["string", "null"]},
+        "decision_conditions": {"type": "array", "items": {"type": "string"}},
+        "boundaries": {"type": "array", "items": {"type": "string"}},
+        "exclusions": {"type": "array", "items": {"type": "string"}},
+        "source_locator": {"type": ["string", "null"]}
+      }
+    },
+    "element": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "meaning"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^E[1-9][0-9]*$"},
+        "name": {"type": "string", "minLength": 1},
+        "meaning": {"type": "string", "minLength": 1},
+        "pathway_ids": {"type": "array", "items": {"type": "string", "pattern": "^PATH-[1-9][0-9]*$"}}
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "relation_statement", "element_ids"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^R[1-9][0-9]*$"},
+        "relation_statement": {"type": "string", "minLength": 1},
+        "relation_type": {"type": "string", "minLength": 1},
+        "element_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^E[1-9][0-9]*$"}},
+        "pathway_ids": {"type": "array", "items": {"type": "string", "pattern": "^PATH-[1-9][0-9]*$"}}
+      }
+    },
+    "relationLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items", "whole_structure"],
+      "properties": {
+        "items": {"type": "array", "items": {"$ref": "#/$defs/relation"}},
+        "whole_structure": {"type": "string", "minLength": 1},
+        "alternative_pathways": {"type": "array", "items": {"$ref": "#/$defs/pathway"}}
+      }
+    },
+    "abstraction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "description", "requires_relation_ids", "beyond_current_task", "opportunity_in_task"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^A[1-9][0-9]*$"},
+        "kind": {"enum": ["generalization", "transfer", "model", "hypothesis", "boundary_condition", "evaluation", "inference", "other"]},
+        "description": {"type": "string", "minLength": 1},
+        "requires_relation_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^R[1-9][0-9]*$"}},
+        "beyond_current_task": {"type": "string", "minLength": 1},
+        "opportunity_in_task": {"type": "boolean"}
+      }
+    },
+    "pathway": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description", "element_ids", "relation_ids"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^PATH-[1-9][0-9]*$"},
+        "description": {"type": "string", "minLength": 1},
+        "element_ids": {"type": "array", "items": {"type": "string", "pattern": "^E[1-9][0-9]*$"}},
+        "relation_ids": {"type": "array", "items": {"type": "string", "pattern": "^R[1-9][0-9]*$"}}
+      }
+    },
+    "taskAffordance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["highest_reasonably_elicitable_level", "limitations", "revision_suggestions"],
+      "properties": {
+        "highest_reasonably_elicitable_level": {"enum": ["P", "U", "M", "R", "EA"]},
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "revision_suggestions": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "level": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "core_performance", "decision_evidence", "adjacent_boundaries", "typical_expressions", "trace_to"],
+      "properties": {
+        "status": {"enum": ["defined", "not_reasonably_elicitable"]},
+        "core_performance": {"type": "array", "items": {"type": "string"}},
+        "decision_evidence": {"type": "array", "items": {"type": "string"}},
+        "adjacent_boundaries": {"type": "array", "items": {"type": "string"}},
+        "typical_expressions": {"type": "array", "items": {"type": "string"}},
+        "trace_to": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^(G-(P|U|M|R|EA)|E[1-9][0-9]*|R[1-9][0-9]*|A[1-9][0-9]*|PATH-[1-9][0-9]*)$"}
+        },
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

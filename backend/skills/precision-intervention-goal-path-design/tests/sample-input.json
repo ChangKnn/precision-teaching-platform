@@ -1,0 +1,146 @@
+{
+  "schema_version": "1.1",
+  "precision_teaching_context": {
+    "subject": "科学",
+    "grade": "六年级",
+    "textbook_version_and_chapter": "示例教材·相关章节",
+    "precision_teaching_topic": "控制变量实验中的证据解释",
+    "precision_teaching_goals": [
+      "依据实验条件和观察结果形成有证据支持的结论"
+    ],
+    "precision_teaching_content": [
+      "改变条件、控制条件、观察结果与实验结论之间的关系"
+    ]
+  },
+  "diagnosis_bundle": {
+    "class_diagnosis": {
+      "class_summary": {
+        "total_students": 4,
+        "distribution": [
+          {
+            "level": "P",
+            "level_name": "前结构",
+            "level_meaning": "尚未自主使用实验信息形成有效证据点。",
+            "count": 1,
+            "proportion": 0.25,
+            "students": [{"student_id": "S-01", "student_name": "陈晨"}]
+          },
+          {
+            "level": "U",
+            "level_name": "单点结构",
+            "level_meaning": "能够处理一个相关实验信息。",
+            "count": 0,
+            "proportion": 0,
+            "students": []
+          },
+          {
+            "level": "M",
+            "level_name": "多点结构",
+            "level_meaning": "识别多项实验信息但未形成控制变量关系链。",
+            "count": 2,
+            "proportion": 0.5,
+            "students": [
+              {"student_id": "S-02", "student_name": "李明"},
+              {"student_id": "S-03", "student_name": "王芳"}
+            ]
+          },
+          {
+            "level": "R",
+            "level_name": "关联结构",
+            "level_meaning": "能够形成完整的控制变量证据解释。",
+            "count": 1,
+            "proportion": 0.25,
+            "students": [{"student_id": "S-04", "student_name": "赵宇"}]
+          },
+          {
+            "level": "EA",
+            "level_name": "拓展抽象结构",
+            "level_meaning": "能够迁移解释并分析适用边界。",
+            "count": 0,
+            "proportion": 0,
+            "students": []
+          }
+        ]
+      },
+      "overall_diagnosis": {
+        "dominant_levels": ["M"],
+        "overall_characteristics": "多数学生能识别多项信息，但尚未建立控制条件—观察结果—结论的完整关系。",
+        "differentiation_summary": "班级同时存在P、M、R三个认知状态。",
+        "main_progression_direction": "重点促进M到R，并为P提供认知定向、为R提供迁移。"
+      },
+      "level_analyses": [
+        {"level": "P", "main_obstacles": ["没有形成自主证据点"]},
+        {"level": "M", "main_obstacles": ["不能说明控制条件如何支持结论"]},
+        {"level": "R", "main_obstacles": ["尚未迁移到新实验情境"]}
+      ],
+      "teaching_priorities": {
+        "teaching_focus": {"statement": "建立完整实验关系链"},
+        "teaching_difficulty": {"statement": "说明控制条件的证据作用"}
+      },
+      "grouping_recommendations": {
+        "homogeneous_groups": [
+          {
+            "group_id": "H1",
+            "students": [
+              {"student_id": "S-02", "student_name": "李明"},
+              {"student_id": "S-03", "student_name": "王芳"}
+            ],
+            "progression_direction": "M到R"
+          }
+        ],
+        "heterogeneous_groups": [],
+        "ungrouped_students": [
+          {"student_id": "S-01", "student_name": "陈晨"},
+          {"student_id": "S-04", "student_name": "赵宇"}
+        ]
+      },
+      "intervention_design_basis": [
+        {
+          "basis_id": "D1",
+          "target_students": [{"student_id": "S-01", "student_name": "陈晨"}],
+          "diagnostic_finding": "尚未形成自主证据点。",
+          "intended_cognitive_change": "P到U：形成一个自主有效认知点。",
+          "design_requirements": ["任务入口清楚且信息量受控。"]
+        },
+        {
+          "basis_id": "D2",
+          "target_students": [
+            {"student_id": "S-02", "student_name": "李明"},
+            {"student_id": "S-03", "student_name": "王芳"}
+          ],
+          "diagnostic_finding": "能够识别多项信息，但尚未建立完整控制关系。",
+          "intended_cognitive_change": "M到R：形成控制条件—观察结果—结论关系链。",
+          "design_requirements": ["任务必须要求解释关系，不能继续停留在增加信息数量。"]
+        },
+        {
+          "basis_id": "D3",
+          "target_students": [{"student_id": "S-04", "student_name": "赵宇"}],
+          "diagnostic_finding": "已形成当前实验的完整解释，尚未迁移。",
+          "intended_cognitive_change": "R到EA：概括并迁移控制变量推理。",
+          "design_requirements": ["提供条件变化的新情境并要求检验适用边界。"]
+        }
+      ],
+      "traceability": {
+        "levels_unchanged": true,
+        "level_assignments": [
+          {"student_id": "S-01", "original_level": "P"},
+          {"student_id": "S-02", "original_level": "M"},
+          {"student_id": "S-03", "original_level": "M"},
+          {"student_id": "S-04", "original_level": "R"}
+        ]
+      }
+    },
+    "task_specific_solo_rubric": null,
+    "student_diagnosis_results": [],
+    "source_versions": {
+      "solo-class-diagnosis-intervention": "1.1"
+    }
+  },
+  "teacher_instructional_context": {
+    "teaching_content_and_curriculum_analysis": "本课围绕控制变量实验中的证据解释，落实学生从实验条件和观察结果中提取证据、建立证据与结论关系并作出科学解释的要求。",
+    "teaching_focus_and_difficulty_analysis": "重点是把改变条件、控制条件、观察结果和结论组织成完整证据关系；难点是学生从多项实验信息的并列列举转向说明观察差异为何支持结论。",
+    "planned_duration_minutes": 45,
+    "teaching_environment_and_ai_support_conditions": "普通教室，有投影和纸质实验材料；每组可共用一台平板，能够访问校内AI平台；教师最多同时管理三类学习任务。",
+    "teacher_lesson_conception": "希望全体学生先明确共同实验问题，再按学习需要开展不同深度的证据解释，最后回到全班共同建构解释框架。"
+  }
+}

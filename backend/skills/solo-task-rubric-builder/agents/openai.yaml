@@ -1,0 +1,4 @@
+interface:
+  display_name: "任务分析与 SOLO 量规建构"
+  short_description: "将具体诊断任务转化为可追溯的任务特定 SOLO 量规"
+  default_prompt: "使用 $solo-task-rubric-builder，结合 precision_teaching_context 分析诊断任务，并依据 Skill 内置通用 SOLO 量规生成任务特定评价量规。"

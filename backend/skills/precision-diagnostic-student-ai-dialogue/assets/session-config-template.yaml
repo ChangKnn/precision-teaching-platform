@@ -1,0 +1,36 @@
+precision_teaching_context:
+  subject: ""
+  grade: ""
+  textbook_version_and_chapter: ""
+  precision_teaching_topic: ""
+  precision_teaching_goals:
+    - ""
+  precision_teaching_content:
+    - ""
+
+diagnostic_task:
+  task_id: ""
+  name: ""
+  task_content: ""
+  estimated_duration_minutes: 15
+
+ai_dialogue_contract:
+  contract_version: "1.0"
+  teacher_confirmed: true
+  ai_role: ""
+  required_rules:
+    - ""
+  prohibited_behaviors:
+    - ""
+
+student:
+  student_id: ""
+  student_name: ""
+
+dialogue_state:
+  session_id: ""
+  mode: "start"
+  turn_index: 0
+  dialogue_history: []
+  current_student_message: null
+

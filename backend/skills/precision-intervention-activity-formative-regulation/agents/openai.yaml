@@ -1,0 +1,4 @@
+interface:
+  display_name: "学习活动与形成性评价设计"
+  short_description: "将已确认的目标与路径细化为表格式学习活动和关键形成性评价方案"
+  default_prompt: "使用 $precision-intervention-activity-formative-regulation，基于已经确认的目标与路径设计表格式学习活动和关键形成性评价。"

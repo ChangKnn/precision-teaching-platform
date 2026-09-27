@@ -1,0 +1,69 @@
+[
+  {
+    "id": "PATH-PROGRESSIVE",
+    "situation": "全班需要经历共同的前后依赖内容，后一阶段必须使用前一阶段成果。",
+    "expected_behavior": "优先选择递进推进型，把必要依赖安排为不同阶段；局部差异放入阶段内部，不把SOLO层级顺序直接当作课堂时间顺序。"
+  },
+  {
+    "id": "PATH-MAINLINE-EMBEDDED",
+    "situation": "大多数学生能沿共同任务推进，少数学生存在局部且能短时补足的缺口。",
+    "expected_behavior": "优先选择主线嵌入型，用文字说明支路嵌入的阶段和活动简介，不输出评价触发或返回条件。"
+  },
+  {
+    "id": "PATH-PARALLEL-TIERED",
+    "situation": "学生形成多个清晰临时群体，同一内容可形成不同加工深度的等值任务。",
+    "expected_behavior": "可以选择并行分层型；并行活动共享同一阶段编号，以不同活动单元表示，之后安排共同汇聚。"
+  },
+  {
+    "id": "PATH-STATION-ROTATION",
+    "situation": "内容可拆为多个功能相对独立的模块，且空间、时间、材料和管理条件支持轮转。",
+    "expected_behavior": "可以选择站点轮转型；说明站点功能和服务对象，不要求所有学生机械完成全部站点。"
+  },
+  {
+    "id": "PATH-INDIVIDUAL-ADAPTIVE",
+    "situation": "学生障碍高度个体化、难以聚合，且设备、自我管理和教师监测条件充分。",
+    "expected_behavior": "可以选择个体自驱型；不能仅因课堂使用AI就选择该路径。"
+  },
+  {
+    "id": "ALTERNATIVE-WHEN-CLOSE",
+    "situation": "并行分层型与主线嵌入型都符合诊断、内容和实施条件，差别主要在教师管理负荷。",
+    "expected_behavior": "推荐一个主要路径，并提供一个备选路径，说明备选更适合的条件和具体代价；不得列出多个备选。"
+  },
+  {
+    "id": "NO-RECLASSIFICATION",
+    "situation": "上游诊断将学生判为M，但目标设计者认为其回答似乎接近R。",
+    "expected_behavior": "保持M不变，只为其设计M到R目标，不在本Skill重新定级。"
+  },
+  {
+    "id": "CROSS-LEVEL-GOAL-GUARD",
+    "situation": "教师希望P学生直接面向M目标。",
+    "expected_behavior": "默认不生成跨两级目标；把该要求列为待确认，建议拆为相邻进阶。"
+  },
+  {
+    "id": "CUSTOM-GOAL-GUARD",
+    "situation": "教师选择自定义进阶目标。",
+    "expected_behavior": "要求说明标准SOLO目标不足的原因、目标认知结构和可观察表现；不得用于降低共同目标或无依据跳级。"
+  },
+  {
+    "id": "TEACHER-PREFERENCE-CONFLICT",
+    "situation": "教师偏好站点轮转，但课堂没有足够空间、资源或管理时间。",
+    "expected_behavior": "说明不可实施风险，推荐更简单的可行主路径，并把冲突列入教师确认；不把站点轮转作为备选。"
+  },
+  {
+    "id": "PARALLEL-DURATION",
+    "situation": "ST2包含三个同时开展且各需20分钟的活动单元，总课时45分钟。",
+    "expected_behavior": "ST2只计20分钟，不能把三条并行活动相加为60分钟；所有阶段时长之和等于45分钟。"
+  },
+  {
+    "id": "BOUNDARY-NO-DETAIL-OR-EVALUATION",
+    "situation": "目标和课堂路径已经形成。",
+    "expected_behavior": "止于活动内容简介、组织形式和建议时长，不生成任务题目、步骤、详细支架、师生话语、形成性评价节点或路由规则。"
+  }
+  ,
+  {
+    "id": "COMPOSITE-MODE-WHEN-SEQUENTIAL",
+    "condition": "课堂存在共同定向、差异化核心学习、共同汇聚和综合应用等前后阶段，核心阶段采用并行分层",
+    "expected": "推荐递进推进型＋并行分层型，并分别说明整体递进与核心阶段并行的含义",
+    "forbidden": "只因存在分层活动而忽略课堂整体的递进结构，或叠加三个以上模式"
+  }
+]

@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="思阶学生端：完成老师发布的诊断任务，与 AI 对话并提交学习成果。">
+  <meta name="theme-color" content="#123f3c">
+  <title>思阶学生端｜诊断学习空间</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23123f3c'/%3E%3Ctext x='32' y='43' text-anchor='middle' font-size='34' font-family='sans-serif' fill='white'%3E思%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="student.css?v=20260927-published-classes">
+</head>
+<body>
+  <main class="login-view" id="loginView">
+    <section class="login-panel" aria-labelledby="loginTitle">
+      <div class="login-intro">
+        <a class="brand brand-light" href="../" aria-label="思阶首页">
+          <span class="brand-mark">思</span>
+          <span><strong>思阶</strong><small>AI 精准教学 · 学生端</small></span>
+        </a>
+        <div class="intro-copy">
+          <span class="eyebrow">今天，从说清思路开始</span>
+          <h1>把你的想法<br>一步一步讲明白。</h1>
+          <p>这里不会直接给出答案。AI 会陪你梳理已经想到的内容，老师将看到你的思考过程和最终成果。</p>
+        </div>
+        <div class="privacy-note">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.6 2.8 8 7 10 4.2-2 7-5.4 7-10V6l-7-3Z"/><path d="m9.5 12 1.7 1.7 3.5-4"/></svg>
+          <span>对话仅用于本次学习诊断，提交前可检查全部内容。</span>
+        </div>
+      </div>
+
+      <div class="login-form-wrap">
+        <form class="login-card" id="loginForm" novalidate>
+          <div class="login-heading">
+            <span class="mobile-brand-mark">思</span>
+            <div>
+              <p>学生登录</p>
+              <h2 id="loginTitle">进入我的学习任务</h2>
+            </div>
+          </div>
+          <p class="form-help">选择老师已发布任务的学校与班级，再填写姓名。</p>
+          <p class="login-availability" id="loginAvailability" hidden></p>
+
+          <label class="field">
+            <span>学校</span>
+            <div class="input-shell">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 21h18M5 21V8l7-4 7 4v13M9 12h2m2 0h2M9 16h2m2 0h2"/></svg>
+              <select id="schoolInput" name="school" required><option value="">正在加载学校…</option></select>
+            </div>
+          </label>
+          <label class="field">
+            <span>班级</span>
+            <div class="input-shell">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <select id="classInput" name="className" required disabled><option value="">请先选择学校</option></select>
+            </div>
+          </label>
+          <label class="field">
+            <span>姓名</span>
+            <div class="input-shell">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+              <input id="nameInput" name="studentName" autocomplete="name" placeholder="请输入你的真实姓名" required>
+            </div>
+          </label>
+          <p class="form-error" id="loginError" role="alert" hidden>请填写完整的学校、班级和姓名。</p>
+          <button class="primary-button login-button" type="submit">
+            进入学习空间
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+          <p class="login-footnote">首次登录也会自动创建本次任务记录</p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <div class="student-app" id="studentApp" hidden>
+    <aside class="app-sidebar" id="appSidebar">
+      <div class="sidebar-top">
+        <div class="brand">
+          <span class="brand-mark">思</span>
+          <span><strong>思阶</strong><small>我的学习空间</small></span>
+        </div>
+        <button class="icon-button sidebar-close" id="closeSidebar" aria-label="关闭侧边栏">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+
+      <nav class="history-section" aria-label="学习对话记录">
+        <div class="section-label"><span>学习记录</span><small id="historyCount">0 次</small></div>
+        <div id="historyList"><p class="history-empty">登录后加载老师发布的任务</p></div>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <label class="subject-picker">
+          <span>当前科目</span>
+          <select id="subjectSelect" aria-label="选择学习科目">
+            <option value="">正在加载…</option>
+          </select>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></svg>
+        </label>
+        <div class="student-profile">
+          <span class="avatar" id="studentAvatar">同</span>
+          <span><strong id="studentNameLabel">同学</strong><small id="studentClassLabel">尚未登录</small></span>
+          <button class="icon-button" id="logoutButton" aria-label="退出登录" title="退出登录">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M10 17l5-5-5-5m5 5H3m12-8h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/></svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <section class="conversation-pane">
+      <header class="app-header">
+        <button class="icon-button mobile-menu" id="openSidebar" aria-label="打开学习记录">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <div class="header-task">
+          <span class="subject-dot" id="subjectDot">数学</span>
+          <div><strong id="taskTitleHeader">基本不等式中的模型与论证</strong><small id="teacherLabel">林老师发布</small></div>
+        </div>
+        <div class="header-actions">
+          <span class="time-chip"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span id="elapsedTime">已用 00:00</span></span>
+          <button class="secondary-button submit-trigger" data-open-submit>
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0-12 4 4m-4-4L8 7M5 13v6h14v-6"/></svg>
+            <span id="submitButtonLabel">提交给老师</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="conversation-scroll" id="conversationScroll">
+        <div class="conversation-inner">
+          <section class="task-card" id="taskCard" aria-labelledby="taskCardTitle">
+            <div class="task-card-top">
+              <span class="task-tag">本次诊断任务</span>
+              <span class="duration"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>预计 <b id="durationText">15</b> 分钟</span>
+            </div>
+            <h1 id="taskCardTitle">长方形劳动实践区怎样面积最大？</h1>
+            <p id="taskDescription">学校准备使用 20 米围栏围成一个长方形劳动实践区。请确定怎样设计长和宽能够使面积最大。</p>
+            <div class="task-requirements">
+              <span>你需要完成</span>
+              <ol id="taskRequirements">
+                <li>与 AI 对话，说明你提取的信息与建立的关系</li>
+                <li>最终作答文本可选，留空也能提交</li>
+              </ol>
+            </div>
+            <p class="ai-boundary"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.6 2.8 8 7 10 4.2-2 7-5.4 7-10V6l-7-3Z"/><path d="M9 12h6"/></svg>AI 只帮助你把思路说完整，不会提供答案或解题步骤。</p>
+          </section>
+
+          <div class="messages" id="messages" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <footer class="composer-area">
+        <form class="composer" id="messageForm">
+          <textarea id="messageInput" rows="1" placeholder="说说你现在的想法……" aria-label="输入对话内容"></textarea>
+          <button class="send-button" type="submit" aria-label="发送" disabled>
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 14-7-4 14-3-6-7-1Z"/><path d="m12 13 7-8"/></svg>
+          </button>
+        </form>
+        <div class="composer-meta">
+          <span>Enter 发送 · Shift + Enter 换行</span>
+          <button type="button" data-open-submit><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0-12 4 4m-4-4L8 7M5 13v6h14v-6"/></svg>完成对话后，提交给老师</button>
+        </div>
+      </footer>
+    </section>
+  </div>
+
+  <dialog class="submit-dialog" id="submitDialog" aria-labelledby="submitTitle">
+    <form method="dialog" class="dialog-shell" id="submissionForm">
+      <div class="dialog-heading">
+        <div><span class="step-kicker">最后一步</span><h2 id="submitTitle">提交学习记录</h2><p>AI 对话记录会提交给老师；你也可以补充最终作答文本。</p></div>
+        <button class="icon-button" value="cancel" aria-label="关闭提交窗口"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+      </div>
+
+      <label class="text-submission-field" for="submittedText"><span>最终作答文本（选填）</span><textarea id="submittedText" rows="10" maxlength="12000" placeholder="可在这里补充最终作答；留空也可以提交。"></textarea><small><span id="submittedTextCount">0</span>/12000 字</small></label>
+
+      <div class="submission-includes">
+        <span>本次会一并提交</span>
+        <div class="submission-status complete"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg><strong>AI 对话记录</strong><small id="messageCountLabel">0 条学生发言</small></div>
+        <div class="submission-status optional" id="textSubmissionStatus"><svg aria-hidden="true" viewBox="0 0 24 24" id="textStatusIcon"><path d="M5 12h14"/></svg><strong>学生文字成果（选填）</strong><small id="textStatusLabel">未填写也可提交</small></div>
+      </div>
+
+      <p class="submit-error" id="submitError" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button class="secondary-button" value="cancel">稍后提交</button>
+        <button class="primary-button" type="button" id="confirmSubmitButton">确认提交给老师</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="submit-dialog report-dialog" id="reportDialog" aria-labelledby="studentReportTitle">
+    <article class="dialog-shell report-dialog-shell">
+      <div class="dialog-heading">
+        <div><span class="step-kicker">教师反馈</span><h2 id="studentReportTitle">我的诊断反馈报告</h2><p id="reportTaskTitle">本次诊断任务</p></div>
+        <button class="icon-button" type="button" data-close-report aria-label="关闭报告"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+      </div>
+      <p class="report-pushed-at" id="reportPushedAt"></p>
+      <div class="student-report-text" id="studentReportText"></div>
+      <div class="dialog-actions"><button class="primary-button" type="button" data-close-report>返回对话</button></div>
+    </article>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+    <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
+    <span><strong>提交成功</strong><small>老师将收到你的对话记录和已填写的文字成果</small></span>
+  </div>
+
+  <script src="student.js?v=20260927-published-classes"></script>
+</body>
+</html>

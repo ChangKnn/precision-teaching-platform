@@ -1,0 +1,4 @@
+interface:
+  display_name: "精准干预方案整合与检查"
+  short_description: "整合精准干预方案并执行八类一致性与课堂可实施性检查"
+  default_prompt: "使用 $precision-intervention-plan-integration-review 整合已确认的诊断任务、班级诊断、目标路径、学习活动和教学情境，并生成教师版方案与审核结果。"

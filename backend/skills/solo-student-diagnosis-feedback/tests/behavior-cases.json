@@ -1,0 +1,73 @@
+[
+  {
+    "id": "P-AI-ECHO",
+    "domain": "历史",
+    "purpose": "验证 AI 已给出关键答案、学生仅确认时必须判 P",
+    "dialogue": [
+      {"turn_id": "a1", "role": "assistant", "content": "这些遗存能够证明相应活动，因为考古证据可以用来推断没有文字记载的生活。"},
+      {"turn_id": "s1", "role": "student", "content": "对，我同意，就是这样。"}
+    ],
+    "submitted_text": null,
+    "expected_level": "P",
+    "decisive_rule": "学生没有自主生成与任务相关的有效认知内容；AI 内容不得归给学生。",
+    "required_evidence_role": "non_autonomous_response",
+    "forbidden_result": "insufficient_evidence"
+  },
+  {
+    "id": "U-ONE-VALID-POINT",
+    "domain": "语文",
+    "purpose": "验证一个自主有效点应判 U",
+    "dialogue": [
+      {"turn_id": "a1", "role": "assistant", "content": "请说说你的理由。"},
+      {"turn_id": "s1", "role": "student", "content": "人物拒绝离开，是因为他舍不得家乡。"}
+    ],
+    "submitted_text": null,
+    "expected_level": "U",
+    "decisive_rule": "学生自主提出一个与任务相关的动机要素，但未扩展多个方面。",
+    "required_evidence_role": "autonomous_content",
+    "forbidden_result": "M"
+  },
+  {
+    "id": "M-MULTIPLE-WITHOUT-RELATION",
+    "domain": "数学",
+    "purpose": "验证多个并列要素不能仅因数量较多而判 R",
+    "dialogue": [
+      {"turn_id": "a1", "role": "assistant", "content": "请把你的思路写完整。"},
+      {"turn_id": "s1", "role": "student", "content": "这里有周长、长、宽和面积，长与宽都会变化，也要计算面积。"}
+    ],
+    "submitted_text": null,
+    "expected_level": "M",
+    "decisive_rule": "多个相关要素主要并列，尚未建立任务要求的约束与结论关系。",
+    "required_evidence_role": "autonomous_content",
+    "forbidden_result": "R"
+  },
+  {
+    "id": "R-INTEGRATED-CURRENT-CONTEXT",
+    "domain": "科学",
+    "purpose": "验证关键关系和整体解释形成后应判 R",
+    "dialogue": [
+      {"turn_id": "a1", "role": "assistant", "content": "请说明你怎样从实验现象得出结论。"},
+      {"turn_id": "s1", "role": "student", "content": "温度高的杯子水少得更快。两组除温度外其他条件相同，所以水量变化的差别可以说明温度会影响蒸发速度。"}
+    ],
+    "submitted_text": null,
+    "expected_level": "R",
+    "decisive_rule": "学生自主连接控制条件、观察证据与当前结论，形成完整解释，但未超越当前情境。",
+    "required_evidence_role": "autonomous_content",
+    "forbidden_result": "EA"
+  },
+  {
+    "id": "EA-TRANSFER-AND-BOUNDARY",
+    "domain": "地理",
+    "purpose": "验证 EA 必须在 R 基础上出现迁移或边界分析",
+    "dialogue": [
+      {"turn_id": "a1", "role": "assistant", "content": "请进一步说明这个解释能否用于别的地区。"},
+      {"turn_id": "s1", "role": "student", "content": "当前材料能形成气候、植被和生产方式之间的解释链。这个框架可以迁移到另一个地区，但如果灌溉技术改变了水分条件，原来的关系就要修正，不能只按气候直接推断生产方式。"}
+    ],
+    "submitted_text": null,
+    "expected_level": "EA",
+    "decisive_rule": "学生先形成当前任务的整体结构，再迁移框架并辨析边界条件。",
+    "required_evidence_role": "autonomous_content",
+    "forbidden_result": "R"
+  }
+]
+

@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "student": {"student_id": "S-001", "student_name": "示例学生"},
+  "evidence_sources": {"dialogue_used": true, "submitted_text_used": false},
+  "diagnosis": {
+    "level": "R",
+    "level_name": "关联结构",
+    "rationale": "学生自主连接了观察差异、被改变的温度和其他条件相同这三个要素，并说明这种受控比较怎样支持温度影响蒸发速度的结论，形成了当前实验的完整解释。",
+    "next_level_gap": "学生尚未把这一推理迁移到新的实验情境，也未讨论其他条件变化时结论的适用边界，因此尚未达到 EA。",
+    "evidence": [
+      {
+        "source": "dialogue",
+        "ref": "s1",
+        "quote": "两组除温度外其他条件相同，所以水量变化的差别可以说明温度会影响蒸发速度。",
+        "interpretation": "该表达自主建立了 E1、E2、E3 之间的 R1，并承担当前任务的整体解释功能。",
+        "evidence_role": "autonomous_content"
+      }
+    ],
+    "multi_source_note": null
+  },
+  "thinking_structure_summary": "信息识别方面，学生能够找出两组实验的温度差异、水量变化和其他条件相同等关键信息。关系建构方面，能够说明控制其他条件后，水量变化差异可以支持温度影响蒸发速度的结论。整体组织方面，已经形成‘控制条件—观察证据—实验结论’的完整解释链。抽象迁移方面，当前回答仍集中于本实验，尚未检验条件变化后的适用范围。",
+  "progression": {
+    "current_level": "R",
+    "target_level": "EA",
+    "main_obstacle": "当前解释虽完整，但尚未改变实验条件检验原关系，也未概括结论成立的条件和可能需要修正的边界。",
+    "concrete_goal": "在完整解释实验结论后，能够改变一个条件，预测原关系是否仍成立，并用控制变量原理说明适用边界。"
+  },
+  "strategies": [
+    {
+      "title": "改变条件检验结论",
+      "action": "在本主题后续蒸发实验中，主动改变一个原本保持不变的条件，写出预测、依据和需要继续观察的现象，以检验原结论是否仍成立。",
+      "transfer_use": "其他需要从控制变量实验迁移到新条件的科学探究任务"
+    },
+    {
+      "title": "说明结论适用条件",
+      "action": "围绕本主题用“在……条件下，这个结论成立”的句式概括实验条件，并设计一个可能使结论需要修正的变式情境。",
+      "transfer_use": "判断规律、模型或因果解释适用范围的任务"
+    }
+  ],
+  "traceability": {
+    "rubric_level": "R",
+    "rubric_trace_ids": ["G-R", "E1", "E2", "E3", "R1"],
+    "student_evidence_refs": ["s1"]
+  }
+}

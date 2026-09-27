@@ -1,0 +1,90 @@
+[
+  {
+    "id": "COUNT-INCLUDING-ZERO-LEVELS",
+    "purpose": "检验五级分布始终完整，空层级仍显示为0",
+    "input_levels": ["P", "M", "M", "R"],
+    "expected_counts": {"P": 1, "U": 0, "M": 2, "R": 1, "EA": 0},
+    "required_assertions": [
+      "五级人数之和等于4",
+      "U和EA必须保留零值行",
+      "学生名单不重不漏"
+    ]
+  },
+  {
+    "id": "NO-RECLASSIFICATION",
+    "purpose": "检验Skill 3只聚合上游层级，不根据证据重新升降级",
+    "input_assignments": {"S-01": "P", "S-02": "M", "S-03": "M", "S-04": "R"},
+    "required_assertions": [
+      "输出逐人层级与输入完全一致",
+      "不读取原始对话重判",
+      "traceability.levels_unchanged为true"
+    ]
+  },
+  {
+    "id": "GROUP-BY-OBSTACLE-AND-GOAL",
+    "purpose": "检验同质分组综合障碍和进阶目标，而不是只看层级代码",
+    "student_profiles": [
+      {"student_id": "A", "level": "M", "obstacle": "不能建立因果关系", "target": "R"},
+      {"student_id": "B", "level": "M", "obstacle": "不能建立因果关系", "target": "R"},
+      {"student_id": "C", "level": "M", "obstacle": "不能区分类别", "target": "R"}
+    ],
+    "required_assertions": [
+      "A和B可以同组",
+      "C不应仅因同为M而被机械并入",
+      "分组说明包含共同障碍和进阶方向"
+    ]
+  },
+  {
+    "id": "HETEROGENEOUS-OPTIONAL",
+    "purpose": "检验异质分组只有在合作具有互补价值时才生成",
+    "condition": "任务可以由学生独立完成，且没有需要互补思维共同形成的产出",
+    "required_assertions": [
+      "heterogeneous_groups可以为空",
+      "必须说明不建议异质分组的理由",
+      "不强制所有学生进入小组"
+    ]
+  },
+  {
+    "id": "HETEROGENEOUS-COMPLEMENT-NOT-LEVEL-QUOTA",
+    "purpose": "检验异质组依据任务所需的互补认知资源，而不是按SOLO层级固定配额",
+    "condition": "学生层级不同，但部分学生能够提供的资源重复；另有同层学生分别掌握不同证据和关系视角",
+    "required_assertions": [
+      "不采用每组固定一名U、一名M、一名R和一名EA的规则",
+      "组员互补依据能够追溯到上游诊断中的真实表现或障碍",
+      "允许具有不同认知资源的同层学生进入同一异质组",
+      "不虚构上游诊断未显示的学生优势"
+    ]
+  },
+  {
+    "id": "HETEROGENEOUS-SAME-TASK-COMPACT",
+    "purpose": "检验多个异质组执行同一任务时采用集中说明和名单表",
+    "condition": "X1至X5执行相同任务、遵循相同合作规则并形成相同类型产出",
+    "required_assertions": [
+      "共同任务只呈现一次",
+      "合作规则和共同产出只呈现一次",
+      "各组使用表格列出组名、学生和组内互补依据",
+      "不逐组复制相同段落"
+    ]
+  },
+  {
+    "id": "HETEROGENEOUS-DIFFERENT-TASKS",
+    "purpose": "检验共同主线下各组任务不同时清楚呈现实质差异",
+    "condition": "各组分别处理不同材料、观点、情境或子问题",
+    "required_assertions": [
+      "共同合作规则只呈现一次",
+      "表格逐组列出学生、任务重点和互补依据",
+      "任务差异体现不同认知对象或分析视角",
+      "不以措辞变化伪造任务差异"
+    ]
+  },
+  {
+    "id": "INTERVENTION-DESIGN-HANDOFF-NOT-ACTIVITY",
+    "purpose": "检验班级诊断只向下游传递干预设计依据，不提前设计课堂活动",
+    "required_assertions": [
+      "每项依据含面向学生、诊断发现、认知变化和设计条件",
+      "按共同需求形成对象群体，避免一人一项",
+      "不生成具体活动、活动产出、课堂流程、支架脚本或形成性评价",
+      "下游精准干预设计Skill负责把依据转化为目标、路径和活动"
+    ]
+  }
+]

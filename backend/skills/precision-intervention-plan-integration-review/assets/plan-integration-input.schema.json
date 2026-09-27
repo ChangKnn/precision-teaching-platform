@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "plan-integration-input.schema.json",
+  "title": "精准干预方案整合与检查输入",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "precision_teaching_context",
+    "teacher_instructional_context",
+    "diagnostic_task_context",
+    "class_diagnosis_result",
+    "goal_path_design",
+    "activity_formative_design",
+    "integration_preferences"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.2"},
+    "precision_teaching_context": {"$ref": "#/$defs/precisionTeachingContext"},
+    "teacher_instructional_context": {"$ref": "#/$defs/teacherContext"},
+    "diagnostic_task_context": {"$ref": "#/$defs/diagnosticTaskContext"},
+    "class_diagnosis_result": {"$ref": "#/$defs/classDiagnosis"},
+    "goal_path_design": {"$ref": "#/$defs/goalPath"},
+    "activity_formative_design": {"$ref": "#/$defs/activityDesign"},
+    "integration_preferences": {"$ref": "#/$defs/preferences"}
+  },
+  "$defs": {
+    "levelCode": {"enum": ["P", "U", "M", "R", "EA"]},
+    "studentRef": {
+      "type": "object",
+      "required": ["student_id", "student_name"],
+      "properties": {
+        "student_id": {"type": "string", "minLength": 1},
+        "student_name": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": true
+    },
+    "precisionTeachingContext": {
+      "type": "object",
+      "required": ["subject", "grade", "textbook_version_and_chapter", "precision_teaching_topic", "precision_teaching_goals", "precision_teaching_content"],
+      "properties": {
+        "subject": {"type": "string", "minLength": 1},
+        "grade": {"type": "string", "minLength": 1},
+        "textbook_version_and_chapter": {"type": "string", "minLength": 1},
+        "precision_teaching_topic": {"type": "string", "minLength": 1},
+        "precision_teaching_goals": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "precision_teaching_content": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      },
+      "additionalProperties": false
+    },
+    "teacherContext": {
+      "type": "object",
+      "required": ["teaching_content_and_curriculum_analysis", "teaching_focus_and_difficulty_analysis", "planned_duration_minutes", "teaching_environment_and_ai_support_conditions"],
+      "properties": {
+        "teaching_content_and_curriculum_analysis": {"type": "string", "minLength": 1},
+        "teaching_focus_and_difficulty_analysis": {"type": "string", "minLength": 1},
+        "planned_duration_minutes": {"type": "integer", "minimum": 1},
+        "teaching_environment_and_ai_support_conditions": {"type": "string", "minLength": 1},
+        "teacher_lesson_conception": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "diagnosticTaskContext": {
+      "type": "object",
+      "required": ["task_id", "task_title", "task_text", "task_materials_summary", "response_mode", "task_requirements", "source_ref"],
+      "properties": {
+        "task_id": {"type": "string", "minLength": 1},
+        "task_title": {"type": ["string", "null"]},
+        "task_text": {"type": "string", "minLength": 1},
+        "task_materials_summary": {"type": ["string", "null"]},
+        "response_mode": {"type": "string", "minLength": 1},
+        "task_requirements": {"type": "string", "minLength": 1},
+        "source_ref": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "distributionItem": {
+      "type": "object",
+      "required": ["level", "level_name", "count", "proportion", "students"],
+      "properties": {
+        "level": {"$ref": "#/$defs/levelCode"},
+        "level_name": {"type": "string", "minLength": 1},
+        "count": {"type": "integer", "minimum": 0},
+        "proportion": {"type": "number", "minimum": 0, "maximum": 1},
+        "students": {"type": "array", "items": {"$ref": "#/$defs/studentRef"}}
+      },
+      "additionalProperties": true
+    },
+    "classDiagnosis": {
+      "type": "object",
+      "required": ["schema_version", "class_summary", "overall_diagnosis", "level_analyses", "teaching_priorities", "traceability"],
+      "properties": {
+        "schema_version": {"enum": ["1.0", "1.1"]},
+        "class_summary": {
+          "type": "object",
+          "required": ["total_students", "distribution"],
+          "properties": {
+            "total_students": {"type": "integer", "minimum": 1},
+            "distribution": {"type": "array", "minItems": 5, "maxItems": 5, "items": {"$ref": "#/$defs/distributionItem"}}
+          },
+          "additionalProperties": true
+        },
+        "overall_diagnosis": {"type": "object"},
+        "level_analyses": {"type": "array", "minItems": 1},
+        "teaching_priorities": {"type": "object"},
+        "traceability": {
+          "type": "object",
+          "required": ["levels_unchanged", "level_assignments"],
+          "properties": {
+            "levels_unchanged": {"const": true},
+            "level_assignments": {"type": "array", "minItems": 1}
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "goalPath": {
+      "type": "object",
+      "required": ["schema_version", "design_status", "common_core_goal", "progression_goals", "student_goal_assignments", "intervention_path", "teacher_confirmation"],
+      "properties": {
+        "schema_version": {"const": "1.2"},
+        "design_status": {"enum": ["pending_teacher_confirmation", "teacher_confirmed"]},
+        "common_core_goal": {"type": "object"},
+        "progression_goals": {"type": "array", "minItems": 1},
+        "student_goal_assignments": {"type": "array", "minItems": 1},
+        "intervention_path": {"type": "object"},
+        "teacher_confirmation": {"type": "object", "required": ["status"]}
+      },
+      "additionalProperties": true
+    },
+    "activityDesign": {
+      "type": "object",
+      "required": ["schema_version", "design_status", "activity_sequence_summary", "activities", "formative_evaluation_nodes", "teacher_confirmation"],
+      "properties": {
+        "schema_version": {"const": "1.3"},
+        "design_status": {"enum": ["pending_teacher_confirmation", "teacher_confirmed"]},
+        "activity_sequence_summary": {"type": "object"},
+        "activities": {"type": "array", "minItems": 1},
+        "formative_evaluation_nodes": {"type": "array"},
+        "teacher_confirmation": {"type": "object", "required": ["status"]}
+      },
+      "additionalProperties": true
+    },
+    "preferences": {
+      "type": "object",
+      "required": ["plan_title", "class_name", "teacher_name", "teaching_date", "show_student_names", "include_review_appendix", "wording_density"],
+      "properties": {
+        "plan_title": {"type": "string", "minLength": 1},
+        "class_name": {"type": ["string", "null"]},
+        "teacher_name": {"type": ["string", "null"]},
+        "teaching_date": {"type": ["string", "null"]},
+        "show_student_names": {"type": "boolean"},
+        "include_review_appendix": {"const": true},
+        "wording_density": {"const": "concise"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

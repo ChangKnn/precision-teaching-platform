@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.codex/skills/solo-student-diagnosis-feedback/diagnosis-output.schema.json",
+  "title": "Student SOLO diagnosis and progression feedback",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "student",
+    "evidence_sources",
+    "diagnosis",
+    "thinking_structure_summary",
+    "progression",
+    "strategies",
+    "traceability"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "student": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["student_id", "student_name"],
+      "properties": {
+        "student_id": {"type": "string", "minLength": 1},
+        "student_name": {"type": "string", "minLength": 1}
+      }
+    },
+    "evidence_sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dialogue_used", "submitted_text_used"],
+      "properties": {
+        "dialogue_used": {"const": true},
+        "submitted_text_used": {"type": "boolean"}
+      }
+    },
+    "diagnosis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "level_name", "rationale", "next_level_gap", "evidence"],
+      "properties": {
+        "level": {"enum": ["P", "U", "M", "R", "EA"]},
+        "level_name": {"type": "string", "minLength": 1},
+        "rationale": {"type": "string", "minLength": 1},
+        "next_level_gap": {"type": "string", "minLength": 1},
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/evidenceItem"}
+        },
+        "multi_source_note": {"type": ["string", "null"]}
+      }
+    },
+    "thinking_structure_summary": {"type": "string", "minLength": 1},
+    "progression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current_level", "target_level", "main_obstacle", "concrete_goal"],
+      "properties": {
+        "current_level": {"enum": ["P", "U", "M", "R", "EA"]},
+        "target_level": {"enum": ["U", "M", "R", "EA", "higher_EA"]},
+        "main_obstacle": {"type": "string", "minLength": 1},
+        "concrete_goal": {"type": "string", "minLength": 1}
+      }
+    },
+    "strategies": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "action", "transfer_use"],
+        "properties": {
+          "title": {"type": "string", "minLength": 1},
+          "action": {"type": "string", "minLength": 1},
+          "transfer_use": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "traceability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rubric_level", "rubric_trace_ids", "student_evidence_refs"],
+      "properties": {
+        "rubric_level": {"enum": ["P", "U", "M", "R", "EA"]},
+        "rubric_trace_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^(G-(P|U|M|R|EA)|E[1-9][0-9]*|R[1-9][0-9]*|A[1-9][0-9]*|PATH-[1-9][0-9]*)$"
+          }
+        },
+        "student_evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "evidenceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "ref", "quote", "interpretation", "evidence_role"],
+      "properties": {
+        "source": {"enum": ["dialogue", "submitted_text"]},
+        "ref": {"type": "string", "minLength": 1},
+        "quote": {"type": "string", "minLength": 1},
+        "interpretation": {"type": "string", "minLength": 1},
+        "evidence_role": {"enum": ["autonomous_content", "non_autonomous_response"]}
+      }
+    }
+  }
+}
+

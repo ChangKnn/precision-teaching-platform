@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.codex/skills/solo-student-diagnosis-feedback/diagnosis-input.schema.json",
+  "title": "Student SOLO diagnosis input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "precision_teaching_context",
+    "diagnostic_task",
+    "task_specific_solo_rubric",
+    "student",
+    "human_ai_dialogue"
+  ],
+  "properties": {
+    "precision_teaching_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject",
+        "grade",
+        "textbook_version_and_chapter",
+        "precision_teaching_topic",
+        "precision_teaching_goals",
+        "precision_teaching_content"
+      ],
+      "properties": {
+        "subject": {"type": "string", "minLength": 1},
+        "grade": {"type": "string", "minLength": 1},
+        "textbook_version_and_chapter": {"type": "string", "minLength": 1},
+        "precision_teaching_topic": {"type": "string", "minLength": 1},
+        "precision_teaching_goals": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "precision_teaching_content": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "diagnostic_task": {
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["task_text"],
+          "properties": {
+            "task_text": {"type": "string", "minLength": 1},
+            "materials": {
+              "type": "array",
+              "items": {"type": "string", "minLength": 1}
+            },
+            "requirements": {
+              "type": "array",
+              "items": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      ]
+    },
+    "task_specific_solo_rubric": {
+      "type": "object",
+      "required": ["schema_version", "source_basis", "task_analysis", "levels", "usage_notes"],
+      "properties": {
+        "schema_version": {"const": "1.1"},
+        "source_basis": {"type": "object"},
+        "task_analysis": {
+          "type": "object",
+          "required": ["true_cognitive_demand", "elements", "relations", "abstractions", "task_affordance"],
+          "properties": {
+            "true_cognitive_demand": {"type": "string", "minLength": 1},
+            "elements": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["id", "name", "meaning"],
+                "properties": {
+                  "id": {"type": "string", "pattern": "^E[1-9][0-9]*$"},
+                  "name": {"type": "string", "minLength": 1},
+                  "meaning": {"type": "string", "minLength": 1}
+                }
+              }
+            },
+            "relations": {
+              "type": "object",
+              "required": ["items", "whole_structure"],
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["id", "relation_statement", "element_ids"],
+                    "properties": {
+                      "id": {"type": "string", "pattern": "^R[1-9][0-9]*$"},
+                      "relation_statement": {"type": "string", "minLength": 1},
+                      "element_ids": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {"type": "string", "pattern": "^E[1-9][0-9]*$"}
+                      }
+                    }
+                  }
+                },
+                "whole_structure": {"type": "string", "minLength": 1}
+              }
+            },
+            "abstractions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "kind", "description", "requires_relation_ids", "beyond_current_task", "opportunity_in_task"],
+                "properties": {
+                  "id": {"type": "string", "pattern": "^A[1-9][0-9]*$"},
+                  "kind": {"type": "string"},
+                  "description": {"type": "string", "minLength": 1},
+                  "requires_relation_ids": {
+                    "type": "array",
+                    "items": {"type": "string", "pattern": "^R[1-9][0-9]*$"}
+                  },
+                  "beyond_current_task": {"type": "string", "minLength": 1},
+                  "opportunity_in_task": {"type": "boolean"}
+                }
+              }
+            },
+            "task_affordance": {
+              "type": "object",
+              "required": ["highest_reasonably_elicitable_level"],
+              "properties": {
+                "highest_reasonably_elicitable_level": {"enum": ["P", "U", "M", "R", "EA"]}
+              }
+            }
+          }
+        },
+        "levels": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["P", "U", "M", "R", "EA"],
+          "properties": {
+            "P": {"$ref": "#/$defs/rubricLevel"},
+            "U": {"$ref": "#/$defs/rubricLevel"},
+            "M": {"$ref": "#/$defs/rubricLevel"},
+            "R": {"$ref": "#/$defs/rubricLevel"},
+            "EA": {"$ref": "#/$defs/rubricLevel"}
+          }
+        },
+        "usage_notes": {"type": "object"}
+      }
+    },
+    "student": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["student_id", "student_name"],
+      "properties": {
+        "student_id": {"type": "string", "minLength": 1},
+        "student_name": {"type": "string", "minLength": 1}
+      }
+    },
+    "human_ai_dialogue": {
+      "type": "array",
+      "minItems": 1,
+      "contains": {
+        "type": "object",
+        "properties": {"role": {"const": "student"}},
+        "required": ["role"]
+      },
+      "minContains": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["turn_id", "role", "content"],
+        "properties": {
+          "turn_id": {"type": "string", "minLength": 1},
+          "role": {"enum": ["assistant", "student"]},
+          "content": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "submitted_text": {"type": ["string", "null"]}
+  },
+  "$defs": {
+    "rubricLevel": {
+      "type": "object",
+      "required": ["status", "core_performance", "decision_evidence", "adjacent_boundaries", "typical_expressions", "trace_to"],
+      "properties": {
+        "status": {"enum": ["defined", "not_reasonably_elicitable"]},
+        "core_performance": {"type": "array", "items": {"type": "string"}},
+        "decision_evidence": {"type": "array", "items": {"type": "string"}},
+        "adjacent_boundaries": {"type": "array", "items": {"type": "string"}},
+        "typical_expressions": {"type": "array", "items": {"type": "string"}},
+        "trace_to": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+      }
+    }
+  }
+}

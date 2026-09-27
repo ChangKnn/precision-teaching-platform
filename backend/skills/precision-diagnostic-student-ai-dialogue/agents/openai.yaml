@@ -1,0 +1,8 @@
+interface:
+  display_name: "精准诊断生机会话执行"
+  short_description: "按教师确认的角色与规则执行学生端诊断对话"
+  default_prompt: "使用 $precision-diagnostic-student-ai-dialogue，依据教师确认的诊断任务、AI角色和对话规则，与学生开展受约束的诊断性对话。"
+
+policy:
+  allow_implicit_invocation: true
+

@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "activity-formative-output.schema.json",
+  "title": "学习活动与形成性评价设计输出",
+  "type": "object",
+  "required": ["schema_version", "design_status", "activity_sequence_summary", "activities", "formative_evaluation_nodes", "teacher_confirmation", "handoff"],
+  "properties": {
+    "schema_version": {"const": "1.3"},
+    "design_status": {"enum": ["pending_teacher_confirmation", "teacher_confirmed"]},
+    "activity_sequence_summary": {
+      "type": "object",
+      "required": ["total_duration_minutes", "stages"],
+      "properties": {
+        "total_duration_minutes": {"type": "integer", "minimum": 1},
+        "stages": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/stageSummary"}}
+      },
+      "additionalProperties": false
+    },
+    "activities": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/activity"}},
+    "formative_evaluation_nodes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/formativeEvaluation"}},
+    "teacher_confirmation": {
+      "type": "object",
+      "required": ["status", "items_to_confirm", "unresolved_questions"],
+      "properties": {
+        "status": {"enum": ["pending_teacher_confirmation", "teacher_confirmed"]},
+        "items_to_confirm": {"type": "array", "items": {"type": "string"}},
+        "unresolved_questions": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "handoff": {
+      "type": "object",
+      "required": ["for_intervention_evaluation", "for_integration_check"],
+      "properties": {
+        "for_intervention_evaluation": {"type": "array", "items": {"type": "string"}},
+        "for_integration_check": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "stageSummary": {
+      "type": "object",
+      "required": ["stage_id", "stage_name", "duration_minutes", "activity_ids", "simultaneous"],
+      "properties": {
+        "stage_id": {"type": "string", "pattern": "^ST[1-9][0-9]*$"},
+        "stage_name": {"type": "string", "minLength": 1},
+        "duration_minutes": {"type": "integer", "minimum": 1},
+        "activity_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "simultaneous": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "activity": {
+      "type": "object",
+      "required": [
+        "activity_id", "source_stage_id", "source_unit_ids", "sequence_within_stage", "activity_name",
+        "activity_objective", "target_goal_ids", "target_student_ids", "organization_forms",
+        "dialogue_circles", "duration_minutes", "learning_materials", "student_task", "cognitive_processing",
+        "scaffold_support", "participant_actions", "learning_product", "differentiation_note", "parallel_group_tasks"
+      ],
+      "properties": {
+        "activity_id": {"type": "string", "pattern": "^ACT-ST[1-9][0-9]*-[1-9][0-9]*$"},
+        "source_stage_id": {"type": "string", "pattern": "^ST[1-9][0-9]*$"},
+        "source_unit_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^ST[1-9][0-9]*-(C|H|X|I|S|A)[1-9][0-9]*$"}},
+        "sequence_within_stage": {"type": "integer", "minimum": 1},
+        "activity_name": {"type": "string", "minLength": 1},
+        "activity_objective": {"type": "string", "minLength": 1},
+        "target_goal_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "target_student_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "organization_forms": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["全班集体干预", "同质小组干预", "异质小组干预", "个体干预"]}},
+        "dialogue_circles": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["师生会话圈", "师生机会话圈", "生生会话圈", "生机会话圈", "学生-内容会话圈"]}},
+        "duration_minutes": {"type": "integer", "minimum": 1},
+        "learning_materials": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "student_task": {"type": "string", "minLength": 1},
+        "cognitive_processing": {"type": "string", "minLength": 1},
+        "scaffold_support": {"type": "array", "items": {"$ref": "#/$defs/scaffold"}},
+        "participant_actions": {"type": "array", "minItems": 2, "maxItems": 6, "items": {"$ref": "#/$defs/participantAction"}},
+        "learning_product": {"type": "string", "minLength": 1},
+        "differentiation_note": {"type": ["string", "null"]},
+        "parallel_group_tasks": {"type": "array", "items": {"$ref": "#/$defs/parallelGroupTask"}}
+      },
+      "additionalProperties": false
+    },
+    "parallelGroupTask": {
+      "type": "object",
+      "required": [
+        "source_unit_id", "group_name", "organization_form", "dialogue_circles", "target_goal_ids",
+        "target_student_ids", "activity_objective", "learning_materials", "student_task", "cognitive_processing",
+        "scaffold_support", "learning_product"
+      ],
+      "properties": {
+        "source_unit_id": {"type": "string", "pattern": "^ST[1-9][0-9]*-(C|H|X|I|S|A)[1-9][0-9]*$"},
+        "group_name": {"type": "string", "minLength": 1},
+        "organization_form": {"enum": ["全班集体干预", "同质小组干预", "异质小组干预", "个体干预"]},
+        "dialogue_circles": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["师生会话圈", "师生机会话圈", "生生会话圈", "生机会话圈", "学生-内容会话圈"]}},
+        "target_goal_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "target_student_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "activity_objective": {"type": "string", "minLength": 1},
+        "learning_materials": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "student_task": {"type": "string", "minLength": 1},
+        "cognitive_processing": {"type": "string", "minLength": 1},
+        "scaffold_support": {"type": "array", "items": {"$ref": "#/$defs/scaffold"}},
+        "learning_product": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "scaffold": {
+      "type": "object",
+      "required": ["target_students_or_group", "support", "intensity", "fading_condition"],
+      "properties": {
+        "target_students_or_group": {"type": "string", "minLength": 1},
+        "support": {"type": "string", "minLength": 1},
+        "intensity": {"enum": ["高约束", "中等引导", "低约束挑战"]},
+        "fading_condition": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "participantAction": {
+      "type": "object",
+      "required": ["order", "actor", "action"],
+      "properties": {
+        "order": {"type": "integer", "minimum": 1},
+        "actor": {"enum": ["教师", "学生", "同伴", "AI"]},
+        "action": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "formativeEvaluation": {
+      "type": "object",
+      "required": ["evaluation_id", "after_activity_ids", "evaluation_purpose", "target_goal_ids", "target_student_ids", "evidence_task", "evidence_sources", "evidence_description", "judgment_criteria", "adjustment_rules", "decision_by"],
+      "properties": {
+        "evaluation_id": {"type": "string", "pattern": "^FE[1-9][0-9]*$"},
+        "after_activity_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "evaluation_purpose": {"type": "string", "minLength": 1},
+        "target_goal_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "target_student_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "evidence_task": {"type": "string", "minLength": 1},
+        "evidence_sources": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["即时作答", "口头解释", "学习作品", "小组讨论", "课堂观察", "生机会话记录", "混合"]}
+        },
+        "evidence_description": {"type": "string", "minLength": 1},
+        "judgment_criteria": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/criterion"}},
+        "adjustment_rules": {
+          "type": "object",
+          "required": ["if_goal_reached", "if_not_yet", "if_evidence_not_individual"],
+          "properties": {
+            "if_goal_reached": {"type": "string", "minLength": 1},
+            "if_not_yet": {"type": "string", "minLength": 1},
+            "if_evidence_not_individual": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        },
+        "decision_by": {"enum": ["教师判断", "AI汇总后教师判断", "教师结合课堂观察与AI汇总判断"]}
+      },
+      "additionalProperties": false
+    },
+    "criterion": {
+      "type": "object",
+      "required": ["goal_id", "meets_when", "not_yet_when"],
+      "properties": {
+        "goal_id": {"type": "string", "minLength": 1},
+        "meets_when": {"type": "string", "minLength": 1},
+        "not_yet_when": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

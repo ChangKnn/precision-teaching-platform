@@ -1,0 +1,296 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.codex/skills/precision-intervention-goal-path-design/goal-path-output.schema.json",
+  "title": "Precision intervention goal and teacher-facing classroom path output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "design_status",
+    "common_core_goal",
+    "progression_goals",
+    "student_goal_assignments",
+    "intervention_path",
+    "teacher_confirmation",
+    "handoff"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.2"},
+    "design_status": {"enum": ["pending_teacher_confirmation", "teacher_confirmed"]},
+    "common_core_goal": {"$ref": "#/$defs/commonCoreGoal"},
+    "progression_goals": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/progressionGoal"}
+    },
+    "student_goal_assignments": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/studentGoalAssignment"}
+    },
+    "intervention_path": {"$ref": "#/$defs/interventionPath"},
+    "teacher_confirmation": {"$ref": "#/$defs/teacherConfirmation"},
+    "handoff": {"$ref": "#/$defs/handoff"}
+  },
+  "$defs": {
+    "levelCode": {
+      "type": "string",
+      "enum": ["P", "U", "M", "R", "EA"]
+    },
+    "targetLevelCode": {
+      "type": "string",
+      "enum": ["U", "M", "R", "EA", "EA_DEEPENING", "CUSTOM"]
+    },
+    "pathType": {
+      "type": "string",
+      "enum": ["递进推进型", "主线嵌入型", "并行分层型", "站点轮转型", "个体自驱型"]
+    },
+    "organizationCode": {
+      "type": "string",
+      "enum": ["C", "H", "X", "I", "S", "A"]
+    },
+    "studentRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["student_id", "student_name"],
+      "properties": {
+        "student_id": {"type": "string", "minLength": 1},
+        "student_name": {"type": "string", "minLength": 1}
+      }
+    },
+    "targetStudent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["student_id", "student_name", "current_level"],
+      "properties": {
+        "student_id": {"type": "string", "minLength": 1},
+        "student_name": {"type": "string", "minLength": 1},
+        "current_level": {"$ref": "#/$defs/levelCode"}
+      }
+    },
+    "commonCoreGoal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["goal_statement", "target_cognitive_structure", "observable_success_criteria"],
+      "properties": {
+        "goal_statement": {"type": "string", "minLength": 1},
+        "target_cognitive_structure": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["solo_level", "level_name", "structure_and_rationale"],
+          "properties": {
+            "solo_level": {"$ref": "#/$defs/levelCode"},
+            "level_name": {"type": "string", "minLength": 1},
+            "structure_and_rationale": {"type": "string", "minLength": 1}
+          }
+        },
+        "observable_success_criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "progressionGoal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "goal_id",
+        "target_level_code",
+        "target_level_name",
+        "source_levels",
+        "target_students",
+        "goal_statement",
+        "observable_achievement",
+        "custom_goal_note"
+      ],
+      "properties": {
+        "goal_id": {"type": "string", "pattern": "^PG[1-9][0-9]*$"},
+        "target_level_code": {"$ref": "#/$defs/targetLevelCode"},
+        "target_level_name": {"type": "string", "minLength": 1},
+        "source_levels": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/levelCode"}
+        },
+        "target_students": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/targetStudent"}
+        },
+        "goal_statement": {"type": "string", "minLength": 1},
+        "observable_achievement": {"type": "string", "minLength": 1},
+        "custom_goal_note": {"type": ["string", "null"]}
+      }
+    },
+    "studentGoalAssignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["student_id", "student_name", "original_level", "primary_goal_id"],
+      "properties": {
+        "student_id": {"type": "string", "minLength": 1},
+        "student_name": {"type": "string", "minLength": 1},
+        "original_level": {"$ref": "#/$defs/levelCode"},
+        "primary_goal_id": {"type": "string", "pattern": "^PG[1-9][0-9]*$"}
+      }
+    },
+    "alternativePath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path_types", "path_label", "mode_explanation", "suitable_when", "tradeoff"],
+      "properties": {
+        "path_types": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/pathType"}
+        },
+        "path_label": {"type": "string", "minLength": 1},
+        "mode_explanation": {"type": "string", "minLength": 1},
+        "suitable_when": {"type": "string", "minLength": 1},
+        "tradeoff": {"type": "string", "minLength": 1}
+      }
+    },
+    "activityUnit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit_id",
+        "organization_code",
+        "organization_name",
+        "activity_name",
+        "target_goal_ids",
+        "target_students",
+        "activity_summary"
+      ],
+      "properties": {
+        "unit_id": {"type": "string", "pattern": "^ST[1-9][0-9]*-(C|H|X|I|S|A)[1-9][0-9]*$"},
+        "organization_code": {"$ref": "#/$defs/organizationCode"},
+        "organization_name": {"type": "string", "minLength": 1},
+        "activity_name": {"type": "string", "minLength": 2},
+        "target_goal_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^PG[1-9][0-9]*$"}
+        },
+        "target_students": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/studentRef"}
+        },
+        "activity_summary": {"type": "string", "minLength": 1}
+      }
+    },
+    "pathStage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage_id", "stage_name", "duration_minutes", "activity_units"],
+      "properties": {
+        "stage_id": {"type": "string", "pattern": "^ST[1-9][0-9]*$"},
+        "stage_name": {"type": "string", "minLength": 1},
+        "duration_minutes": {"type": "integer", "minimum": 1},
+        "activity_units": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/activityUnit"}
+        }
+      }
+    },
+    "interventionPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary_path_types",
+        "primary_path_label",
+        "mode_explanation",
+        "recommendation_reasons",
+        "teacher_facing_path",
+        "topology_notation",
+        "alternative_path",
+        "stages",
+        "total_duration_minutes",
+        "feasibility_note",
+        "implementation_notes"
+      ],
+      "properties": {
+        "primary_path_types": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/pathType"}
+        },
+        "primary_path_label": {"type": "string", "minLength": 1},
+        "mode_explanation": {"type": "string", "minLength": 1},
+        "recommendation_reasons": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 4,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "teacher_facing_path": {"type": "string", "minLength": 1},
+        "topology_notation": {"type": "string", "minLength": 1},
+        "alternative_path": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/alternativePath"}
+          ]
+        },
+        "stages": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"$ref": "#/$defs/pathStage"}
+        },
+        "total_duration_minutes": {"type": "integer", "minimum": 1},
+        "feasibility_note": {"type": "string", "minLength": 1},
+        "implementation_notes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "teacherConfirmation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "items_to_confirm", "unresolved_decisions"],
+      "properties": {
+        "status": {"enum": ["pending_teacher_confirmation", "teacher_confirmed"]},
+        "items_to_confirm": {
+          "type": "array",
+          "minItems": 4,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "unresolved_decisions": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["for_activity_design", "for_evaluation_design", "for_integration_check"],
+      "properties": {
+        "for_activity_design": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "for_evaluation_design": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "for_integration_check": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

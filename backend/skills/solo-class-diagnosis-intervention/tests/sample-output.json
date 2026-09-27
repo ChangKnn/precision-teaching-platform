@@ -1,0 +1,224 @@
+{
+  "schema_version": "1.1",
+  "class_summary": {
+    "total_students": 4,
+    "distribution": [
+      {
+        "level": "P",
+        "level_name": "前结构",
+        "level_meaning": "尚未自主使用实验信息形成有效证据点。",
+        "count": 1,
+        "proportion": 0.25,
+        "students": [{"student_id": "S-01", "student_name": "陈晨"}]
+      },
+      {
+        "level": "U",
+        "level_name": "单点结构",
+        "level_meaning": "能够处理一个与实验解释直接相关的有效方面。",
+        "count": 0,
+        "proportion": 0.0,
+        "students": []
+      },
+      {
+        "level": "M",
+        "level_name": "多点结构",
+        "level_meaning": "能够识别多个实验要素或现象，但尚未形成控制变量关系链。",
+        "count": 2,
+        "proportion": 0.5,
+        "students": [
+          {"student_id": "S-02", "student_name": "李明"},
+          {"student_id": "S-03", "student_name": "王芳"}
+        ]
+      },
+      {
+        "level": "R",
+        "level_name": "关联结构",
+        "level_meaning": "能够把控制条件、观察差异和结论组织成完整实验解释。",
+        "count": 1,
+        "proportion": 0.25,
+        "students": [{"student_id": "S-04", "student_name": "赵宇"}]
+      },
+      {
+        "level": "EA",
+        "level_name": "拓展抽象结构",
+        "level_meaning": "能够把完整实验解释迁移到新情境并分析适用边界。",
+        "count": 0,
+        "proportion": 0.0,
+        "students": []
+      }
+    ]
+  },
+  "overall_diagnosis": {
+    "dominant_levels": ["M"],
+    "overall_characteristics": "班级主要能够识别多项实验信息，但多数相关学生尚未把控制条件、观察差异与结论组织成完整关系。",
+    "differentiation_summary": "班级同时存在尚未进入证据任务的 P、处于关系建构阶段的 M 和已形成完整解释的 R，差异需要通过短时分组和个体进阶处理。",
+    "main_progression_direction": "优先促进 M（多点结构）学生从多要素识别进阶到 R（关联结构），同时为 P 学生提供认知定向，为 R 学生提供迁移任务。",
+    "basis_student_ids": ["S-01", "S-02", "S-03", "S-04"]
+  },
+  "level_analyses": [
+    {
+      "level": "P",
+      "level_name": "前结构",
+      "level_meaning": "尚未自主使用实验信息形成有效证据点。",
+      "count": 1,
+      "students": [{"student_id": "S-01", "student_name": "陈晨"}],
+      "main_performance": "以教师讲授结论代替对实验信息的识别。",
+      "typical_evidence": [
+        {
+          "student_id": "S-01",
+          "student_name": "陈晨",
+          "source_ref": "s1",
+          "quote": "老师说温度高蒸发就快。",
+          "interpretation": "上游诊断认定该表达是权威转述，没有形成任务相关的自主证据点。"
+        }
+      ],
+      "main_obstacles": ["不能区分权威结论与实验材料中的证据。"]
+    },
+    {
+      "level": "M",
+      "level_name": "多点结构",
+      "level_meaning": "能够识别多个实验要素或现象，但尚未形成控制变量关系链。",
+      "count": 2,
+      "students": [
+        {"student_id": "S-02", "student_name": "李明"},
+        {"student_id": "S-03", "student_name": "王芳"}
+      ],
+      "main_performance": "能够列举实验要素或比较现象，但没有把控制条件的作用纳入完整解释。",
+      "typical_evidence": [
+        {
+          "student_id": "S-02",
+          "student_name": "李明",
+          "source_ref": "s1",
+          "quote": "实验里有温度、水量、时间和一样的杯子。",
+          "interpretation": "上游诊断认定其包含多个实验要素，但尚未建立关系。"
+        },
+        {
+          "student_id": "S-03",
+          "student_name": "王芳",
+          "source_ref": "s1",
+          "quote": "一杯水温度高，后来水少得多；另一杯温度低，水少得少。",
+          "interpretation": "上游诊断认定其能比较现象，但没有说明公平比较条件。"
+        }
+      ],
+      "main_obstacles": [
+        "不能把改变条件、控制条件、观察结果和结论组织成完整关系链。",
+        "对控制条件如何排除其他解释的作用说明不足。"
+      ]
+    },
+    {
+      "level": "R",
+      "level_name": "关联结构",
+      "level_meaning": "能够把控制条件、观察差异和结论组织成完整实验解释。",
+      "count": 1,
+      "students": [{"student_id": "S-04", "student_name": "赵宇"}],
+      "main_performance": "能够利用控制变量关系解释观察差异如何支持结论。",
+      "typical_evidence": [
+        {
+          "student_id": "S-04",
+          "student_name": "赵宇",
+          "source_ref": "s1",
+          "quote": "两组除温度外其他条件相同，所以水量变化的差别可以说明温度会影响蒸发速度。",
+          "interpretation": "上游诊断认定其建立了控制条件—观察差异—结论的整体关系。"
+        }
+      ],
+      "main_obstacles": ["完整解释尚未迁移到新的实验情境，也未分析适用边界。"]
+    }
+  ],
+  "teaching_priorities": {
+    "teaching_focus": {
+      "statement": "组织学生把改变条件、控制条件、观察差异和实验结论连接成完整证据链。",
+      "diagnosis_basis": ["4名学生中有2名处于 M，其共同进阶目标均指向关系建构。"],
+      "goal_basis": ["精准教学目标要求学生把多项实验信息组织成完整的证据解释。"]
+    },
+    "teaching_difficulty": {
+      "statement": "理解控制其他条件不变如何排除替代解释，并说明观察差异为什么能够支持温度影响蒸发的结论。",
+      "diagnosis_basis": ["S-02不能组织控制关系，S-03能比较结果但不能说明控制条件的证据作用。"],
+      "goal_basis": ["精准教学内容包含控制变量实验和证据—推理—结论关系。"]
+    }
+  },
+  "grouping_recommendations": {
+    "homogeneous_groups": [
+      {
+        "group_id": "H1",
+        "students": [
+          {"student_id": "S-02", "student_name": "李明"},
+          {"student_id": "S-03", "student_name": "王芳"}
+        ],
+        "common_characteristics": "均处于 M（多点结构），能够处理多项实验信息但缺少完整控制变量关系。",
+        "progression_direction": "从 M（多点结构）进阶到 R（关联结构），形成控制条件—现象—结论关系链。",
+        "use_case": "共同完成实验关系表或关系图，并相互检查每条连接的理由。"
+      }
+    ],
+    "heterogeneous_groups": [
+      {
+        "group_id": "X1",
+        "students": [
+          {"student_id": "S-02", "student_name": "李明"},
+          {"student_id": "S-03", "student_name": "王芳"},
+          {"student_id": "S-04", "student_name": "赵宇"}
+        ],
+        "grouping_rationale": "三人分别能够提供要素识别、现象比较和整体关系视角，适合共同检验一份证据链是否完整。",
+        "collaboration_direction": "每人分别提出材料、连接理由或边界问题，再共同修订关系图；不得由 S-04 直接给出完整答案。",
+        "shared_product": "一张标明改变条件、控制条件、观察结果、结论及连接理由的实验关系图。"
+      }
+    ],
+    "heterogeneous_not_recommended_reason": null,
+    "ungrouped_students": [{"student_id": "S-01", "student_name": "陈晨"}],
+    "usage_note": "同质组和异质组是两种备选安排；S-01先接受个体认知定向，不强制进入合作组。"
+  },
+  "intervention_design_basis": [
+    {
+      "basis_id": "D1",
+      "target_students": [
+        {"student_id": "S-02", "student_name": "李明"},
+        {"student_id": "S-03", "student_name": "王芳"}
+      ],
+      "diagnostic_finding": "两名学生都能识别多项实验信息，但共同障碍是没有形成控制条件—观察差异—结论的完整关系。",
+      "intended_cognitive_change": "从M（多点结构）的多要素并列进阶到R（关联结构）的关系建构。",
+      "design_requirements": [
+        "后续任务必须要求学生解释要素之间的关系，不能继续停留在增加信息数量。",
+        "支架应帮助学生识别控制关系，但不得直接替学生补全证据链。"
+      ]
+    },
+    {
+      "basis_id": "D2",
+      "target_students": [{"student_id": "S-01", "student_name": "陈晨"}],
+      "diagnostic_finding": "该生只转述教师结论，没有自主识别实验材料中的有效信息。",
+      "intended_cognitive_change": "从P（前结构）进入U（单点结构），形成一个自主有效认知点。",
+      "design_requirements": [
+        "任务入口应清楚且信息量受控。",
+        "先保证学生独立识别一个观察或条件，再进入复杂关系加工。"
+      ]
+    },
+    {
+      "basis_id": "D3",
+      "target_students": [{"student_id": "S-04", "student_name": "赵宇"}],
+      "diagnostic_finding": "该生已形成当前实验的完整关系，但尚未迁移到新实验情境或分析适用边界。",
+      "intended_cognitive_change": "从R（关联结构）进阶到EA（拓展抽象结构），概括并迁移控制变量推理。",
+      "design_requirements": [
+        "后续设计需要改变实验对象或条件，检验原解释能否迁移。",
+        "要求学生说明判断保持或修正的条件。"
+      ]
+    }
+  ],
+  "traceability": {
+    "source_skill": "solo-student-diagnosis-feedback",
+    "input_student_count": 4,
+    "output_student_ids": ["S-01", "S-02", "S-03", "S-04"],
+    "level_assignments": [
+      {"student_id": "S-01", "original_level": "P"},
+      {"student_id": "S-02", "original_level": "M"},
+      {"student_id": "S-03", "original_level": "M"},
+      {"student_id": "S-04", "original_level": "R"}
+    ],
+    "levels_unchanged": true,
+    "teaching_context_fields_used": [
+      "subject",
+      "grade",
+      "textbook_version_and_chapter",
+      "precision_teaching_topic",
+      "precision_teaching_goals",
+      "precision_teaching_content"
+    ]
+  }
+}

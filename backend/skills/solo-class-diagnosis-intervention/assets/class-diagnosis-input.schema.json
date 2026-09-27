@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.codex/skills/solo-class-diagnosis-intervention/class-diagnosis-input.schema.json",
+  "title": "Class SOLO aggregation input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "precision_teaching_context", "student_diagnosis_results"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "precision_teaching_context": {"$ref": "#/$defs/precisionTeachingContext"},
+    "student_diagnosis_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/studentDiagnosisResult"}
+    }
+  },
+  "$defs": {
+    "precisionTeachingContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject",
+        "grade",
+        "textbook_version_and_chapter",
+        "precision_teaching_topic",
+        "precision_teaching_goals",
+        "precision_teaching_content"
+      ],
+      "properties": {
+        "subject": {"type": "string", "minLength": 1},
+        "grade": {"type": "string", "minLength": 1},
+        "textbook_version_and_chapter": {"type": "string", "minLength": 1},
+        "precision_teaching_topic": {"type": "string", "minLength": 1},
+        "precision_teaching_goals": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "precision_teaching_content": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "studentDiagnosisResult": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "schema_version",
+        "student",
+        "diagnosis",
+        "thinking_structure_summary",
+        "progression",
+        "strategies"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "student": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["student_id", "student_name"],
+          "properties": {
+            "student_id": {"type": "string", "minLength": 1},
+            "student_name": {"type": "string", "minLength": 1}
+          }
+        },
+        "diagnosis": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["level", "level_name", "rationale", "next_level_gap", "evidence"],
+          "properties": {
+            "level": {"enum": ["P", "U", "M", "R", "EA"]},
+            "level_name": {"type": "string", "minLength": 1},
+            "rationale": {"type": "string", "minLength": 1},
+            "next_level_gap": {"type": "string", "minLength": 1},
+            "evidence": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": ["source", "ref", "quote", "interpretation", "evidence_role"],
+                "properties": {
+                  "source": {"enum": ["dialogue", "submitted_text"]},
+                  "ref": {"type": "string", "minLength": 1},
+                  "quote": {"type": "string", "minLength": 1},
+                  "interpretation": {"type": "string", "minLength": 1},
+                  "evidence_role": {"enum": ["autonomous_content", "non_autonomous_response"]}
+                }
+              }
+            }
+          }
+        },
+        "thinking_structure_summary": {"type": "string", "minLength": 1},
+        "progression": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["current_level", "target_level", "main_obstacle", "concrete_goal"],
+          "properties": {
+            "current_level": {"enum": ["P", "U", "M", "R", "EA"]},
+            "target_level": {"enum": ["U", "M", "R", "EA", "higher_EA"]},
+            "main_obstacle": {"type": "string", "minLength": 1},
+            "concrete_goal": {"type": "string", "minLength": 1}
+          }
+        },
+        "strategies": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["title", "action", "transfer_use"],
+            "properties": {
+              "title": {"type": "string", "minLength": 1},
+              "action": {"type": "string", "minLength": 1},
+              "transfer_use": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,119 @@
+{
+  "schema_version": "2.0",
+  "diagnostic_task_design": {
+    "comparison": [
+      {
+        "candidate_id": "candidate_1",
+        "name": "无文字时代的历史证据",
+        "externalization_focus": "自主提取证据并说明证据与结论的关系",
+        "interaction_mode": "自我解释",
+        "estimated_duration_minutes": 15
+      },
+      {
+        "candidate_id": "candidate_2",
+        "name": "给博物馆参观者讲北京人",
+        "externalization_focus": "面向他人组织证据并澄清解释",
+        "interaction_mode": "同伴解释",
+        "estimated_duration_minutes": 18
+      },
+      {
+        "candidate_id": "candidate_3",
+        "name": "教AI读懂考古证据",
+        "externalization_focus": "形成有层次的证据—推理—结论讲解",
+        "interaction_mode": "以教为学",
+        "estimated_duration_minutes": 20
+      }
+    ],
+    "recommended_candidate_id": "candidate_1",
+    "recommendation_rationale": "方案一最直接观察学生能否自主提出证据并建立证据与历史结论的关系，任务负荷也适合七年级首次诊断。",
+    "candidates": [
+      {
+        "candidate_id": "candidate_1",
+        "name": "无文字时代的历史证据",
+        "externalization_focus": "自主提取证据并说明证据与结论的关系",
+        "interaction_mode": "自我解释",
+        "task_content": "几十万年前没有文字记载，我们凭什么知道北京人会制作工具、使用火和群体生活？请与AI对话，说出你依据哪些材料作出判断，并解释这些材料与结论之间有什么联系。AI只会请你把自己的想法和理由讲得更清楚，不会告诉你应当使用哪些证据或怎样得出结论。",
+        "ai_role": "中性引导者，帮助学生完整表达其已有的证据和推理。",
+        "dialogue_rules": {
+          "required": ["只针对学生已经提到的材料、判断和联系提出澄清性问题", "鼓励学生说明理由并把思路讲完整"],
+          "prohibited": ["不得补充学生未提出的考古材料或关键概念", "不得替学生建立证据与结论之间的关系"]
+        },
+        "estimated_duration_minutes": 15
+      },
+      {
+        "candidate_id": "candidate_2",
+        "name": "给博物馆参观者讲北京人",
+        "externalization_focus": "面向他人组织证据并澄清解释",
+        "interaction_mode": "同伴解释",
+        "task_content": "一位AI参观者在博物馆看到北京人遗址的介绍，却不明白研究者为什么能够据此判断北京人的生活情况。请你向它解释我们怎样根据考古发现认识北京人制作工具、使用火和群体生活，并回应它对你讲解中不清楚之处的提问。AI不会补充材料或告诉你答案。对话后，请整理一段面向普通参观者的说明。",
+        "ai_role": "需要进一步理解的AI参观者，通过澄清性提问促使学生组织和解释已有证据。",
+        "dialogue_rules": {
+          "required": ["只针对学生讲解中已经出现的材料和推断请求澄清", "请学生说明材料为什么能够支持相应结论"],
+          "prohibited": ["不得主动介绍遗址发现或标准解释", "不得替学生补全遗漏的证据和推理"]
+        },
+        "estimated_duration_minutes": 18
+      },
+      {
+        "candidate_id": "candidate_3",
+        "name": "教AI读懂考古证据",
+        "externalization_focus": "形成有层次的证据—推理—结论讲解",
+        "interaction_mode": "以教为学",
+        "task_content": "请把AI当作一名刚开始学习史前历史的学生，教它如何利用考古发现认识北京人的生活。你的讲解需要让它明白研究者看到了什么、能够作出什么判断，以及证据和判断之间是怎样联系起来的。AI会就没有听懂的地方请你继续说明，但不会提供关键材料、推理方法或正确答案。对话后，请整理一份简短讲解稿。",
+        "ai_role": "需要接受教授的初学者，只对学生讲解中未说明清楚的内容请求进一步解释。",
+        "dialogue_rules": {
+          "required": ["围绕学生已有讲解请求进一步说明证据、判断和联系", "保持初学者角色并请学生自主组织讲解"],
+          "prohibited": ["不得给出讲解顺序或答案框架", "不得提示学生遗漏的关键证据"]
+        },
+        "estimated_duration_minutes": 20
+      }
+    ]
+  },
+  "internal_design_records": {
+    "candidate_records": [
+      {
+        "candidate_id": "candidate_1",
+        "selected_externalization_strategy": "自我解释",
+        "selection_rationale": "直接观察学生自主提取证据和解释关系的能力。",
+        "target_thinking_evidence": ["考古材料", "证据与结论的关系", "整体解释"],
+        "quality_review": {
+          "goal_alignment": "直接对应证据运用目标。",
+          "thinking_externalization": "要求学生说明材料、判断和联系。",
+          "answer_non_leakage": "未列出具体证据及对应关系。",
+          "age_appropriateness": "适合七年级。",
+          "rubric_affordance_review": "可观察信息、关系和整体解释。"
+        }
+      },
+      {
+        "candidate_id": "candidate_2",
+        "selected_externalization_strategy": "同伴解释",
+        "selection_rationale": "借助参观者疑问观察学生澄清和重组解释的能力。",
+        "target_thinking_evidence": ["面向他人的证据说明", "含糊处的澄清", "关系解释"],
+        "quality_review": {
+          "goal_alignment": "对应证据解释目标。",
+          "thinking_externalization": "要求学生向他人解释并回应疑问。",
+          "answer_non_leakage": "AI只追问已有表述。",
+          "age_appropriateness": "博物馆情境易于理解。",
+          "rubric_affordance_review": "可观察知识组织和关系澄清。"
+        }
+      },
+      {
+        "candidate_id": "candidate_3",
+        "selected_externalization_strategy": "以教为学",
+        "selection_rationale": "通过教授初学者观察学生能否形成有层次的整体解释。",
+        "target_thinking_evidence": ["讲解顺序", "证据—推理—结论结构", "整体组织"],
+        "quality_review": {
+          "goal_alignment": "对应完整解释结构目标。",
+          "thinking_externalization": "要求学生自主组织教学性讲解。",
+          "answer_non_leakage": "AI不提供顺序和关键证据。",
+          "age_appropriateness": "适合已有基础知识的七年级学生。",
+          "rubric_affordance_review": "可观察整体结构及关系组织。"
+        }
+      }
+    ],
+    "diversity_review": {
+      "differentiating_dimensions": ["思维外显策略", "任务情境", "认知入口", "最终作品"],
+      "substantive_difference_conclusion": "三个任务分别从自主说明、同伴沟通和教授他人进入，均指向同一证据推理目标，差异具有认知意义。"
+    }
+  }
+}
+

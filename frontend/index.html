@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="支持教师开展精准诊断、反馈与课堂干预设计的研究原型。">
+  <title>思阶｜AI 精准教学工作台</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css?v=20260927-classroom-edit">
+</head>
+<body>
+  <main class="teacher-auth-screen" id="teacherAuthScreen" aria-labelledby="teacherAuthTitle">
+    <div class="teacher-auth-brand"><span class="brand-mark">思</span><span><strong>思阶</strong><small>AI 精准教学 · 教师端</small></span></div>
+    <form class="teacher-auth-card" id="teacherAuthForm" hidden>
+      <span class="teacher-auth-kicker">教师工作台</span>
+      <h1 id="teacherAuthTitle">教师登录</h1>
+      <p id="teacherAuthDescription">学校、学科和姓名共同确定一个教学空间。首次填写的新组合会自动创建。</p>
+      <label>学校<input id="teacherAuthSchool" name="school" list="teacherSchoolOptions" autocomplete="organization" maxlength="120" required></label>
+      <datalist id="teacherSchoolOptions"></datalist>
+      <label>学科<input id="teacherAuthSubject" name="subject" list="teacherSubjectOptions" maxlength="50" required></label>
+      <datalist id="teacherSubjectOptions"></datalist>
+      <label>教师姓名<input id="teacherAuthName" name="teacherName" autocomplete="name" maxlength="50" required></label>
+      <p class="teacher-auth-error" id="teacherAuthError" role="alert" hidden></p>
+      <button class="button primary" id="teacherAuthSubmit" type="submit">登录</button>
+    </form>
+    <p class="teacher-auth-loading" id="teacherAuthLoading" role="status">正在检查登录状态…</p>
+  </main>
+  <div class="app-shell" inert>
+    <aside class="sidebar" id="sidebar">
+      <button class="brand" data-page="blocks" aria-label="返回我的精准教学">
+        <span class="brand-mark">思</span>
+        <span><strong>思阶</strong><small>AI 精准教学</small></span>
+      </button>
+
+      <nav class="teacher-nav">
+        <p class="nav-label">我的工作</p>
+        <button class="nav-item active" data-page="blocks"><span>▦</span>我的精准教学</button>
+
+        <div class="current-teaching-context">
+          <span>当前精准教学</span>
+          <strong>基本不等式中的模型与论证</strong>
+          <small>高一数学 · 进行中</small>
+        </div>
+
+        <p class="nav-label">工作阶段</p>
+        <button class="nav-item" data-page="diagnosis"><span>1</span>精准诊断任务设计与发布</button>
+        <button class="nav-item" data-page="feedback"><span>2</span>诊断结果反馈</button>
+        <button class="nav-item" data-page="intervention"><span>3</span>精准干预设计</button>
+      </nav>
+
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenu" aria-label="打开导航">☰</button>
+        <div class="context-picker">
+          <span>当前精准教学</span>
+          <select id="currentTeachingSelect" aria-label="选择当前精准教学">
+            <option>正在加载项目…</option>
+          </select>
+        </div>
+        <div class="top-actions">
+          <span class="demo-badge backend-status connecting" id="backendStatus">正在连接本地服务</span>
+          <button class="button small" type="button" id="llmDebugButton" hidden>LLM 请求</button>
+          <button class="teacher-profile" data-page="profile" id="teacherProfileButton"><span class="avatar">林</span><span id="teacherDisplayName">林老师</span></button>
+          <button class="button small" type="button" id="teacherLogoutButton">退出登录</button>
+        </div>
+      </header>
+
+      <div class="page-container">
+        <section class="page active" id="page-blocks">
+          <div class="page-heading">
+            <div><h1>我的精准教学</h1><p>每项精准教学围绕一个思维发展目标，集中开展诊断、反馈和干预设计。</p></div>
+            <button class="button primary" data-page="block-edit" id="newTeachingButton">＋ 开启新的精准教学</button>
+          </div>
+
+          <div class="teaching-list" id="teachingList">
+            <article class="teaching-item card">
+              <div class="teaching-item-main">
+              <div class="eyebrow"><span class="status success">进行中</span><span>高一数学 · 人教 A 版</span><span>预计 3 课时</span></div>
+              <h2>基本不等式中的模型与论证</h2>
+              <p class="teaching-goal">精准识别并提升学生从提取数量关系、建立约束模型到完整论证最值结论的思维结构。</p>
+              <div class="teaching-progress" aria-label="精准教学进度">
+                <button class="complete" data-page="diagnosis"><span>1</span><b>精准诊断任务设计与发布</b><small>任务已完成</small></button>
+                <button class="current" data-page="feedback"><span>2</span><b>诊断结果反馈</b><small>6 人待确认</small></button>
+                <button data-page="intervention"><span>3</span><b>精准干预设计</b><small>方案设计中</small></button>
+              </div>
+              </div>
+              <footer class="teaching-item-footer"><span>最近更新：今天 10:24</span><button class="button primary" data-page="feedback">继续精准教学</button></footer>
+            </article>
+
+            <article class="teaching-item card compact">
+              <div class="teaching-item-main">
+                <div class="eyebrow"><span class="status neutral">草稿</span><span>高一数学 · 预计 2 课时</span></div>
+                <h2>函数单调性中的推理表达</h2>
+                <p class="teaching-goal muted">已填写主题，精准教学目标尚未确认。</p>
+              </div>
+              <footer class="teaching-item-footer"><span>最近更新：9 月 2 日</span><button class="button" data-page="block-edit">继续编辑</button></footer>
+            </article>
+          </div>
+        </section>
+
+        <section class="page" id="page-block-edit">
+          <div class="page-heading"><div><button class="back-link" data-page="blocks">← 返回我的精准教学</button><h1>开启新的精准教学</h1><p>先确定本轮要发展的思维点，后续诊断、反馈和干预都在这里持续完成。</p></div><span class="draft-state">草稿自动保存</span></div>
+          <div class="editor-layout">
+            <form class="card form-card" id="blockForm">
+              <div class="form-section-title"><span>1</span><div><h2>基础信息</h2><p>建立本轮精准教学的共同背景。</p></div></div>
+              <div class="form-grid">
+                <label>学科<select id="blockSubject"></select></label>
+                <label>年级<select id="blockGrade"><option>高一</option><option>高二</option><option>高三</option></select></label>
+                <label>教材版本与章节<input id="blockTextbook" value="人教 A 版 必修一"></label>
+                <label>预计课时<div class="unit-input"><input id="blockPeriods" type="number" value="3" min="1" step="1" inputmode="numeric" aria-label="预计课时"><span>课时</span></div></label>
+              </div>
+
+              <div class="form-section-title divided"><span>2</span><div><h2>精准教学主题与目标</h2><p>聚焦一个需要识别和发展的思维点。</p></div></div>
+              <div class="field-group major-field">
+                <div class="label-row"><label for="blockTheme">精准教学主题</label><button type="button" class="help-dot" data-help="themeHelp" aria-controls="themeHelp" aria-expanded="false" aria-label="查看精准教学主题说明">?</button><div class="help-popover" id="themeHelp" role="tooltip" hidden><strong>精准教学主题</strong><p>精准教学主题应立足于学科中的<strong>核心问题、关键内容或核心能力</strong>，也可以聚焦学生学习过程中<strong>差异较为明显、容易出现分化的关键思维或能力</strong>。选题时，应明确其所对应的课程标准与核心素养要求，分析学生可能存在的典型学习状态，并确定希望通过精准教学促进的能力发展与进阶方向。</p><p>主题选择不宜停留在零散知识点层面，也不应单纯以“适合使用AI”为依据，而应突出其<strong>学科价值、学生发展价值和教学改进价值</strong>。</p><p><strong>撰写方式：</strong><br>可以围绕“<strong>学科 + 核心教学内容/能力 + 精准教学</strong>”进行命名，主题应能够清晰体现本次精准教学所聚焦的核心问题、思维能力或学习任务。</p></div></div>
+                <p class="field-example">示例：初中历史论证写作精准教学；六年级科学“惯性”概念理解与应用的精准教学；高中数学基本不等式理解与问题解决的精准教学。</p>
+                <textarea id="blockTheme" rows="2">基本不等式中的模型与论证</textarea>
+              </div>
+              <div class="field-group major-field">
+                <div class="label-row"><label for="blockGoal">精准教学目标</label><button type="button" class="help-dot" data-help="goalHelp" aria-controls="goalHelp" aria-expanded="false" aria-label="查看精准教学目标说明">?</button><div class="help-popover" id="goalHelp" role="tooltip" hidden><strong>精准教学目标</strong><p>请明确本次教学要诊断的学生学习状态，以及经过针对性干预后，期望多少学生达到什么学习水平。</p></div></div>
+                <p class="field-example">示例：诊断班级学生历史论证写作的思维结构水平及主要障碍，通过针对性干预，使班级中不少于80%的学生达到能够整合观点、证据与推理关系的关联结构水平。</p>
+                <textarea id="blockGoal" rows="3">精准识别并提升学生从提取数量关系、建立约束模型到完整论证最值结论的思维结构。</textarea>
+              </div>
+              <div class="field-group major-field">
+                <div class="label-row"><label for="blockContent">精准教学内容</label><button type="button" class="help-dot" data-help="contentHelp" aria-controls="contentHelp" aria-expanded="false" aria-label="查看精准教学内容说明">?</button><div class="help-popover" id="contentHelp" role="tooltip" hidden><strong>精准教学内容</strong><p>列出本轮诊断和干预实际聚焦的概念、关系、方法或思维结构。每行可以填写一项，生成任务专用 SOLO 量规时将作为教学情境使用。</p></div></div>
+                <p class="field-example">示例：数量关系提取；约束模型建立；基本不等式的取等条件；最值结论的完整论证。</p>
+                <textarea id="blockContent" rows="3">基本不等式实际应用中的数量关系提取
+约束模型建立
+取等条件与最值结论的完整论证</textarea>
+              </div>
+              <div class="field-group major-field">
+                <div class="label-row"><label for="blockRationale">选题说明</label><button type="button" class="help-dot" data-help="rationaleHelp" aria-controls="rationaleHelp" aria-expanded="false" aria-label="查看选题说明填写提示">?</button><div class="help-popover" id="rationaleHelp" role="tooltip" hidden><strong>选题说明</strong><p>说明为什么选择这一精准教学主题。可以从课程标准与学科核心素养的要求、学科关键内容、学生学习差异或普遍存在的学习障碍等方面阐释。</p></div></div>
+                <p class="field-example">示例：最值论证体现数学建模与逻辑推理要求；课前学习中学生能够得到数值结果，但在建立约束、说明取等条件和形成完整论证方面差异明显，因此需要开展精准诊断与分层干预。</p>
+                <textarea id="blockRationale" rows="3">基本不等式的实际应用是发展数学建模和逻辑推理素养的重要内容。学生在提取数量关系、建立约束模型以及说明最值结论成立条件方面存在明显差异，需要通过精准诊断识别障碍并设计针对性教学。</textarea>
+              </div>
+              <div class="form-footer"><button type="button" class="button">保存草稿</button><button type="button" class="button primary" id="createBlockButton">保存并进入诊断设计</button></div>
+            </form>
+          </div>
+        </section>
+
+        <section class="page" id="page-diagnosis">
+          <div class="page-heading"><div><h1>精准诊断任务设计与发布</h1><p>设计一项能够促进学生思维外显、为后续教学提供依据的诊断任务。</p></div><button class="button" id="saveDiagnosisDraftButton">保存草稿</button></div>
+          <div class="workflow-tabs three" id="diagnosisSteps">
+            <button class="active" data-dstep="2"><i>1</i>诊断任务</button><button data-dstep="3"><i>2</i>分析标准</button><button data-dstep="4"><i>3</i>发布</button>
+          </div>
+          <div class="workflow-panel active" data-dpanel="2">
+            <div class="card panel-card diagnosis-task-form">
+              <div class="panel-heading"><span class="step-index">01</span><div><h2>诊断任务</h2><p>先参考 AI 推荐的三个备选方案，选择后可继续编辑任务内容、AI 角色和预计时长。</p></div></div>
+
+              <section class="task-recommendation-panel" id="taskRecommendations">
+                <div class="recommendation-heading"><div><h3>AI 推荐的诊断任务</h3><p>依据当前精准教学的学科、年级、教材、主题、目标与内容生成；采用后可继续编辑。</p></div><div class="recommendation-heading-actions"><button type="button" class="button primary" id="regenerateTasks">AI 推荐 3 个方案</button></div></div>
+                <p class="recommendation-status" id="taskRecommendationStatus">尚未生成。点击“AI 推荐 3 个方案”获取推荐；不会覆盖当前草稿。</p>
+                <div class="proposal-grid" id="taskProposals"></div>
+              </section>
+
+              <div class="field-group major-field">
+                <div class="label-row task-field-label-row"><label for="diagnosisTaskText">诊断任务</label><div class="task-guide-entry"><button type="button" class="task-guide-button principles" data-open-task-guide="principles">设计原则</button><button type="button" class="task-guide-button strategies" data-open-task-guide="strategies">策略卡片</button></div><button type="button" class="help-dot" data-help="diagnosisTaskHelp" aria-controls="diagnosisTaskHelp" aria-expanded="false" aria-label="查看诊断任务设计说明">?</button><div class="help-popover help-popover-wide" id="diagnosisTaskHelp" role="tooltip" hidden><strong>诊断任务撰写提示</strong><p>请依次写明：①学生需要完成的任务内容；②生机会话规则，包括采用自我解释、同伴解释、以教为学或辩论等方式，以及 AI 不提供公式、步骤和答案提示；③任务成果要求，如完整文本、作品或方案。任务应与精准教学目标一致、具有开放性，并同时形成过程性和结果性数据。</p></div></div>
+                <textarea id="diagnosisTaskText" rows="6">学校准备使用 20 米围栏围成一个长方形劳动实践区。请确定怎样设计长和宽能够使面积最大。先与 AI 充分对话，说明你提取了哪些信息、建立了什么关系以及为什么这样判断；AI 只用中性追问帮助你把已有思路说完整，不提供公式、步骤或答案。对话结束后，请提交一份完整论证文本，说明模型、求解过程、取等条件和结论。</textarea>
+              </div>
+
+              <div class="task-settings-grid">
+                <div class="field-group major-field">
+                  <div class="label-row"><label for="diagnosisRoleText">AI角色与对话规则</label><button type="button" class="help-dot" data-help="diagnosisRoleHelp" aria-controls="diagnosisRoleHelp" aria-expanded="false" aria-label="查看 AI 角色说明">?</button><div class="help-popover" id="diagnosisRoleHelp" role="tooltip" hidden><strong>AI 角色</strong><p>可设为中性引导者、需要教授的学生同伴、解释型同伴或辩论对象，也可以不设定角色。诊断型 AI 只促进表达，不提示公式、步骤、答案或正误方向。</p></div></div>
+                  <textarea id="diagnosisRoleText" rows="4">中性引导者：只追问“请说明理由”“请把思路写完整”等，不提供公式、步骤、正误判断或解题方向。</textarea>
+                </div>
+                <div class="field-group major-field duration-field">
+                  <div class="label-row"><label for="diagnosisDuration">预计时长</label><button type="button" class="help-dot" data-help="diagnosisDurationHelp" aria-controls="diagnosisDurationHelp" aria-expanded="false" aria-label="查看预计时长说明">?</button><div class="help-popover" id="diagnosisDurationHelp" role="tooltip" hidden><strong>预计时长</strong><p>请预估学生完成生机会话和最终成果所需的总时间，可在采用 AI 推荐方案后继续调整。</p></div></div>
+                  <div class="unit-input"><input id="diagnosisDuration" type="number" value="15" min="1" step="1" inputmode="numeric"><span>分钟</span></div>
+                </div>
+              </div>
+
+              <div class="panel-actions right"><button class="button primary" data-dnext="3">下一步：确认分析标准</button></div>
+            </div>
+          </div>
+
+          <div class="workflow-panel" data-dpanel="3">
+            <div class="card panel-card"><div class="panel-heading"><span class="step-index">02</span><div><h2>分析标准</h2><p>先了解 SOLO 的通用分类框架，再确认针对本任务生成的分析标准。</p></div></div>
+              <section class="solo-framework-panel">
+                <div class="framework-intro"><div><span>通用框架</span><h3>SOLO 用于判断当前任务中呈现的思维结构</h3></div><p>它判断的是可观察的学习结果，不是学生的一般能力，也不是固定标签。</p></div>
+                <div class="solo-level-grid">
+                  <article><b>P 前结构</b><p>尚未形成与任务相关的有效理解。</p></article>
+                  <article><b>U 单点结构</b><p>识别或使用一个相关要素。</p></article>
+                  <article><b>M 多点结构</b><p>呈现多个相关要素，但尚未建立整体关系。</p></article>
+                  <article><b>R 关联结构</b><p>把多个要素整合为连贯、完整的关系。</p></article>
+                  <article><b>EA 拓展抽象</b><p>能够迁移、概括、检验或重构已有关系。</p></article>
+                </div>
+              </section>
+              <div class="rubric-header"><div><h3>本任务的 SOLO 分析标准</h3><p>AI 根据教学情境、诊断任务和通用量规生成；可编辑后确认。</p><span class="rubric-runtime-status" id="rubricRuntimeStatus" hidden></span></div><button type="button" class="button small ai" id="regenerateRubric">AI 生成量规</button></div>
+              <div class="rubric-table-wrap"><table class="rubric-table"><thead><tr><th>层级</th><th>可观察表现</th><th>本任务判断依据</th><th>边界与追溯</th></tr></thead><tbody id="rubricTableBody">
+                <tr class="rubric-placeholder"><td colspan="4">进入本步骤后生成任务专用量规</td></tr>
+              </tbody></table></div>
+              <details class="rubric-analysis-details" id="rubricAnalysisDetails" hidden><summary>查看任务结构分析（E／R／A）</summary><div id="rubricAnalysisContent"></div></details>
+              <label class="confirm-row"><input type="checkbox" id="rubricConfirmed" disabled>我已检查并确认本任务的 SOLO 分析标准</label>
+              <div class="panel-actions spread"><button class="button" data-dnext="2">上一步</button><button class="button primary" id="rubricNextButton" data-dnext="4" disabled>下一步：预览并发布</button></div>
+            </div>
+          </div>
+
+          <div class="workflow-panel" data-dpanel="4">
+            <div class="publish-layout">
+              <div class="card panel-card"><div class="panel-heading"><span class="step-index">03</span><div><h2>发布诊断任务</h2><p>选择班级，确认学生看到的任务和成果要求。</p></div></div>
+                <label>发布班级</label><div class="class-options" id="publishClassOptions"></div>
+                <div class="publish-summary"><div><span>诊断类型</span><b id="publishDiagnosisType">课前诊断</b></div><div><span>预计时间</span><b id="publishDuration">15 分钟</b></div><div><span>提交内容</span><b>生机会话＋论证文本</b></div></div>
+                <div class="publish-notice"><b>发布说明</b><p>学生提交后可查看任务完成状态；诊断反馈须经教师确认后再推送。</p></div>
+                <div class="panel-actions spread"><button class="button" data-dnext="3">上一步</button><button class="button primary" id="publishTaskButton">确认发布</button></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="page-feedback">
+          <div class="page-heading"><div><h1>诊断结果反馈</h1><p>查看班级与学生的思维结构，核对诊断结果并向学生推送反馈。</p></div><button class="button primary" id="completeFeedbackButton">确认反馈并进入干预设计</button></div>
+          <article class="card stage-empty-state" id="feedbackEmptyState" hidden><span>等待学生作答</span><h2>当前精准教学还没有诊断结果</h2><p>诊断任务已经发布，但尚未收到学生提交。获得作答、会话与作品证据后，才能进行反馈确认并开放精准干预设计。</p><button class="button" data-page="diagnosis">返回诊断任务</button></article>
+          <div id="feedbackWorkspaceContent">
+          <div class="filter-bar card"><label>班级<select id="feedbackClassSelect"></select></label><label>精准教学<select id="feedbackTeachingName" disabled><option>基本不等式中的模型与论证</option></select></label><label>诊断任务<select id="feedbackTaskName" disabled><option>课前 · 围绳面积最大方案论证</option></select></label><span class="status success" id="feedbackSubmissionStatus">40/40 已提交</span></div>
+
+          <div class="analysis-process card"><div class="done"><i>1</i><span>证据整理<small>对话＋文字成果</small></span></div><div id="analysisRubricStep"><i>2</i><span>AI 分析<small id="analysisRubricStatus">等待量规确认</small></span></div><div class="current"><i>3</i><span>教师审核<small id="analysisReviewStatus">等待学生报告</small></span></div><div><i>4</i><span>确认反馈<small id="feedbackProgressStatus">等待教师确认</small></span></div></div>
+
+          <div class="feedback-tabs"><button class="active" data-feedback-tab="class">班级学生思维结构情况</button><button data-feedback-tab="students">学生会话记录与分析结果</button></div>
+
+          <div class="feedback-panel active" data-feedback-panel="class" id="classEvidencePanel">
+            <article class="card class-solo-card">
+              <div class="card-heading"><div><h2>班级学生思维结构情况</h2><p>阶梯表示学生在本次任务中呈现的思维结构逐步整合；每一级均列出对应学生。</p></div><span class="status warning">AI 初判 · 教师核对</span></div>
+              <div class="staircase-axis"><span>思维结构逐步进阶</span><i aria-hidden="true">→</i></div>
+              <div class="solo-staircase" aria-label="班级学生SOLO思维结构阶梯图">
+                <section class="solo-step level-p"><header><span>P</span><b>前结构</b><strong>2 人</strong></header><p>张艺航、沈可欣</p></section>
+                <section class="solo-step level-u"><header><span>U</span><b>单点结构</b><strong>4 人</strong></header><p>王晨、吴昊、赵一诺、孙皓</p></section>
+                <section class="solo-step level-m"><header><span>M</span><b>多点结构</b><strong>12 人</strong></header><p>李明、陈雨桐、黄思源、许嘉宁、顾梓涵、叶可心、蒋一凡、赵雨辰、方悦、韩子墨、谢昕、唐安琪</p></section>
+                <section class="solo-step level-r"><header><span>R</span><b>关联结构</b><strong>17 人</strong></header><p>林晓、陈卓、许冉、郭思齐、苏妍、梁嘉诚、邹宇泽、马欣怡、曹俊杰、程诺、邓若曦、何文博、卢诗涵、孟子昂、彭语桐、秦泽、任嘉禾</p></section>
+                <section class="solo-step level-ea"><header><span>EA</span><b>拓展抽象</b><strong>2 人</strong></header><p>郑雅雯、何致远</p></section>
+              </div>
+              <div class="evidence-insufficient-row"><span>证据不足</span><b>3 人</b><p>周子轩、刘若涵、罗宇航</p><small id="evidenceInsufficientMessage">当前表达不足以判断SOLO层级，可以补充任务证据或基于现有数据进行审慎分析。</small><button class="button small evidence-action" id="analyzeCurrentEvidence">基于当前数据分析</button></div>
+              <p class="solo-note">SOLO表示学习者在当前任务中表现出的认知结构水平，不是对学生一般能力的判断，也不是固定的认知阶段标签。</p>
+            </article>
+
+            <article class="card class-analysis-card">
+              <div class="card-heading"><div><h2>学生思维结构分析</h2></div></div>
+              <div class="class-analysis-narrative">
+                <section><h3>班级总体情况</h3><p>本班40名学生中，29名学生在当前任务中呈现多点结构或关联结构，说明多数学生已经能够识别围栏总长、长宽关系、面积表达式和最大值结论等关键内容。当前最集中的问题不是缺少零散知识点，而是没有把“约束条件—基本不等式—取等条件—最大值结论”组织成完整论证。另有3名学生表达证据不足，暂不进行SOLO归类。</p></section>
+                <section><h3>前结构与单点结构学生：尚未形成完整的问题表征</h3><p>6名学生主要停留在复述题意或抓住单个信息。例如，有学生只写“长和宽都是5米”，但没有说明这个数值怎样由20米围栏得到；也有学生只写面积公式，却没有建立长与宽的约束关系。这类表达表明学生尚未同时看见题目条件、目标量和求解依据。建议先要求学生分别说清“已知什么、要求什么、两个量有什么关系”，再补充第二个与当前想法直接相关的要素。</p></section>
+                <section><h3>多点结构学生：已有多个要素，但论证关系断裂</h3><p>12名学生能够列出多个相关要素，典型表现如陈雨桐写出“长＋宽＝10”“面积为x(10−x)”并通过试算得到“5×5时面积为25”。这些想法都与问题有关，但“试算几组数”不能证明最大值，基本不等式及其取等条件也没有进入论证。建议让学生用关系图或句式框架逐句解释：“由什么条件得到什么关系”“为什么可以使用这一方法”“什么时候取等”“取等条件如何支持最终结论”。</p></section>
+                <section><h3>关联结构与拓展抽象学生：论证基本完整，迁移仍需检验</h3><p>19名学生已经能够形成较完整的关系链。典型表达是：“由2(长＋宽)=20得到长＋宽=10；在和一定时，根据基本不等式，长与宽相等时乘积最大，因此长、宽均为5米，最大面积为25平方米。”其中2名学生还能把这一关系推广到其他周长情境。下一步应通过改变围栏长度、增加边界限制或提供反例，检查学生能否说明方法的适用条件，而不是只套用“正方形面积最大”的结论。</p></section>
+                <section class="analysis-conclusion"><h3>主要障碍与学习支持重点</h3><p>班级共同障碍集中在两个关系缺口：一是没有说明为什么基本不等式适用于当前约束；二是没有把取等条件与正方形结论对应起来。后续学习支持应优先呈现不同完整度的典型作答，让学生比较缺失的关系，并在撤除框架后独立完成一次同构问题论证。</p></section>
+              </div>
+            </article>
+          </div>
+
+          <div class="feedback-panel" data-feedback-panel="students" id="studentEvidencePanel">
+            <div class="card student-feedback-toolbar"><div><b>反馈确认与推送</b><span id="studentPushSummary">已确认34/40，仍有6名学生的反馈待教师核对。</span></div><button class="button primary" id="pushAllFeedback">推送全部反馈报告</button></div>
+            <div class="student-review-layout">
+              <aside class="card student-list"><div class="list-header"><b>40 名学生</b><span id="pendingFeedbackCount">6 人待确认</span></div><button class="active" data-student="陈雨桐"><span><b>陈雨桐</b><small>4 次交互 · 有作品</small></span><em>待确认</em></button><button data-student="周子轩"><span><b>周子轩</b><small>2 次交互 · 有作品</small></span><em>证据不足</em></button><button data-student="李明"><span><b>李明</b><small>5 次交互 · 有作品</small></span><em>已确认</em></button><button data-student="林晓"><span><b>林晓</b><small>3 次交互 · 有作品</small></span><em>已确认</em></button></aside>
+              <div class="student-review-main">
+                <article class="card learning-record-card">
+                  <div class="card-heading"><div><span class="section-kicker">1 · 学习记录</span><h2 id="studentRecordName">陈雨桐的学习记录</h2><p>提交时间：2026-09-05 20:16</p></div></div>
+                  <section class="conversation-record"><div class="record-section-heading"><div><h3>生机会话记录</h3><p>共4次学生发言，AI仅进行中性追问。</p></div><button class="button small">下载会话记录</button></div>
+                    <div class="conversation-messages"><div class="record-message student"><b>学生</b><p>设长是x，宽就是10−x，面积是x(10−x)。</p><time>20:08</time></div><div class="record-message ai"><b>AI</b><p>请说明你是怎样得到长与宽关系的。</p><time>20:09</time></div><div class="record-message student"><b>学生</b><p>围栏总长是20米，所以2(长＋宽)=20，长＋宽=10。</p><time>20:10</time></div><div class="record-message ai"><b>AI</b><p>请把后面的思路写完整。</p><time>20:11</time></div><div class="record-message student"><b>学生</b><p>我算了几组数，长和宽都是5米时，面积是25平方米，应该最大。</p><time>20:13</time></div><div class="record-message ai"><b>AI</b><p>请说明理由。</p><time>20:14</time></div><div class="record-message student"><b>学生</b><p>因为5×5比我试的其他几组都大，所以我认为正方形面积最大。</p><time>20:15</time></div></div>
+                  </section>
+                  <section class="submitted-work"><div class="record-section-heading"><div><h3>作品提交</h3><p>学生提交的任务成果。</p></div></div><div class="work-file"><span class="file-icon">DOCX</span><div><b>基本不等式最值论证.docx</b><p>提交于 2026-09-05 20:16 · 24 KB</p><blockquote>“当长和宽都是5米时面积为25平方米，所以正方形最大。”</blockquote></div><button class="button small">查看文件</button></div></section>
+                </article>
+
+                <article class="card individual-report-card">
+                  <div class="card-heading"><div><span class="section-kicker">2 · 个体反馈报告</span><h2 id="studentFeedbackName">陈雨桐的个体反馈报告</h2><p>教师可以直接修改报告内容，修改后自动保存。</p></div><span class="status neutral" id="studentFeedbackStatus">未推送</span></div>
+                  <div class="thought-mirror-card">
+                    <div class="thought-mirror-heading"><div><h3>学生思维结构镜像</h3><p>依据会话与作品，呈现学生已经建立和仍需补充的概念—论证关系。</p></div><div class="mirror-legend"><span class="known">已表达</span><span class="partial">部分表达</span><span class="missing">尚未表达</span></div></div>
+                    <div class="thought-mirror-map" aria-label="当前学生的概念与论证关系图">
+                      <div class="mirror-chain observed"><article class="mirror-node known"><small>情境信息</small><b>围栏总长20米</b></article><span class="mirror-relation known">转化约束 →</span><article class="mirror-node known"><small>数量关系</small><b>长＋宽＝10</b></article><span class="mirror-relation known">建立模型 →</span><article class="mirror-node known"><small>目标量</small><b>面积x(10−x)</b></article><span class="mirror-relation partial">试算得出 →</span><article class="mirror-node partial"><small>数值结论</small><b>5×5＝25</b></article></div>
+                      <div class="reasoning-gap"><span>论证缺口</span><b>为什么25是最大值？</b><i>需要补充方法依据与取等条件</i></div>
+                      <div class="mirror-chain needed"><article class="mirror-node missing"><small>方法依据</small><b>基本不等式</b></article><span class="mirror-relation missing">推出上界 →</span><article class="mirror-node missing"><small>取等条件</small><b>两个量相等</b></article><span class="mirror-relation missing">对应本题 →</span><article class="mirror-node missing"><small>条件落实</small><b>长＝宽＝5</b></article><span class="mirror-relation missing">完整支持 →</span><article class="mirror-node partial"><small>最终结论</small><b>正方形面积最大</b></article></div>
+                    </div>
+                    <p class="mirror-reflection"><b>镜像提示：</b>你已经完成了情境信息、数量关系和面积模型的连接；下一步需要补上“基本不等式—取等条件—最大值结论”之间的论证关系。</p>
+                  </div>
+                  <div class="student-progression"><div class="progression-heading"><span>本次任务中的思维结构</span><small>当前水平与相邻进阶目标</small></div><div class="progression-track"><span class="passed">P<small>前结构</small></span><span class="passed">U<small>单点结构</small></span><span class="current">M<small>当前：多个要素</small></span><span class="target">R<small>目标：整合关系</small></span><span>EA<small>拓展抽象</small></span></div><p><b>当前：</b>已经呈现多个相关要素，但还没有把这些要素连接为完整论证。<b>下一步：</b>说明约束条件、基本不等式、取等条件与结论之间的关系。</p></div>
+                  <label class="report-editor-label" for="studentFeedbackReport">反馈报告内容</label>
+                  <textarea id="studentFeedbackReport" class="report-editor" rows="13">（1）当前情况分析及依据
+你已经从围栏总长中得到“长＋宽＝10”，并写出了面积表达式，也通过试算得到5×5时面积为25平方米。这说明你已经找到了多个与问题有关的要素。在本次任务中，这种表现属于“多点结构”：你已经拥有几个关键想法，但还需要说明它们为什么能够共同支持“面积最大”的结论。目前的主要问题是，基本不等式和取等条件没有进入论证，试算几组数也不能单独证明最大值。
+
+（2）进阶目标
+从“列出多个相关要素”进阶到“把要素连接成完整关系”。能够说明：长与宽的约束如何得到、为什么可以使用基本不等式、什么时候取等，以及取等条件为什么对应正方形面积最大。
+
+（3）下一步建议
+先写出基本不等式及其取等条件，再逐句连接“已知条件—所用方法—取等条件—最大值结论”。完成后，用另一组围栏长度检验这套说明是否仍然成立。</textarea>
+                  <div class="report-footer"><span class="autosave-state" id="feedbackAutosaveState">已自动保存</span><button class="button primary" id="pushStudentFeedback">确认并推送反馈报告</button></div>
+                </article>
+              </div>
+            </div>
+          </div>
+          </div>
+        </section>
+
+        <section class="page" id="page-intervention">
+          <div class="page-heading"><div><h1>精准干预设计</h1><p id="interventionDurationSummary">基于诊断结果设计共45分钟的课堂方案。</p></div><div><span class="autosave-state">草稿自动保存</span><button class="button primary" id="previewInterventionPlan">预览教学报告</button></div></div>
+          <div class="filter-bar intervention-filter-bar card">
+            <label>班级<select id="interventionClassSelect"><option>高一（3）班</option><option>高一（5）班</option></select></label>
+            <label>精准教学<select id="interventionTeachingName" disabled><option>基本不等式中的模型与论证</option></select></label>
+            <label>诊断依据任务<select id="interventionTaskName" disabled><option>课前 · 围绳面积最大方案论证</option></select></label>
+            <span class="status success" id="interventionEvidenceStatus">诊断结果已确认</span>
+          </div>
+          <div class="workflow-tabs intervention-tabs four" id="interventionSteps"><button class="active" data-istep="1"><i>1</i>设计依据</button><button data-istep="2"><i>2</i>目标设计与活动路径</button><button data-istep="3"><i>3</i>学习活动设计</button><button data-istep="4"><i>4</i>报告预览与导出</button></div>
+
+          <div class="intervention-panel active" data-ipanel="1">
+            <article class="card intervention-section-card">
+              <div class="intervention-section-heading"><div><span class="section-kicker">教学情境与条件</span><p>AI 根据精准教学资料与班级报告起草前两项分析，教师核对后用于生成目标与路径。</p></div><div><button class="button ai" id="generateTeacherAnalysis">AI生成教学分析</button><button class="help-dot" data-intervention-help="teaching-context" aria-label="查看教学情境与条件说明">?</button></div></div>
+              <p id="teacherAnalysisSourceNote" class="goal-path-source" hidden></p>
+              <div class="basis-context-fields">
+                <label><span class="basis-field-heading"><span>教学内容与课标分析</span><button type="button" class="help-dot" data-intervention-help="content-standard" aria-label="查看教学内容与课标分析填写提示">?</button></span><textarea id="teachingContentAnalysis" rows="4" placeholder="请填写当前精准教学的内容、课程标准要求及其分析。"></textarea></label>
+                <label><span class="basis-field-heading"><span>教学重点与难点</span><button type="button" class="help-dot" data-intervention-help="focus-difficulty" aria-label="查看教学重点与难点填写提示">?</button></span><textarea id="teachingFocusAnalysis" rows="3" placeholder="请结合班级诊断，填写本课的教学重点与难点。"></textarea></label>
+                <div class="basis-context-field teaching-time-field"><span class="basis-field-heading"><span>教学时间</span><button type="button" class="help-dot" data-intervention-help="teaching-time" aria-label="查看教学时间设置提示">?</button></span><div class="teaching-time-control"><label>方案总时长<div class="unit-input"><input id="interventionDurationMinutes" type="number" value="45" min="10" step="5" inputmode="numeric" aria-label="干预方案总时长"><span>分钟</span></div></label></div><small>该时长用于生成后续学习活动及分配各活动时间。</small></div>
+                <label><span class="basis-field-heading"><span>课堂与技术条件</span><button type="button" class="help-dot" data-intervention-help="classroom-technology" aria-label="查看课堂与技术条件填写提示">?</button></span><textarea id="teachingEnvironmentConditions" rows="3" placeholder="例如班级人数、可用设备、分组条件与 AI 支持边界。"></textarea></label>
+                <label><span class="basis-field-heading"><span>课堂教学设计构想（可选）</span></span><textarea id="teacherLessonConception" rows="3" placeholder="若有必须保留的设计，请明确写出“必须保留”及具体要求。"></textarea></label>
+              </div>
+              <div class="profile-reference"><span>已引用教师档案</span><b>重视学生表达与同伴讨论，习惯用典型错误组织全班追问</b><button class="text-button" data-page="profile">修改教师档案</button></div>
+            </article>
+            <div class="panel-actions right"><button class="button primary" id="saveTeacherAnalysisAndNext">保存分析并进入目标设计</button></div>
+          </div>
+
+          <div class="intervention-panel" data-ipanel="2">
+            <article class="card intervention-section-card goal-path-skill-card" id="goalPathSkillPanel">
+              <div class="intervention-section-heading"><div><h2>目标设计与活动路径</h2></div><span class="status neutral" id="goalPathStatus">等待班级报告</span></div>
+              <div id="goalPathPrerequisite"></div>
+              <div id="goalPathGeneratedContent"></div>
+              <div class="panel-actions spread"><button class="button" data-istep-target="1">上一步</button><div><button class="button ai" id="generateGoalPath">AI重新生成目标与路径</button><button class="button" id="saveGoalPathDraft" hidden>保存修改</button><button class="button primary" id="confirmGoalPath" hidden>确认目标与路径</button><button class="button primary" id="nextFromGoalPath" data-istep-target="3" disabled>下一步：学习活动设计</button></div></div>
+            </article>
+            <div id="legacyGoalPathEditor" hidden>
+            <article class="card intervention-section-card">
+              <div class="intervention-section-heading"><div><span class="section-kicker">目标设计</span></div><div><button class="help-dot" data-intervention-help="goal-design" aria-label="查看目标设计说明">?</button><button class="button ai" id="regenerateInterventionGoals">AI重新生成</button></div></div>
+              <section class="goal-subsection"><h3>共同核心目标</h3><textarea rows="3">学生能够在周长约束情境中建立面积模型，运用基本不等式形成包含取等条件的完整最值论证，并解释结论成立的条件。</textarea></section>
+              <section class="goal-subsection progression-goal-section"><div class="goal-subsection-heading"><div><h3>分层进阶目标</h3><p>从学生当前思维结构出发，确定下一层级的具体目标。</p></div><button class="button small" id="addProgressionGoal">＋增加进阶目标</button></div>
+              <div class="goal-table-wrap"><table class="intervention-goal-table"><thead><tr><th>目标层级</th><th>具体目标内容</th><th>相关学生姓名</th><th>可观察的达成表现</th><th>操作</th></tr></thead><tbody id="progressionGoalRows">
+                <tr data-goal-level="M"><td class="editable-goal-level"><input class="goal-level-title-input" value="M 多点结构目标" aria-label="目标层级名称"><input class="goal-level-audience-input" value="面向P、U学生" aria-label="目标适用对象"></td><td><textarea rows="4">识别围栏约束、目标量、面积关系和可用方法等多个相关要素。</textarea></td><td><textarea rows="4">张艺航、沈可欣、王晨、吴昊、赵一诺、孙皓</textarea></td><td><textarea rows="4">能够独立指出题目条件、面积目标和至少两个相互关联的数学要素。</textarea></td><td><button class="text-button" data-remove-progression-goal>删除</button></td></tr>
+                <tr class="priority-row" data-goal-level="R"><td class="editable-goal-level"><input class="goal-level-title-input" value="R 关联结构目标" aria-label="目标层级名称"><input class="goal-level-audience-input" value="面向M学生" aria-label="目标适用对象"></td><td><textarea rows="4">建立约束条件—基本不等式—取等条件—最大值结论之间的完整关系。</textarea></td><td><textarea rows="4">李明、陈雨桐、黄思源、许嘉宁、顾梓涵、叶可心、蒋一凡、赵雨辰、方悦、韩子墨、谢昕、唐安琪</textarea></td><td><textarea rows="4">能够说明面积为什么存在上界、什么时候取等，以及取等条件如何支持最终结论。</textarea></td><td><button class="text-button" data-remove-progression-goal>删除</button></td></tr>
+                <tr data-goal-level="EA"><td class="editable-goal-level"><input class="goal-level-title-input" value="EA 拓展抽象目标" aria-label="目标层级名称"><input class="goal-level-audience-input" value="面向R学生" aria-label="目标适用对象"></td><td><textarea rows="4">检验最值论证的适用条件，并将关系结构迁移到新的约束情境。</textarea></td><td><textarea rows="4">林晓、陈卓、许冉、郭思齐、苏妍、梁嘉诚、邹宇泽、马欣怡、曹俊杰、程诺、邓若曦、何文博、卢诗涵、孟子昂、彭语桐、秦泽、任嘉禾</textarea></td><td><textarea rows="4">能够改变围栏条件，判断原方法是否仍适用，并说明迁移或修正的理由。</textarea></td><td><button class="text-button" data-remove-progression-goal>删除</button></td></tr>
+              </tbody></table></div></section>
+            </article>
+
+            <article class="card intervention-section-card path-design-card">
+              <div class="intervention-section-heading"><div><span class="section-kicker">活动路径</span></div><div><button class="help-dot" data-intervention-help="path-design" aria-label="查看活动路径说明">?</button><button class="button ai" id="refreshPathRecommendation">更新AI推荐</button></div></div>
+              <div class="path-recommendation"><span>AI推荐</span><p><b>递进推进型</b>作为主要路径，并融合“关键阶段并行分层”和“少数学生短时支持”策略。班级具有共同的论证关系障碍，同时不同学生需要不同强度的支持。</p></div>
+              <div class="path-prototype-grid" id="pathPrototypeGrid">
+                <article class="selected recommended" data-primary-path="progressive"><header><span>递进推进型</span><em>推荐</em></header><p>活动沿认知进阶顺序展开，在共同主线下提供差异化支持。</p><div>基础建立 → 支持 → 建构 → 内化 → 迁移</div><footer><button class="text-button" data-view-path-details="progressive">查看详情</button><button class="button small primary" data-select-primary-path="progressive">已设为主要路径</button></footer></article>
+                <article data-primary-path="embedded"><header><span>主线嵌入型</span></header><p>多数学生继续主任务，少数学生接受短时支持后快速回归。</p><div>共同主线 ↘ 靶向支持 ↗ 回归主线</div><footer><button class="text-button" data-view-path-details="embedded">查看详情</button><button class="button small" data-select-primary-path="embedded">设为主要路径</button></footer></article>
+                <article data-primary-path="parallel"><header><span>并行分层型</span></header><p>依据诊断结果临时分流，完成差异化任务后重新汇合。</p><div>共同定向 → 并行学习 → 共同汇聚</div><footer><button class="text-button" data-view-path-details="parallel">查看详情</button><button class="button small" data-select-primary-path="parallel">设为主要路径</button></footer></article>
+                <article data-primary-path="stations"><header><span>站点轮转型</span></header><p>不同站点配置教师、同伴、AI和个体任务，学生按需要流动。</p><div>共同定向 → 功能分站 → 汇聚整合</div><footer><button class="text-button" data-view-path-details="stations">查看详情</button><button class="button small" data-select-primary-path="stations">设为主要路径</button></footer></article>
+                <article data-primary-path="individual"><header><span>个体自驱型</span></header><p>学生进入独立学习回路，持续表达、获得支架并修正理解。</p><div>共同定向 → 个体循环 → 汇聚提升</div><footer><button class="text-button" data-view-path-details="individual">查看详情</button><button class="button small" data-select-primary-path="individual">设为主要路径</button></footer></article>
+              </div>
+              <div class="fusion-section"><div><h3>融合策略</h3><p>可从其他原型中选择最多2项组织机制。</p></div><div class="fusion-options" id="fusionOptions">
+                <label class="selected"><input type="checkbox" data-fusion-strategy="embedded" checked>嵌入少数学生短时支持</label>
+                <label class="selected"><input type="checkbox" data-fusion-strategy="parallel" checked>关键阶段并行分层</label>
+                <label><input type="checkbox" data-fusion-strategy="collaborative">增加异质协同建构</label>
+                <label><input type="checkbox" data-fusion-strategy="stations">配置学习站</label>
+                <label><input type="checkbox" data-fusion-strategy="individual">加入个体AI学习回路</label>
+              </div><small id="fusionCount">已选择2/2项</small></div>
+              <div class="path-brief-heading"><div><h3>路径设计要求</h3><p>尽可能具体地说明课堂如何组织，AI将据此生成活动阶段与并行分支。</p></div><button class="button small" id="showPathPromptTemplate">查看并复制组织模板</button></div>
+              <label class="basis-edit-field path-brief-field"><textarea id="pathDesignBrief" rows="12">【本节课目标】围绕完整最值论证，使学生能够连接约束条件、基本不等式、取等条件与最大值结论。
+
+【整体推进结构】以递进推进型为主要路径：先用典型诊断作答进行全班共同定向；再进入差异化关系建构；随后通过异质交流整合成果；最后撤除支架完成独立复诊和全班总结。
+
+【差异化组织】关系建构阶段采用同质小组并行：P/U学生完成要素识别任务，M学生完成关系图与完整论证任务，R学生完成条件变式与迁移任务。三个小组使用不同支架，但共同服务于本节课核心目标，14分钟后汇合。
+
+【教师、同伴与AI分工】教师重点支持基础组；同伴交流用于解释与质疑；AI只在小组持续无法建立新关系时介入，不直接给出完整论证。
+
+【形成性诊断与动态调整】在共同定向和协同建构后设置检查点。达到标准的学生进入下一阶段；未达到的学生保留关系图或接受短时再教学；证据不足的学生先补充表达。
+
+【现实条件】全课45分钟，40名学生，每组可使用1台平板，同时保留纸质学习单。</textarea></label>
+              <section class="path-prompt-template" id="pathPromptTemplate" hidden><header><div><b>课堂路径组织模板</b><span>复制后可在上方输入框中替换方括号内容。</span></div><button class="button small" id="copyPathPromptTemplate">复制模板</button></header><pre id="pathPromptTemplateText">请根据以下信息设计一节课堂的活动阶段与并行分支：
+1. 本节课核心目标：[填写共同核心目标]
+2. 主要路径及采用理由：[选择路径并说明原因]
+3. 整体推进结构：[写明共同定向、差异化活动、汇合、独立复诊等顺序]
+4. 差异化组织：[哪些学生同时做什么任务，分别使用什么支架，何时汇合]
+5. 教师、同伴与AI分工：[教师重点支持对象；同伴如何交流；AI何时介入]
+6. 形成性诊断：[在哪个阶段检查什么证据；达到、未达到、证据不足后分别怎样调整]
+7. 时间与技术条件：[总时长、班额、设备、纸质或数字资源]
+要求：以“课堂阶段”为一级结构；阶段之间顺序推进；同质分组或学习站在阶段内部并行呈现。</pre></section>
+              <div class="generate-sequence-bar"><div><b id="selectedPathSummary">主要路径：递进推进型</b><span id="sequenceGenerationStatus">已融合：短时支持、并行分层</span></div><button class="button primary" id="generateActivitySequence">根据上述要求生成活动序列</button></div>
+            </article>
+            <div class="panel-actions spread"><button class="button" data-istep-target="1">上一步</button><button class="button primary" data-istep-target="3">下一步：学习活动设计</button></div>
+            </div>
+          </div>
+
+          <div class="intervention-panel" data-ipanel="3">
+            <article class="card intervention-section-card activity-formative-skill-card" id="activityFormativeSkillPanel">
+              <div class="intervention-section-heading"><div><span class="section-kicker">学习活动与形成性评价设计</span></div><span class="status neutral" id="activityFormativeStatus">等待上游目标路径</span></div>
+              <div id="activityFormativePrerequisite" class="goal-path-notice">请先确认“目标设计与活动路径”。</div>
+              <p id="activityFormativeError" class="activity-formative-error" role="alert" hidden></p>
+              <div id="activityFormativeGeneratedContent"></div>
+              <div class="panel-actions spread"><button class="button" data-istep-target="2">上一步</button><div><button class="button ai" id="generateActivityFormative" hidden>AI重新生成学习活动</button><button class="button" id="saveActivityFormativeDraft" hidden>保存修改</button><button class="button primary" id="confirmActivityFormative" hidden>确认活动与评价</button><button class="button primary" id="nextFromActivityFormative" disabled>下一步：报告预览与导出</button></div></div>
+            </article>
+            <div id="legacyActivityEditor" hidden>
+            <article class="card intervention-section-card activity-design-card">
+              <div class="intervention-section-heading"><div><span class="section-kicker">学习活动设计</span></div><div><span class="activity-sequence-source" id="activitySequenceSource">依据：递进推进型＋短时支持＋并行分层</span><button class="help-dot" data-intervention-help="activity-design" aria-label="查看学习活动设计说明">?</button><span class="time-total" id="interventionTimeTotal">45分钟</span></div></div>
+              <div class="sortable-activity-list" id="sortableActivityList">
+                <article class="sequence-activity expanded active" draggable="true" data-sequence-activity="1"><header class="sequence-activity-header"><button class="drag-handle" aria-label="拖拽阶段1排序">⠿</button><span class="sequence-number">1</span><div class="sequence-main"><small>全班 · 共同定向 <em class="checkpoint-tag">检查点E1</em></small><b>比较诊断证据，明确完整论证标准</b></div><label><input class="intervention-minute-input" type="number" value="6" min="1">分钟</label><div class="sequence-actions"><button class="text-button" data-move-activity="up" aria-label="上移阶段1">↑</button><button class="text-button" data-move-activity="down" aria-label="下移阶段1">↓</button><button class="button small quiet" data-toggle-sequence-activity>收起</button></div></header><div class="sequence-activity-body"></div></article>
+                <article class="sequence-activity expanded" draggable="true" data-sequence-activity="2"><header class="sequence-activity-header"><button class="drag-handle" aria-label="拖拽阶段2排序">⠿</button><span class="sequence-number">2</span><div class="sequence-main"><small>同质小组并行 · 差异化进阶</small><b>按诊断结果完成不同支持任务</b></div><label><input class="intervention-minute-input" type="number" value="14" min="1">分钟</label><div class="sequence-actions"><button class="text-button" data-move-activity="up" aria-label="上移阶段2">↑</button><button class="text-button" data-move-activity="down" aria-label="下移阶段2">↓</button><button class="button small quiet" data-toggle-sequence-activity>收起</button></div></header><div class="sequence-activity-body"></div></article>
+                <article class="sequence-activity expanded" draggable="true" data-sequence-activity="3"><header class="sequence-activity-header"><button class="drag-handle" aria-label="拖拽阶段3排序">⠿</button><span class="sequence-number">3</span><div class="sequence-main"><small>异质小组 · 协同建构 <em class="checkpoint-tag">检查点E2</em></small><b>解释、质疑并整合不同路径成果</b></div><label><input class="intervention-minute-input" type="number" value="10" min="1">分钟</label><div class="sequence-actions"><button class="text-button" data-move-activity="up" aria-label="上移阶段3">↑</button><button class="text-button" data-move-activity="down" aria-label="下移阶段3">↓</button><button class="button small quiet" data-toggle-sequence-activity>收起</button></div></header><div class="sequence-activity-body"></div></article>
+                <article class="sequence-activity expanded" draggable="true" data-sequence-activity="4"><header class="sequence-activity-header"><button class="drag-handle" aria-label="拖拽阶段4排序">⠿</button><span class="sequence-number">4</span><div class="sequence-main"><small>个体 · 独立复诊</small><b>撤除支架，独立完成同构问题论证</b></div><label><input class="intervention-minute-input" type="number" value="10" min="1">分钟</label><div class="sequence-actions"><button class="text-button" data-move-activity="up" aria-label="上移阶段4">↑</button><button class="text-button" data-move-activity="down" aria-label="下移阶段4">↓</button><button class="button small quiet" data-toggle-sequence-activity>收起</button></div></header><div class="sequence-activity-body"></div></article>
+                <article class="sequence-activity expanded" draggable="true" data-sequence-activity="5"><header class="sequence-activity-header"><button class="drag-handle" aria-label="拖拽阶段5排序">⠿</button><span class="sequence-number">5</span><div class="sequence-main"><small>全班 · 汇聚提升</small><b>比较学习成果并总结论证结构</b></div><label><input class="intervention-minute-input" type="number" value="5" min="1">分钟</label><div class="sequence-actions"><button class="text-button" data-move-activity="up" aria-label="上移阶段5">↑</button><button class="text-button" data-move-activity="down" aria-label="下移阶段5">↓</button><button class="button small quiet" data-toggle-sequence-activity>收起</button></div></header><div class="sequence-activity-body"></div></article>
+              </div>
+              <div class="activity-sequence-footer"><button class="button" id="addInterventionActivity">＋添加学习活动</button><span id="activityOrderStatus">活动序列已自动保存</span></div>
+
+            </article>
+            <div class="panel-actions spread"><button class="button" data-istep-target="2">上一步</button><button class="button primary" data-istep-target="4">下一步：报告预览与导出</button></div>
+            </div>
+          </div>
+
+          <div class="intervention-panel" data-ipanel="4">
+            <article class="card intervention-report-shell" id="interventionPlanPreview">
+              <div class="intervention-section-heading"><div><h2>教学报告与方案审核</h2></div><button class="button ai" id="refreshInterventionReport" hidden>AI重新生成教学报告</button></div>
+              <p id="integrationReportStatus" class="integration-report-status" role="status">正在读取报告状态…</p>
+              <div id="interventionReportContent" class="intervention-report-content"><p class="report-empty">正在读取报告…</p></div>
+              <footer class="plan-preview-actions" id="integrationReportActions" hidden><button class="button" id="downloadInterventionPdf">下载 PDF</button><button class="button primary" id="downloadInterventionReport">导出 HTML 报告</button></footer>
+            </article>
+            <div class="panel-actions spread"><button class="button" data-istep-target="3">上一步</button><button class="button primary" id="finishInterventionDesign">完成本节课设计</button></div>
+          </div>
+
+          <div class="intervention-help-overlay" id="interventionHelpModal" hidden><section class="intervention-help-dialog" role="dialog" aria-modal="true" aria-labelledby="interventionHelpTitle"><header><div><span>填写说明</span><h2 id="interventionHelpTitle">设计说明</h2></div><button class="icon-button" data-close-intervention-help aria-label="关闭">×</button></header><div id="interventionHelpContent"></div><footer><button class="button primary" data-close-intervention-help>知道了</button></footer></section></div>
+
+          <div class="intervention-panel legacy-intervention-panel" data-legacy-ipanel="3">
+            <article class="card panel-card"><div class="panel-heading"><span class="step-index">03</span><div><h2>AI 推荐课堂活动路径，教师最终选择</h2><p>推荐依据来自学生差异分布、目标结构、时间和课堂条件。</p></div><button class="button ai">更新推荐</button></div>
+              <div class="path-grid">
+                <article data-path="progressive"><div class="path-title"><span>递进式</span><em>匹配度 84%</em></div><div class="path-diagram">C → H → X → I → C</div><p>适合内容具有清晰进阶关系，学生有共同基础且存在层级差异。</p><button class="button small" data-select-path="progressive">选择此路径</button></article>
+                <article class="selected" data-path="parallel"><div class="path-title"><span>并行式</span><em>匹配度 93% · 推荐</em></div><div class="path-diagram">C → E → { H₁ ｜ H₂ ｜ I } → E → C</div><p>班级同时存在补偿、关系建构和迁移需要，适合在共同任务后按证据短时分流。</p><button class="button small primary" data-select-path="parallel">已选择</button></article>
+                <article data-path="collaborative"><div class="path-title"><span>互动建构式</span><em>匹配度 81%</em></div><div class="path-diagram">I → X → I → E → C</div><p>适合利用观点差异，通过独立判断、同伴解释与再次判断促进关系重构。</p><button class="button small" data-select-path="collaborative">选择此路径</button></article>
+              </div>
+              <div class="path-reason"><b>AI 推荐依据</b><p>12 名学生需要从 M 进入 R，适合集中进行关系建构；同时 4 名 U 和 2 名 P 需要更强支架，19 名 R/EA 可进入迁移任务。选择并行式可以保持共同核心目标，并让不同支持在 45 分钟内短时并行。</p><button class="text-button">查看证据对应关系</button></div>
+              <div class="symbol-legend"><span><b>C</b>全班</span><span><b>H</b>同质小组</span><span><b>X</b>异质小组</span><span><b>I</b>个体</span><span><b>E</b>形成性证据节点</span></div>
+              <div class="panel-actions spread"><button class="button" data-istep-target="2">上一步</button><button class="button primary" data-istep-target="4">下一步：细化学习活动</button></div>
+            </article>
+          </div>
+
+          <div class="intervention-panel legacy-intervention-panel" data-legacy-ipanel="4">
+            <div class="activity-header"><div><h2>学习活动序列</h2><p>基本粒度是学习活动；每个活动同时配置教学要素、组织范围和会话关系。</p></div><div class="time-total" id="timeTotal">45 分钟</div></div>
+            <div class="lesson-path" id="lessonPath">
+              <article class="activity-card expanded" data-activity="1"><header><button class="activity-toggle"><i>C</i><span><small>活动 1 · 全班</small><b>呈现诊断证据与明确共同问题</b></span></button><label><input class="minute-input" type="number" value="7" min="1"> 分钟</label></header><div class="activity-body"><div class="activity-meta"><span>SOLO 目标：共同定向</span><span>师生会话</span><span>AI 不直接面向学生</span></div><div class="activity-elements"><label>目标<textarea rows="2">理解本节课要解决的是“如何形成有条件、有依据的最大值论证”。</textarea></label><label>内容<textarea rows="2">匿名典型作答 3 份：只给结论、要素齐全但关系缺失、完整论证。</textarea></label><label>学习活动<textarea rows="2">学生比较三份作答，标出“有了什么证据”和“还缺什么关系”。</textarea></label><label>支架<textarea rows="2">比较维度：约束、目标量、方法、取等条件、结论。</textarea></label><label>组织形式<select><option>全班 C</option><option>同质小组 H</option><option>异质小组 X</option><option>个体 I</option></select></label><label>会话关系<select><option>师生</option><option>师生机</option><option>生生</option><option>生生机</option><option>生机</option></select></label></div><div class="evidence-output"><b>活动证据</b><span>个人比较标记＋全班口头解释</span><button class="text-button">AI 辅助改写本活动</button></div></div></article>
+              <div class="decision-node"><i>E1</i><div><b>快速证据：能否指出完整论证所需的关键关系？</b><span>达成 → 进入分流活动　未达成 → 教师补充示范后再判断</span></div><button class="button small" data-istep-target="5">设置判断规则</button></div>
+              <article class="activity-card" data-activity="2"><header><button class="activity-toggle"><i>H</i><span><small>活动 2 · 同质小组并行</small><b>按进阶目标完成差异化学习任务</b></span></button><label><input class="minute-input" type="number" value="15" min="1"> 分钟</label></header><div class="activity-body"><div class="activity-meta"><span>SOLO 目标：P→U / U→M / M→R / R→EA</span><span>同质小组＋个体</span><span>教师、AI 按需支持</span></div><div class="branch-grid"><section><b>H₁ 基础支持</b><p>任务澄清、关键信息辨析、要素卡片。</p><small>高约束支架 · 教师 mini-lesson</small></section><section><b>H₂ 关系建构</b><p>重排论证卡片并绘制约束—结论关系图。</p><small>关系支架 · 生生解释</small></section><section><b>I 迁移挑战</b><p>改变围栏条件，检验方法和结论是否仍成立。</p><small>开放挑战 · AI 作为反方</small></section></div><div class="activity-elements"><label>目标<textarea rows="2">不同路径分别完成邻近的阶段性认知进阶，并为全班重新汇合准备成果。</textarea></label><label>内容<textarea rows="2">同一核心问题，按需要调整材料聚焦程度、关系可见性与情境距离。</textarea></label><label>学习活动<textarea rows="2">H₁识别要素；H₂建立关系图；I检验边界与迁移。</textarea></label><label>支架<textarea rows="2">H₁要素提示卡；H₂关系框架；I仅提供新条件和反例。</textarea></label><label>组织形式<select><option>同质小组 H＋个体 I</option><option>全班 C</option><option>异质小组 X</option></select></label><label>会话关系<select><option>师生＋生生＋生机</option><option>师生机</option><option>生生机</option></select></label></div><div class="evidence-output"><b>活动证据</b><span>要素清单 / 关系图 / 迁移解释</span><button class="text-button">AI 辅助改写本活动</button></div></div></article>
+              <article class="activity-card" data-activity="3"><header><button class="activity-toggle"><i>X</i><span><small>活动 3 · 异质小组</small><b>解释、质疑并整合不同路径成果</b></span></button><label><input class="minute-input" type="number" value="10" min="1"> 分钟</label></header><div class="activity-body"><div class="activity-meta"><span>SOLO 目标：M→R 为主</span><span>异质小组</span><span>生生会话，AI 条件性介入</span></div><div class="activity-elements"><label>目标<textarea rows="2">通过解释、比较和质疑，把多个局部证据整合为连贯的最值论证。</textarea></label><label>内容<textarea rows="2">不同小组的要素清单、关系图和迁移结果。</textarea></label><label>学习活动<textarea rows="2">个体先说明本组成果；同伴追问依据；小组共同完成一份完整论证。</textarea></label><label>支架<textarea rows="2">会话提示：你的依据是什么？这个条件与结论如何联系？</textarea></label><label>组织形式<select><option>异质小组 X</option><option>同质小组 H</option><option>全班 C</option></select></label><label>会话关系<select><option>生生机</option><option>生生</option><option>师生</option></select></label></div><div class="evidence-output"><b>活动证据</b><span>小组完整论证＋修改痕迹</span><button class="text-button">AI 辅助改写本活动</button></div></div></article>
+              <div class="decision-node"><i>E2</i><div><b>关键证据：能否独立形成包含取等条件的完整论证？</b><span>达成 → 迁移任务　未达成 → 保留关系图支架并进行短时再教学</span></div><button class="button small" data-istep-target="5">设置判断规则</button></div>
+              <article class="activity-card" data-activity="4"><header><button class="activity-toggle"><i>I</i><span><small>活动 4 · 个体</small><b>独立论证与退出卡</b></span></button><label><input class="minute-input" type="number" value="8" min="1"> 分钟</label></header><div class="activity-body"><div class="activity-meta"><span>SOLO 目标：独立达到本次阶段目标</span><span>个体活动</span><span>学生—内容，AI 关闭</span></div><div class="activity-elements"><label>目标<textarea rows="2">在撤除会话支架后独立完成论证，获得可与课前诊断比较的新证据。</textarea></label><label>内容<textarea rows="2">同构但表面情境不同的最值问题。</textarea></label><label>学习活动<textarea rows="2">独立完成退出卡：模型、理由、取等条件、结论。</textarea></label><label>支架<textarea rows="2">仅保留成功标准，不提供步骤或答案提示。</textarea></label><label>组织形式<select><option>个体 I</option><option>全班 C</option></select></label><label>会话关系<select><option>学生—内容</option><option>生机</option></select></label></div><div class="evidence-output"><b>活动证据</b><span>独立退出卡</span><button class="text-button">AI 辅助改写本活动</button></div></div></article>
+              <article class="activity-card" data-activity="5"><header><button class="activity-toggle"><i>C</i><span><small>活动 5 · 全班</small><b>典型成果回看与学习总结</b></span></button><label><input class="minute-input" type="number" value="5" min="1"> 分钟</label></header><div class="activity-body"><div class="activity-meta"><span>SOLO 目标：整合与反思</span><span>全班</span><span>师生机会话</span></div><div class="activity-elements"><label>目标<textarea rows="2">形成班级共同理解，并明确课后继续学习方向。</textarea></label><label>内容<textarea rows="2">典型关系图、完整论证与边界案例。</textarea></label><label>学习活动<textarea rows="2">学生说明自己新增或重组的关系；教师总结论证结构。</textarea></label><label>支架<textarea rows="2">AI 汇总匿名退出卡证据，教师决定展示与总结内容。</textarea></label><label>组织形式<select><option>全班 C</option></select></label><label>会话关系<select><option>师生机</option><option>师生</option></select></label></div><div class="evidence-output"><b>活动证据</b><span>学生自评＋教师课堂观察</span><button class="text-button">AI 辅助改写本活动</button></div></div></article>
+            </div>
+            <div class="activity-footer"><button class="button">＋ 添加学习活动</button><div><button class="button" data-istep-target="3">上一步</button><button class="button primary" data-istep-target="5">下一步：设置形成性诊断</button></div></div>
+          </div>
+
+          <div class="intervention-panel legacy-intervention-panel" data-legacy-ipanel="5">
+            <article class="card panel-card"><div class="panel-heading"><span class="step-index">05</span><div><h2>形成性诊断与动态调节</h2><p>评价只设置在需要决定后续教学方向的关键节点，不机械地附加在每个活动后。</p></div><button class="button">＋ 添加证据节点</button></div>
+              <div class="decision-editor">
+                <article><header><span>E1 · 活动 1 后</span><em>决定是否进入分流</em></header><div class="decision-form"><label>需要判断什么<textarea rows="2">学生能否指出完整论证至少需要约束、方法、取等条件和结论之间的关系。</textarea></label><label>获取什么证据<textarea rows="2">个人比较标记＋随机口头解释。</textarea></label><label>判断标准<textarea rows="2">能指出至少一个关键关系且说明其作用；表达过少则记为证据不足。</textarea></label><div class="routes"><div><b>达到</b><span>按课前诊断进入 H₁ / H₂ / I</span></div><div><b>未达到</b><span>教师用典型作答补充示范后再次判断</span></div></div></div></article>
+                <article><header><span>E2 · 活动 3 后</span><em>决定继续、补偿或迁移</em></header><div class="decision-form"><label>需要判断什么<textarea rows="2">学生能否在同伴讨论后独立形成包含取等条件的完整论证。</textarea></label><label>获取什么证据<textarea rows="2">小组论证修改痕迹＋2分钟个人书面解释。</textarea></label><label>判断标准<textarea rows="2">关系完整进入独立迁移；关系缺失保留支架；证据不足先补充表达。</textarea></label><div class="routes"><div><b>达到</b><span>撤除支架，进入独立迁移退出卡</span></div><div><b>未达到</b><span>保留关系图，教师或 AI 进行按需支持</span></div></div></div></article>
+              </div>
+              <div class="ai-intervention-rule"><h3>小组 AI 何时介入</h3><label><input type="checkbox" checked>连续多轮没有新观点</label><label><input type="checkbox" checked>关键要素持续缺失</label><label><input type="checkbox" checked>学生无法说明关系依据</label><label><input type="checkbox" checked>成员参与明显失衡</label><label><input type="checkbox" checked>小组形成错误共识</label><p>AI 采用条件性介入，不持续占据讨论，也不替学生完成最终判断。</p></div>
+              <div class="panel-actions spread"><button class="button" data-istep-target="4">上一步</button><button class="button primary" data-istep-target="6">下一步：生成完整方案</button></div>
+            </article>
+          </div>
+
+          <div class="intervention-panel legacy-intervention-panel" data-legacy-ipanel="6">
+            <div class="output-toolbar"><div><h2>完整干预方案与配套资源</h2></div><div><button class="button">方案评价</button><button class="button primary" id="exportPlanButton">导出 Word 方案</button></div></div>
+            <div class="output-tabs"><button class="active" data-output-tab="lesson">课堂方案</button><button data-output-tab="resources">差异化学习单</button><button data-output-tab="agent">课堂 AI 智能体</button></div>
+            <div class="output-panel active" data-output-panel="lesson"><article class="card lesson-document"><header><div><span>高一数学 · 第 1 课时</span><h2>基本不等式中的模型与论证</h2><p>高一（3）班 · 45 分钟 · 并行式精准课堂路径</p></div><span class="status success">时间校验通过</span></header><section><h3>一 学情分析</h3><p>学生已能识别基本数量要素，但 12 名学生的论证仍停留在多要素并列，主要缺口是约束、基本不等式、取等条件与结论之间的关系；另有 3 名学生证据不足，需要在课堂初期补充观察。</p></section><section><h3>二 教学目标</h3><p>共同核心目标：形成有条件、有依据的最值论证。阶段目标按 P→U、U→M、M→R、R→EA 配置，并在共同目标下保持方向一致。</p></section><section><h3>三 课堂路径</h3><div class="document-path">C → E1 → { H₁ ｜ H₂ ｜ I } → X → E2 → I → C</div></section><section><h3>四 活动与评价</h3><table><thead><tr><th>时间</th><th>活动</th><th>组织</th><th>差异化支持</th><th>证据与调节</th></tr></thead><tbody><tr><td>7′</td><td>比较诊断作答，明确问题</td><td>C</td><td>统一比较维度</td><td>E1 决定分流</td></tr><tr><td>15′</td><td>分层完成进阶任务</td><td>H₁/H₂/I</td><td>要素卡/关系图/迁移挑战</td><td>过程作品</td></tr><tr><td>10′</td><td>异质解释与论证整合</td><td>X</td><td>条件性 AI 支架</td><td>E2 决定支架渐退</td></tr><tr><td>8′</td><td>独立退出卡</td><td>I</td><td>仅保留成功标准</td><td>独立再诊断</td></tr><tr><td>5′</td><td>成果回看与总结</td><td>C</td><td>教师整合</td><td>学生自评</td></tr></tbody></table></section></article></div>
+            <div class="output-panel" data-output-panel="resources"><div class="resource-grid"><article class="card resource-card"><span>H₁ · P→U / U→M</span><h3>要素识别学习单</h3><p>聚焦任务表征、相关信息辨析和必要要素补充。</p><ul><li>删去无关信息</li><li>标注约束与目标量</li><li>完成要素清单</li></ul><button class="button small">预览与编辑</button></article><article class="card resource-card"><span>H₂ · M→R</span><h3>关系建构学习单</h3><p>用论证卡片和关系图促进要素整合。</p><ul><li>重排论证步骤</li><li>绘制关系箭头</li><li>解释取等条件</li></ul><button class="button small">预览与编辑</button></article><article class="card resource-card"><span>I · R→EA</span><h3>迁移与边界任务单</h3><p>改变条件、检验边界并迁移论证结构。</p><ul><li>What-if 条件变式</li><li>正例与反例</li><li>模型修订</li></ul><button class="button small">预览与编辑</button></article></div></div>
+            <div class="output-panel" data-output-panel="agent"><article class="card agent-builder"><div class="agent-summary"><div class="agent-icon">AI</div><div><span>课堂小组智能体</span><h2>关系建构讨论伙伴</h2><p>用于活动 3 的异质小组讨论；只在触发条件满足时介入。</p></div><span class="status warning">待教师测试</span></div><div class="agent-config"><section><h3>作用目标</h3><p>促进学生说明要素之间的关系、发现论证缺口并自行完善。</p></section><section><h3>允许行为</h3><p>追问依据、提示遗漏、生成反例、整理小组已提出的观点。</p></section><section><h3>禁止行为</h3><p>直接给出完整论证、替小组作最终判断、持续打断讨论。</p></section><section><h3>介入触发</h3><p>无新观点、关键要素缺失、关系依据不明、参与失衡或错误共识。</p></section></div><div class="agent-test"><label>教师测试区<textarea rows="3" placeholder="输入一段模拟小组讨论，检查 AI 会怎样介入……"></textarea></label><button class="button ai">运行模拟测试</button><button class="button primary">确认并绑定到活动 3</button></div></article></div>
+          </div>
+        </section>
+
+        <section class="page" id="page-profile">
+          <div class="page-heading"><div><button class="back-link" data-page="blocks">← 返回</button><h1>教师与班级背景信息</h1><p>这些信息保存一次，可在多项精准教学中重复使用。</p></div><button class="button primary" id="saveProfileButton">保存设置</button></div>
+          <div class="profile-setup-notice" id="profileSetupNotice" hidden></div>
+          <div class="profile-grid"><article class="card profile-card"><h2>我的教学信息</h2><label>显示名称<input id="profileDisplayName" value="林老师"></label><label>任教学科<input id="profileSubject" value="数学"></label><small>修改姓名或学科后，下次需用新组合进入当前空间。</small><label>教龄<div class="unit-input"><input id="profileYears" type="number" value="12" min="0" max="80"><span>年</span></div></label><label>教学风格<textarea id="profileTeachingStyle" rows="5">重视学生表达与同伴讨论，习惯从典型错误切入，通过追问帮助学生建立概念和关系；课堂节奏清晰，倾向使用纸质学习单。</textarea><small>可以写：你常用的课堂组织方式、提问习惯、技术使用偏好以及希望 AI 避免的做法。也可以点击下方短语快速填写。</small></label><div class="tag-list"><button type="button" data-style-suggestion>重视学生表达</button><button type="button" data-style-suggestion>典型错误分析</button><button type="button" data-style-suggestion>同伴讨论</button><button type="button" data-style-suggestion>纸质学习单</button></div></article><article class="card profile-card"><h2>我的班级</h2><div id="classroomList"><div class="class-profile"><header><b>高一（3）班</b><span>40 人</span></header><p>学生愿意口头表达，但书面论证完整性差异较大；教室可使用投影，每组有 1 台平板。</p><button class="text-button">编辑班级背景</button></div><div class="class-profile"><header><b>高一（5）班</b><span>42 人</span></header><p>学生独立作答速度差异较大，小组合作规范较稳定。</p><button class="text-button">编辑班级背景</button></div></div><button class="button full">＋ 添加班级</button></article></div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <div class="task-guide-overlay" id="taskGuideModal" hidden>
+    <section class="task-guide-dialog" role="dialog" aria-modal="true" aria-labelledby="taskGuideTitle">
+      <header><div><span>诊断任务设计参考</span><h2 id="taskGuideTitle">设计原则</h2></div><button type="button" class="icon-button" data-close-task-guide aria-label="关闭">×</button></header>
+      <div class="task-guide-body">
+        <div data-task-guide-panel="principles">
+          <p class="guide-lead">诊断任务的重点是引出与教学目标相关的思维证据，而不是增加一次普通测验。</p>
+          <div class="design-principle-list">
+            <article><i>1</i><div><h3>促进思维外显</h3><p>引导学生说出“怎么想、为什么这样想”，呈现信息提取、关系建立、判断和论证过程。可采用自我解释、同伴解释、以教为学或辩论等对话策略。</p></div></article>
+            <article><i>2</i><div><h3>坚持目标导向</h3><p>任务应紧扣诊断目标，能够引出教师希望观察的关键思维表现，避免收集与后续教学决策无关的信息。</p></div></article>
+            <article><i>3</i><div><h3>保持适度开放</h3><p>任务不只要求学生给出唯一答案，还要为不同思路、解释和论证方式留出表达空间。</p></div></article>
+            <article><i>4</i><div><h3>兼顾过程与结果</h3><p>同时保留学生与AI的对话过程和最终提交的文本、作品或方案，形成过程性和结果性证据。</p></div></article>
+            <article><i>5</i><div><h3>任务表述完整</h3><p>明确学生需要完成什么、如何与AI对话以及最终提交什么，包括任务内容、生机会话规则和任务成果要求。</p></div></article>
+          </div>
+        </div>
+
+        <div data-task-guide-panel="strategies" hidden>
+          <p class="guide-lead">选择适合本次任务的对话方式。不同策略改变学生与AI的互动关系，但AI均不提供知识讲解、解题步骤、答案或方向性提示。</p>
+          <div class="strategy-card-grid">
+            <article class="strategy-detail-card self"><header><span>01</span><div><h3>自我解释</h3><p>学生向AI说明自己如何理解和解决问题，并解释思考过程及理由。</p></div></header><div class="strategy-role"><b>AI角色</b><span>中性引导者，通过中性追问帮助学生把已有思路表达完整。</span></div><ul><li>学生说明提取的信息、建立的关系、作出的判断及其理由。</li><li>适合了解学生独立解决问题的真实思路及其中的遗漏和障碍。</li></ul></article>
+            <article class="strategy-detail-card peer"><header><span>02</span><div><h3>同伴解释</h3><p>学生向需要进一步理解的AI同伴解释自己的观点，并回应同伴的疑问。</p></div></header><div class="strategy-role"><b>AI角色</b><span>对话同伴，只围绕学生已有表述提出澄清性问题。</span></div><ul><li>学生用同伴容易理解的方式说明想法，并补充含糊或不完整的表述。</li><li>适合借助同伴提问观察学生能否澄清观点、建立关系和调整表达。</li></ul></article>
+            <article class="strategy-detail-card teach"><header><span>03</span><div><h3>以教为学</h3><p>学生扮演教师，把相关概念、方法或问题解决过程完整地教给AI。</p></div></header><div class="strategy-role"><b>AI角色</b><span>需要教授的学生，针对没有听懂的内容请求进一步讲解。</span></div><ul><li>学生自主安排讲解顺序，说明关键概念、条件、方法、理由和结论。</li><li>适合诊断学生能否组织知识、整合关系并形成完整理解。</li></ul></article>
+            <article class="strategy-detail-card debate"><header><span>04</span><div><h3>辩论</h3><p>学生围绕观点、结论或方案与AI辩论，通过回应质疑完善论证。</p></div></header><div class="strategy-role"><b>AI角色</b><span>辩论对象，只追问学生已有观点的证据、条件和逻辑关系。</span></div><ul><li>学生提出判断并说明依据，在回应质疑后坚持、修正或放弃原有观点。</li><li>适合需要比较或论证的任务，观察证据运用、条件意识和论证完整性。</li></ul></article>
+          </div>
+        </div>
+      </div>
+      <footer><button type="button" class="button primary" data-close-task-guide>知道了</button></footer>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <dialog id="llmDebugDialog" class="llm-debug-dialog" aria-labelledby="llmDebugTitle">
+    <div class="llm-debug-header"><div><h2 id="llmDebugTitle">LLM 请求入参</h2><p>仅本机开发环境可见。内容可能包含学生对话、作答和教师报告；不包含 API Key。</p></div><button class="button" type="button" id="llmDebugClose">关闭</button></div>
+    <div class="llm-debug-layout"><div id="llmDebugList" class="llm-debug-list"></div><div class="llm-debug-detail"><p id="llmDebugMeta">选择一条请求查看实际发送的 JSON。</p><textarea id="llmDebugBody" readonly spellcheck="false" aria-label="实际发送给 LLM 的请求 JSON"></textarea></div></div>
+  </dialog>
+  <script src="api-client.js?v=20260927-classroom-edit"></script>
+  <script src="llm-debug.js?v=20260925-llm2"></script>
+  <script src="app.js?v=20260927-classroom-edit"></script>
+</body>
+</html>

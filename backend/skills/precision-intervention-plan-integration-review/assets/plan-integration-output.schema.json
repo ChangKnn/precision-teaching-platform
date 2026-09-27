@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "plan-integration-output.schema.json",
+  "title": "精准干预方案整合与检查输出",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "integration_status", "source_versions", "integrated_plan", "audit_summary", "formatting_adjustments"],
+  "properties": {
+    "schema_version": {"const": "1.2"},
+    "integration_status": {"enum": ["ready_for_use", "ready_with_suggestions", "needs_revision"]},
+    "source_versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class_diagnosis", "goal_path_design", "activity_formative_design"],
+      "properties": {
+        "class_diagnosis": {"enum": ["1.0", "1.1"]},
+        "goal_path_design": {"const": "1.2"},
+        "activity_formative_design": {"const": "1.3"}
+      }
+    },
+    "integrated_plan": {"$ref": "#/$defs/integratedPlan"},
+    "audit_summary": {"$ref": "#/$defs/auditSummary"},
+    "formatting_adjustments": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "basicInformation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan_title", "subject", "grade", "textbook_version_and_chapter", "class_name", "teacher_name", "precision_teaching_topic", "precision_teaching_goals", "precision_teaching_content", "total_duration_minutes"],
+      "properties": {
+        "plan_title": {"type": "string", "minLength": 1},
+        "subject": {"type": "string", "minLength": 1},
+        "grade": {"type": "string", "minLength": 1},
+        "textbook_version_and_chapter": {"type": "string", "minLength": 1},
+        "class_name": {"type": ["string", "null"]},
+        "teacher_name": {"type": ["string", "null"]},
+        "precision_teaching_topic": {"type": "string", "minLength": 1},
+        "precision_teaching_goals": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "precision_teaching_content": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "total_duration_minutes": {"type": "integer", "minimum": 1}
+      }
+    },
+    "teachingConditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["teaching_content_and_curriculum_analysis", "teaching_focus_and_difficulty_analysis", "planned_duration_minutes", "teaching_environment_and_ai_support_conditions"],
+      "properties": {
+        "teaching_content_and_curriculum_analysis": {"type": "string", "minLength": 1},
+        "teaching_focus_and_difficulty_analysis": {"type": "string", "minLength": 1},
+        "planned_duration_minutes": {"type": "integer", "minimum": 1},
+        "teaching_environment_and_ai_support_conditions": {"type": "string", "minLength": 1},
+        "teacher_lesson_conception": {"type": ["string", "null"]}
+      }
+    },
+    "diagnosticTask": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "task_title", "task_text", "task_materials_summary", "response_mode", "task_requirements", "source_ref", "source_display"],
+      "properties": {
+        "task_id": {"type": "string", "minLength": 1},
+        "task_title": {"type": ["string", "null"]},
+        "task_text": {"type": "string", "minLength": 1},
+        "task_materials_summary": {"type": ["string", "null"]},
+        "response_mode": {"type": "string", "minLength": 1},
+        "task_requirements": {"type": "string", "minLength": 1},
+        "source_ref": {"type": ["string", "null"]},
+        "source_display": {"enum": ["查看诊断任务", "未提供"]}
+      }
+    },
+    "overallDiagnosisSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["distribution_overview", "existing_foundation", "common_and_layered_obstacles", "next_teaching_direction", "teacher_facing_paragraph"],
+      "properties": {
+        "distribution_overview": {"type": "string", "minLength": 1},
+        "existing_foundation": {"type": "string", "minLength": 1},
+        "common_and_layered_obstacles": {"type": "string", "minLength": 1},
+        "next_teaching_direction": {"type": "string", "minLength": 1},
+        "teacher_facing_paragraph": {"type": "string", "minLength": 80, "maxLength": 600}
+      }
+    },
+    "diagnosisRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "level_name", "count", "proportion", "students_display", "typical_performance", "main_obstacles"],
+      "properties": {
+        "level": {"enum": ["P", "U", "M", "R", "EA"]},
+        "level_name": {"type": "string", "minLength": 1},
+        "count": {"type": "integer", "minimum": 0},
+        "proportion": {"type": "number", "minimum": 0, "maximum": 1},
+        "students_display": {"type": ["string", "null"]},
+        "typical_performance": {"type": "string"},
+        "main_obstacles": {"type": "string"}
+      }
+    },
+    "diagnosisSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["diagnostic_task", "total_students", "distribution_rows", "overall_summary"],
+      "properties": {
+        "diagnostic_task": {"$ref": "#/$defs/diagnosticTask"},
+        "total_students": {"type": "integer", "minimum": 1},
+        "distribution_rows": {"type": "array", "minItems": 5, "maxItems": 5, "items": {"$ref": "#/$defs/diagnosisRow"}},
+        "overall_summary": {"$ref": "#/$defs/overallDiagnosisSummary"}
+      }
+    },
+    "commonGoal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["goal_statement", "structure_and_rationale", "observable_achievement"],
+      "properties": {
+        "goal_statement": {"type": "string", "minLength": 1},
+        "structure_and_rationale": {"type": "string", "minLength": 1},
+        "observable_achievement": {"type": "string", "minLength": 1}
+      }
+    },
+    "progressionGoal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["goal_id", "target_level", "students_display", "goal_statement", "observable_achievement"],
+      "properties": {
+        "goal_id": {"type": "string", "minLength": 1},
+        "target_level": {"type": "string", "minLength": 1},
+        "students_display": {"type": "string", "minLength": 1},
+        "goal_statement": {"type": "string", "minLength": 1},
+        "observable_achievement": {"type": "string", "minLength": 1}
+      }
+    },
+    "goalDesign": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["common_core_goal", "progression_goals", "progression_goal_note"],
+      "properties": {
+        "common_core_goal": {"$ref": "#/$defs/commonGoal"},
+        "progression_goals": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/progressionGoal"}},
+        "progression_goal_note": {"const": "表中“目标层级—面向学生”的对应，是依据当前诊断为学生确定的最近发展目标，用于安排差异化支持；并不表示学生在本节课中只能达到该层级。学生达到当前目标后，可以继续向更高层次进阶，教师应根据形成性评价动态调整目标与支持。"}
+      }
+    },
+    "pathStage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage_id", "stage_name", "duration_minutes", "unit_ids", "organization_summary", "target_summary", "activity_summary"],
+      "properties": {
+        "stage_id": {"type": "string", "minLength": 1},
+        "stage_name": {"type": "string", "minLength": 1},
+        "duration_minutes": {"type": "integer", "minimum": 1},
+        "unit_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "organization_summary": {"type": "string", "minLength": 1},
+        "target_summary": {"type": "string", "minLength": 1},
+        "activity_summary": {"type": "string", "minLength": 1}
+      }
+    },
+    "pathDesign": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_path_type", "teacher_facing_path", "total_duration_minutes", "stages"],
+      "properties": {
+        "primary_path_type": {"type": "string", "minLength": 1},
+        "teacher_facing_path": {"type": "string", "minLength": 1},
+        "total_duration_minutes": {"type": "integer", "minimum": 1},
+        "stages": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/pathStage"}}
+      }
+    },
+    "activity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["activity_id", "source_stage_id", "source_unit_ids", "activity_name", "activity_objective", "organization_forms", "duration_minutes", "teacher_activities", "student_activities", "ai_support", "learning_materials_and_resources", "learning_product"],
+      "properties": {
+        "activity_id": {"type": "string", "minLength": 1},
+        "source_stage_id": {"type": "string", "minLength": 1},
+        "source_unit_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "activity_name": {"type": "string", "minLength": 1},
+        "activity_objective": {"type": "string", "minLength": 1},
+        "organization_forms": {"type": "array", "minItems": 1, "items": {"enum": ["全班集体干预", "同质小组干预", "异质小组干预", "个体干预"]}},
+        "duration_minutes": {"type": "integer", "minimum": 1},
+        "teacher_activities": {"type": "string", "minLength": 1},
+        "student_activities": {"type": "string", "minLength": 1},
+        "ai_support": {"type": ["string", "null"]},
+        "learning_materials_and_resources": {"type": "string", "minLength": 1},
+        "learning_product": {"type": "string", "minLength": 1}
+      }
+    },
+    "formativeEvaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evaluation_id", "timing", "evaluation_goal", "evidence_and_criteria", "adjustment", "decision_by"],
+      "properties": {
+        "evaluation_id": {"type": "string", "minLength": 1},
+        "timing": {"type": "string", "pattern": "^活动.+之后$"},
+        "evaluation_goal": {"type": "string", "minLength": 1},
+        "evidence_and_criteria": {"type": "string", "minLength": 1},
+        "adjustment": {"type": "string", "minLength": 1},
+        "decision_by": {"type": "string", "minLength": 1}
+      }
+    },
+    "integratedPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["basic_information", "diagnosis_summary", "teaching_context_and_conditions", "goal_design", "overall_path", "activities", "formative_evaluations"],
+      "properties": {
+        "basic_information": {"$ref": "#/$defs/basicInformation"},
+        "diagnosis_summary": {"$ref": "#/$defs/diagnosisSummary"},
+        "teaching_context_and_conditions": {"$ref": "#/$defs/teachingConditions"},
+        "goal_design": {"$ref": "#/$defs/goalDesign"},
+        "overall_path": {"$ref": "#/$defs/pathDesign"},
+        "activities": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/activity"}},
+        "formative_evaluations": {"type": "array", "items": {"$ref": "#/$defs/formativeEvaluation"}}
+      }
+    },
+    "reviewItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_code", "check_item", "status", "issue", "suggestion", "return_to"],
+      "properties": {
+        "rule_code": {"enum": ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8"]},
+        "check_item": {"enum": ["诊断—目标一致性", "目标—活动一致性", "路径—活动一致性", "差异化合理性", "支架适切性", "活动—形成性评价一致性", "师生机角色合理性", "课堂可实施性"]},
+        "status": {"enum": ["✓ 通过", "△ 建议优化", "× 需要修改"]},
+        "issue": {"type": "string", "minLength": 1},
+        "suggestion": {"type": "string", "minLength": 1},
+        "return_to": {"enum": ["—", "班级聚合诊断Skill", "Skill 1", "Skill 2", "教师补充"]}
+      }
+    },
+    "auditSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review_items", "overall_conclusion"],
+      "properties": {
+        "review_items": {"type": "array", "minItems": 8, "maxItems": 8, "items": {"$ref": "#/$defs/reviewItem"}},
+        "overall_conclusion": {"enum": ["可直接使用", "可使用并建议优化", "需要修改后使用"]}
+      }
+    }
+  }
+}

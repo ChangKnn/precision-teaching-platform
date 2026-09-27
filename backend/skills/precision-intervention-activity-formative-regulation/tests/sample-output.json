@@ -1,0 +1,223 @@
+{
+  "schema_version": "1.3",
+  "design_status": "pending_teacher_confirmation",
+  "activity_sequence_summary": {
+    "total_duration_minutes": 45,
+    "stages": [
+      {"stage_id": "ST1", "stage_name": "共同定向", "duration_minutes": 5, "activity_ids": ["ACT-ST1-1"], "simultaneous": false},
+      {"stage_id": "ST2", "stage_name": "分层探究", "duration_minutes": 20, "activity_ids": ["ACT-ST2-1"], "simultaneous": true},
+      {"stage_id": "ST3", "stage_name": "共同汇聚", "duration_minutes": 10, "activity_ids": ["ACT-ST3-1"], "simultaneous": false},
+      {"stage_id": "ST4", "stage_name": "综合应用", "duration_minutes": 10, "activity_ids": ["ACT-ST4-1"], "simultaneous": false}
+    ]
+  },
+  "activities": [
+    {
+      "activity_id": "ACT-ST1-1",
+      "source_stage_id": "ST1",
+      "source_unit_ids": ["ST1-C1"],
+      "sequence_within_stage": 1,
+      "activity_name": "先看证据再下结论",
+      "activity_objective": "明确需要依据食物网关系和数据解释种群变化。",
+      "target_goal_ids": ["PG1", "PG2", "PG3"],
+      "target_student_ids": ["S-01", "S-02", "S-03", "S-04"],
+      "organization_forms": ["全班集体干预"],
+      "dialogue_circles": ["师生会话圈"],
+      "duration_minutes": 5,
+      "learning_materials": ["食物网图", "种群变化数据卡"],
+      "student_task": "独立圈出与问题有关的生物，并指出需要使用的证据。",
+      "cognitive_processing": "区分材料信息与需要说明的结论。",
+      "scaffold_support": [],
+      "participant_actions": [
+        {"order": 1, "actor": "教师", "action": "呈现问题、食物网图和证据使用要求。"},
+        {"order": 2, "actor": "学生", "action": "独立圈出相关生物并标记一条证据。"},
+        {"order": 3, "actor": "教师", "action": "抽取两份标注，明确后续活动都要说明证据与结论的联系。"}
+      ],
+      "learning_product": "个人食物网初始标注",
+      "differentiation_note": null,
+      "parallel_group_tasks": []
+    },
+    {
+      "activity_id": "ACT-ST2-1",
+      "source_stage_id": "ST2",
+      "source_unit_ids": ["ST2-I1", "ST2-H1", "ST2-I2"],
+      "sequence_within_stage": 1,
+      "activity_name": "分组并行探究食物网证据",
+      "activity_objective": "不同学生分别完成有效关系识别、关系链建构和解释条件检验。",
+      "target_goal_ids": ["PG1", "PG2", "PG3"],
+      "target_student_ids": ["S-01", "S-02", "S-03", "S-04"],
+      "organization_forms": ["个体干预", "同质小组干预"],
+      "dialogue_circles": ["师生会话圈", "生生会话圈", "生机会话圈", "学生-内容会话圈"],
+      "duration_minutes": 20,
+      "learning_materials": ["食物网图", "种群变化数据卡", "关系图学习单", "反例卡"],
+      "student_task": "各组同步完成与本组进阶目标对应的证据推理任务。",
+      "cognitive_processing": "分别促进任务聚焦、关系建构和条件迁移。",
+      "scaffold_support": [
+        {"target_students_or_group": "基础支持组（S-01）", "support": "提供三个候选关系和两色标注提示。", "intensity": "高约束", "fading_condition": "能够独立正确连出一条关系后撤去候选项。"},
+        {"target_students_or_group": "关系建构组（S-02、S-03）", "support": "提供带有‘导致—因此’的箭头关系卡。", "intensity": "中等引导", "fading_condition": "能够说明每个箭头含义后撤去文字提示。"},
+        {"target_students_or_group": "迁移检验组（S-04）", "support": "学生完成初步判断后，提供一张反例卡。", "intensity": "低约束挑战", "fading_condition": null}
+      ],
+      "participant_actions": [
+        {"order": 1, "actor": "教师", "action": "说明三个小组的任务、材料和共同产出要求。"},
+        {"order": 2, "actor": "学生", "action": "按所在小组先独立处理材料并留下个人判断。"},
+        {"order": 3, "actor": "同伴", "action": "在关系建构组内比较判断并共同完成小组产出。"},
+        {"order": 4, "actor": "AI", "action": "仅在迁移检验组形成初步解释后提供一个反例。"},
+        {"order": 5, "actor": "教师", "action": "巡回查看证据使用情况，并按达成情况撤换支架。"}
+      ],
+      "learning_product": "基础支持组的一条有效关系、关系建构组的完整关系链、迁移检验组的解释修正单",
+      "differentiation_note": "共享问题背景，按进阶目标改变任务深度与支架强度。",
+      "parallel_group_tasks": [
+        {
+          "source_unit_id": "ST2-I1",
+          "group_name": "基础支持组",
+          "organization_form": "个体干预",
+          "dialogue_circles": ["学生-内容会话圈", "师生会话圈"],
+          "target_goal_ids": ["PG1"],
+          "target_student_ids": ["S-01"],
+          "activity_objective": "独立识别一条与问题直接相关的食物关系。",
+          "learning_materials": ["简化食物网图", "两色标注卡"],
+          "student_task": "从三个候选关系中选出与问题有关的一条，在图上连线并写出两种生物。",
+          "cognitive_processing": "聚焦一个相关信息点，建立最基本的任务联系。",
+          "scaffold_support": [
+            {"target_students_or_group": "S-01", "support": "提供三个候选关系和两色标注提示。", "intensity": "高约束", "fading_condition": "能够独立正确连出一条关系后撤去候选项。"}
+          ],
+          "learning_product": "一条有文字标注的食物关系"
+        },
+        {
+          "source_unit_id": "ST2-H1",
+          "group_name": "关系建构组",
+          "organization_form": "同质小组干预",
+          "dialogue_circles": ["生生会话圈"],
+          "target_goal_ids": ["PG2"],
+          "target_student_ids": ["S-02", "S-03"],
+          "activity_objective": "把多项信息连成关系链并形成完整解释。",
+          "learning_materials": ["食物网图", "种群变化数据卡", "箭头关系卡"],
+          "student_task": "共同完成至少两步的关系链，并说明每一步如何支持结论。",
+          "cognitive_processing": "从多项并列信息转向关系建构和整体解释。",
+          "scaffold_support": [
+            {"target_students_or_group": "S-02、S-03", "support": "提供带有‘导致—因此’的箭头关系卡。", "intensity": "中等引导", "fading_condition": "能说明每个箭头含义后撤去文字提示。"}
+          ],
+          "learning_product": "两步以上食物关系链及口头解释"
+        },
+        {
+          "source_unit_id": "ST2-I2",
+          "group_name": "迁移检验组",
+          "organization_form": "个体干预",
+          "dialogue_circles": ["学生-内容会话圈", "生机会话圈"],
+          "target_goal_ids": ["PG3"],
+          "target_student_ids": ["S-04"],
+          "activity_objective": "改变一个条件，检验并修正原有解释。",
+          "learning_materials": ["食物网图", "条件变化卡", "共享平板"],
+          "student_task": "先独立判断原解释是否仍适用，再利用反例修正解释。",
+          "cognitive_processing": "分析解释成立的条件与边界。",
+          "scaffold_support": [
+            {"target_students_or_group": "S-04", "support": "学生形成判断后，由AI提供一个反例供其检验。", "intensity": "低约束挑战", "fading_condition": null}
+          ],
+          "learning_product": "条件变化下的解释修正单"
+        }
+      ]
+    },
+    {
+      "activity_id": "ACT-ST3-1",
+      "source_stage_id": "ST3",
+      "source_unit_ids": ["ST3-C1"],
+      "sequence_within_stage": 1,
+      "activity_name": "共建食物关系解释图",
+      "activity_objective": "比较各组产出，形成全班共同的证据—关系—结论结构。",
+      "target_goal_ids": ["PG1", "PG2", "PG3"],
+      "target_student_ids": ["S-01", "S-02", "S-03", "S-04"],
+      "organization_forms": ["全班集体干预"],
+      "dialogue_circles": ["师生会话圈"],
+      "duration_minutes": 10,
+      "learning_materials": ["各组学习产出", "全班关系图"],
+      "student_task": "展示、比较并整合不同层次的证据解释。",
+      "cognitive_processing": "把局部证据和关系整合成共同解释结构。",
+      "scaffold_support": [],
+      "participant_actions": [
+        {"order": 1, "actor": "学生", "action": "各组展示一项最能支持结论的产出。"},
+        {"order": 2, "actor": "学生", "action": "在教师组织下比较不同产出中的证据、关系和条件。"},
+        {"order": 3, "actor": "教师", "action": "组织全班共同补全关系图并明确结论成立条件。"}
+      ],
+      "learning_product": "全班共同食物关系解释图",
+      "differentiation_note": "各组以不同复杂度的产出参与共同建构。",
+      "parallel_group_tasks": []
+    },
+    {
+      "activity_id": "ACT-ST4-1",
+      "source_stage_id": "ST4",
+      "source_unit_ids": ["ST4-A1"],
+      "sequence_within_stage": 1,
+      "activity_name": "迁移解释新的食物网",
+      "activity_objective": "综合应用本课形成的证据关系，在新食物网中独立完成解释。",
+      "target_goal_ids": ["PG1", "PG2", "PG3"],
+      "target_student_ids": ["S-01", "S-02", "S-03", "S-04"],
+      "organization_forms": ["个体干预"],
+      "dialogue_circles": ["学生-内容会话圈", "师生会话圈"],
+      "duration_minutes": 10,
+      "learning_materials": ["新食物网任务单"],
+      "student_task": "独立完成新情境解释，并依据证据检查表自行修正一次。",
+      "cognitive_processing": "迁移证据—关系—结论结构。",
+      "scaffold_support": [],
+      "participant_actions": [
+        {"order": 1, "actor": "教师", "action": "发放新情境任务单和对应支架。"},
+        {"order": 2, "actor": "学生", "action": "独立完成解释并依据证据检查表修正。"},
+        {"order": 3, "actor": "教师", "action": "巡视提供个别支持并收集任务单。"}
+      ],
+      "learning_product": "个人新情境解释任务单",
+      "differentiation_note": "共享情境与产出格式，仅调整支架和任务深度。",
+      "parallel_group_tasks": []
+    }
+  ],
+  "formative_evaluation_nodes": [
+    {
+      "evaluation_id": "FE1",
+      "after_activity_ids": ["ACT-ST2-1"],
+      "evaluation_purpose": "判断各组学生是否可以撤换支架并进入共同汇聚。",
+      "target_goal_ids": ["PG1", "PG2", "PG3"],
+      "target_student_ids": ["S-01", "S-02", "S-03", "S-04"],
+      "evidence_task": "教师查看各组自然形成的产出，并抽取个人作简短说明。",
+      "evidence_sources": ["混合"],
+      "evidence_description": "有效关系、完整关系链及条件变化下的修正理由。",
+      "judgment_criteria": [
+        {"goal_id": "PG1", "meets_when": "独立指出一条相关食物关系和涉及的两种生物。", "not_yet_when": "关系与问题无关，或仍需他人代答。"},
+        {"goal_id": "PG2", "meets_when": "形成至少两步关系并说明每一步如何支持结论。", "not_yet_when": "只有多项并列信息，或解释存在关系跳步。"},
+        {"goal_id": "PG3", "meets_when": "判断条件变化后原解释是否适用，并说明修正理由。", "not_yet_when": "只改变结论，没有说明条件与理由。"}
+      ],
+      "adjustment_rules": {
+        "if_goal_reached": "携带本组产出进入全班汇聚，并承担相应展示任务。",
+        "if_not_yet": "保留原支架，在汇聚时先观察对应范例，再完成一项短修正。",
+        "if_evidence_not_individual": "要求相关学生在自己的产出上独立补写一个关系或修正理由。"
+      },
+      "decision_by": "教师判断"
+    },
+    {
+      "evaluation_id": "FE2",
+      "after_activity_ids": ["ACT-ST3-1"],
+      "evaluation_purpose": "判断学生能否独立进入新情境应用。",
+      "target_goal_ids": ["PG1", "PG2", "PG3"],
+      "target_student_ids": ["S-01", "S-02", "S-03", "S-04"],
+      "evidence_task": "每名学生在全班关系图中标出一条证据关系并说明其作用。",
+      "evidence_sources": ["即时作答", "口头解释"],
+      "evidence_description": "学生个人标注及对证据关系的简短说明。",
+      "judgment_criteria": [
+        {"goal_id": "PG1", "meets_when": "能够独立找到一条有效关系。", "not_yet_when": "仍无法确定与问题相关的信息。"},
+        {"goal_id": "PG2", "meets_when": "能够说明关系如何支持结论。", "not_yet_when": "只能指出信息，不能说明联系。"},
+        {"goal_id": "PG3", "meets_when": "能够指出解释成立的一项条件。", "not_yet_when": "把解释当作无条件成立。"}
+      ],
+      "adjustment_rules": {
+        "if_goal_reached": "进入新情境综合应用。",
+        "if_not_yet": "保留全班关系图作为支架，降低新情境材料复杂度。",
+        "if_evidence_not_individual": "请学生独立完成一条证据与结论连线后再判断。"
+      },
+      "decision_by": "教师判断"
+    }
+  ],
+  "teacher_confirmation": {
+    "status": "pending_teacher_confirmation",
+    "items_to_confirm": ["活动2的三组任务能否在现有座位条件下同时开展", "共享平板是否用于迁移检验组"],
+    "unresolved_questions": []
+  },
+  "handoff": {
+    "for_intervention_evaluation": ["共同核心目标与PG1—PG3的学习产出", "活动4的个人任务单"],
+    "for_integration_check": ["阶段和时长与Skill 1保持一致", "活动2合并呈现三个并行单元", "FE1和FE2为课堂中的两次形成性评价"]
+  }
+}

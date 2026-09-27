@@ -1,0 +1,68 @@
+{
+  "precision_teaching_context": {
+    "subject": "科学",
+    "grade": "五年级",
+    "textbook_version_and_chapter": "示例教材·相关章节",
+    "precision_teaching_topic": "基于证据解释变量与现象关系",
+    "precision_teaching_goals": ["能够用控制条件和观察证据形成有依据的解释"],
+    "precision_teaching_content": ["蒸发现象", "控制变量实验", "证据与结论的关系"]
+  },
+  "diagnostic_task": "比较两组实验现象，说明温度是否影响水的蒸发速度，并解释你怎样得出结论。",
+  "task_specific_solo_rubric": {
+    "schema_version": "1.1",
+    "source_basis": {
+      "diagnostic_task_source": "tests/sample-input.json",
+      "general_rubric_source": "test fixture",
+      "general_rubric_anchors": [
+        {"id": "G-P", "level": "P", "definition": "没有形成与任务相关的有效回应", "source_locator": "test fixture"},
+        {"id": "G-U", "level": "U", "definition": "围绕一个相关要素形成有效回应", "source_locator": "test fixture"},
+        {"id": "G-M", "level": "M", "definition": "包含多个相关要素但主要并列", "source_locator": "test fixture"},
+        {"id": "G-R", "level": "R", "definition": "建立关键关系并形成整体结构", "source_locator": "test fixture"},
+        {"id": "G-EA", "level": "EA", "definition": "在整体结构上进一步抽象或迁移", "source_locator": "test fixture"}
+      ],
+      "teacher_context_used": ["subject", "grade", "precision_teaching_topic"],
+      "student_responses_role": "not_provided",
+      "source_uncertainties": []
+    },
+    "task_analysis": {
+      "true_cognitive_demand": "利用控制变量实验的观察差异，建立条件、证据与结论之间的解释关系。",
+      "elements": [
+        {"id": "E1", "name": "观察差异", "meaning": "两组水量变化速度不同"},
+        {"id": "E2", "name": "改变变量", "meaning": "两组温度不同"},
+        {"id": "E3", "name": "控制条件", "meaning": "除温度外其他主要条件相同"}
+      ],
+      "relations": {
+        "items": [
+          {"id": "R1", "relation_statement": "在其他条件相同时，将水量变化差异与温度差异连接，支持温度影响蒸发速度的结论。", "element_ids": ["E1", "E2", "E3"]}
+        ],
+        "whole_structure": "用控制条件保证比较有效，再以观察差异为证据形成关于温度影响蒸发速度的完整结论。"
+      },
+      "abstractions": [
+        {"id": "A1", "kind": "boundary_condition", "description": "分析其他条件变化时结论的适用边界", "requires_relation_ids": ["R1"], "beyond_current_task": "将控制变量推理迁移到新实验或识别边界", "opportunity_in_task": true}
+      ],
+      "task_affordance": {
+        "highest_reasonably_elicitable_level": "EA",
+        "limitations": [],
+        "revision_suggestions": []
+      }
+    },
+    "levels": {
+      "P": {"status": "defined", "core_performance": ["没有自主相关内容"], "decision_evidence": ["不能形成任何有效任务要素"], "adjacent_boundaries": ["U 至少自主提出一个有效点"], "typical_expressions": ["只确认他人答案"], "trace_to": ["G-P"]},
+      "U": {"status": "defined", "core_performance": ["自主提出一个相关要素"], "decision_evidence": ["只处理 E1、E2 或 E3 中一个"], "adjacent_boundaries": ["M 需多个不同要素"], "typical_expressions": ["只说温度不同"], "trace_to": ["G-U", "E1"]},
+      "M": {"status": "defined", "core_performance": ["列出多个相关要素但未组织关系"], "decision_evidence": ["涉及多个 E，未形成 R1"], "adjacent_boundaries": ["R 需形成控制条件—证据—结论关系"], "typical_expressions": ["列出温度和水量变化"], "trace_to": ["G-M", "E1", "E2"]},
+      "R": {"status": "defined", "core_performance": ["形成当前实验的完整解释"], "decision_evidence": ["自主形成 R1 和整体结构"], "adjacent_boundaries": ["EA 还需迁移、概括或边界分析"], "typical_expressions": ["说明控制条件如何让证据支持结论"], "trace_to": ["G-R", "E1", "E2", "E3", "R1"]},
+      "EA": {"status": "defined", "core_performance": ["在 R 基础上完成迁移或边界分析"], "decision_evidence": ["展示 A1"], "adjacent_boundaries": ["仅完整回答当前实验仍是 R"], "typical_expressions": ["讨论其他条件变化时结论是否成立"], "trace_to": ["G-EA", "R1", "A1"]}
+    },
+    "usage_notes": {
+      "evidence_sufficiency": ["上游量规的结构判据用于下游判断；本测试中的个体诊断状态仍由 V2 五级规则决定。"],
+      "boundary_risks": ["不要把列出多个变量直接判为 R。"],
+      "downstream_instructions": ["结合 decision_evidence、adjacent_boundaries 和 trace_to 判断。"]
+    }
+  },
+  "student": {"student_id": "S-001", "student_name": "示例学生"},
+  "human_ai_dialogue": [
+    {"turn_id": "a1", "role": "assistant", "content": "请说明你怎样从实验现象得出结论。"},
+    {"turn_id": "s1", "role": "student", "content": "温度高的杯子水少得更快。两组除温度外其他条件相同，所以水量变化的差别可以说明温度会影响蒸发速度。"}
+  ],
+  "submitted_text": null
+}

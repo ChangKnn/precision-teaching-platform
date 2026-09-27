@@ -1,0 +1,59 @@
+[
+  {
+    "id": "R1-DIAGNOSIS-GOAL-JUMP",
+    "rule": "R1",
+    "condition": "U层学生没有任务特定依据却被直接设置为EA目标",
+    "expected_status": "× 需要修改",
+    "expected_action": "退回Skill 1，将目标调整为与诊断起点相匹配的合理进阶"
+  },
+  {
+    "id": "R2-M-TO-R-WITH-MORE-FACTS",
+    "rule": "R2",
+    "condition": "目标为M到R，活动只要求继续寻找更多信息",
+    "expected_status": "× 需要修改",
+    "expected_action": "退回Skill 2，增加比较、连接和整体解释任务"
+  },
+  {
+    "id": "R3-PATH-NODE-MISMATCH",
+    "rule": "R3",
+    "condition": "Skill 2增加了没有上游路径节点的顺时活动",
+    "expected_status": "× 需要修改",
+    "expected_action": "退回Skill 2恢复与Skill 1一致的阶段和节点映射"
+  },
+  {
+    "id": "R4-DIFFICULTY-ONLY",
+    "rule": "R4",
+    "condition": "三组活动只有简单题、中等题和困难题之分，没有认知加工差异",
+    "expected_status": "△ 建议优化",
+    "expected_action": "优先共用材料，根据进阶障碍调整任务要求和支架"
+  },
+  {
+    "id": "R5-SCAFFOLD-GIVES-RELATION",
+    "rule": "R5",
+    "condition": "M到R活动中AI直接给出完整要素关系",
+    "expected_status": "× 需要修改",
+    "expected_action": "退回Skill 2，把完整答案改为不泄露关系的提示或空白框架"
+  },
+  {
+    "id": "R6-CORRECTNESS-ONLY",
+    "rule": "R6",
+    "condition": "R目标的形成性评价只判断答案是否正确",
+    "expected_status": "× 需要修改",
+    "expected_action": "退回Skill 2，判断学生是否自主建立关系并形成整体解释"
+  },
+  {
+    "id": "R7-AI-WITHOUT-GAIN",
+    "rule": "R7",
+    "condition": "每个活动都使用AI，但普通材料可以完成且没有额外认知价值",
+    "expected_status": "△ 建议优化",
+    "expected_action": "只在AI具有明确反馈、追问或迁移增益的环节保留AI"
+  },
+  {
+    "id": "R8-TIME-OVERFLOW",
+    "rule": "R8",
+    "condition": "顺时活动合计52分钟，教师计划时长45分钟",
+    "expected_status": "× 需要修改",
+    "expected_action": "退回Skill 2压缩或合并活动，不由Skill 3擅自改时长"
+  }
+]
+

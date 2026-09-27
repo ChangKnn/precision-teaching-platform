@@ -1,0 +1,55 @@
+{
+  "precision_teaching_context": {
+    "subject": "历史",
+    "grade": "七年级",
+    "textbook_version_and_chapter": "统编版七年级上册 百家争鸣",
+    "precision_teaching_topic": "谁的治国方案更合适——百家争鸣的多视角历史解释精准教学",
+    "precision_teaching_goals": [
+      "结合历史情境比较至少两种治国方案，说明其针对的问题及理由",
+      "分析不同方案的适用性与局限，形成有依据的综合判断"
+    ],
+    "precision_teaching_content": [
+      "战国时期社会变革与治国需求",
+      "儒家、道家、墨家和法家的主要思想主张及其适用性"
+    ]
+  },
+  "diagnostic_task": {
+    "task_id": "candidate_1",
+    "name": "战国议政辩论",
+    "task_content": "战国时期，一个诸侯国正面临战争频繁、社会秩序动荡和百姓生活困苦等问题。假如你是参与议政的谋士，请从儒家、道家、墨家和法家的治国主张中选择一种你认为更适合这个国家的方案，并至少与另一种方案进行比较。请与AI谋士讨论你的判断、理由、适用条件与可能局限。",
+    "estimated_duration_minutes": 20
+  },
+  "ai_dialogue_contract": {
+    "contract_version": "1.0",
+    "teacher_confirmed": true,
+    "ai_role": "战国议政情境中的质询型谋士，只围绕学生已经提出的观点追问依据、比较标准、条件和逻辑。",
+    "required_rules": [
+      "保持质询型谋士角色",
+      "只围绕学生已经提出的观点提出中性问题",
+      "鼓励学生说明理由并回应质疑"
+    ],
+    "prohibited_behaviors": [
+      "不得主动介绍各学派主张或补充关键史实",
+      "不得提供标准答案、比较结论或方向性提示",
+      "不得评价学生观点是否正确"
+    ]
+  },
+  "student": {
+    "student_id": "S001",
+    "student_name": "测试学生"
+  },
+  "dialogue_state": {
+    "session_id": "session-baijia-001",
+    "mode": "respond",
+    "turn_index": 1,
+    "dialogue_history": [
+      {
+        "turn_id": "turn-0001",
+        "role": "assistant",
+        "content": "战国时期，一个诸侯国正面临战争频繁、社会秩序动荡和百姓生活困苦等问题。假如你是参与议政的谋士，请从儒家、道家、墨家和法家的治国主张中选择一种你认为更适合这个国家的方案，并至少与另一种方案进行比较。请与AI谋士讨论你的判断、理由、适用条件与可能局限。请先说说你的判断。"
+      }
+    ],
+    "current_student_message": "我认为法家更合适，因为当时社会很乱，需要严格管理。"
+  }
+}
+

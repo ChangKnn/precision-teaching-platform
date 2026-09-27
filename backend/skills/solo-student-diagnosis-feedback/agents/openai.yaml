@@ -1,0 +1,4 @@
+interface:
+  display_name: "学生个体 SOLO 思维结构诊断与进阶反馈"
+  short_description: "依据任务量规生成教师易读的学生SOLO诊断与进阶反馈"
+  default_prompt: "使用 $solo-student-diagnosis-feedback，依据任务特定SOLO量规分析学生人机对话和提交文本，输出教师端六部分诊断报告：学生信息、诊断结果与依据、文字思维结构图及约200字结构分析、多项问题与进阶障碍、进阶目标及针对当前精准教学主题的学习策略。"

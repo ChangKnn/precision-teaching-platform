@@ -1,0 +1,17 @@
+{
+  "precision_teaching_context": {
+    "subject": "历史",
+    "grade": "七年级",
+    "textbook_version_and_chapter": "统编版七年级上册 第一单元 史前时期：中国境内早期人类与文明的起源",
+    "precision_teaching_topic": "考古证据与北京人生活推断的精准教学",
+    "precision_teaching_goals": [
+      "学生能够依据考古遗存说明北京人制作工具、使用火和群体生活的历史结论",
+      "学生能够建立证据、推理与历史结论之间的关系"
+    ],
+    "precision_teaching_content": [
+      "北京人遗址中的石器、用火遗迹及群体活动证据",
+      "无文字记载时期历史认识的证据与推理方法"
+    ]
+  }
+}
+

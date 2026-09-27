@@ -1,0 +1,4 @@
+interface:
+  display_name: "精准干预目标与路径设计"
+  short_description: "生成分层进阶目标与教师可读的课堂活动路径"
+  default_prompt: "Use $precision-intervention-goal-path-design to design progression goals and a teacher-readable staged classroom activity path from a class SOLO diagnosis."

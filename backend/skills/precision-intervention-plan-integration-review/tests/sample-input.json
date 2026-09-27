@@ -1,0 +1,139 @@
+{
+  "schema_version": "1.2",
+  "precision_teaching_context": {
+    "subject": "历史",
+    "grade": "七年级",
+    "textbook_version_and_chapter": "统编版七年级上册 第一单元",
+    "precision_teaching_topic": "无文字时代历史结论的证据解释",
+    "precision_teaching_goals": ["依据考古遗存建立证据、推理与历史结论之间的关系"],
+    "precision_teaching_content": ["北京人制作工具、使用火和群体生活的考古证据及解释"]
+  },
+  "teacher_instructional_context": {
+    "teaching_content_and_curriculum_analysis": "本课围绕无文字记载条件下如何依据考古遗存形成历史认识，落实从史料中提取信息、辨析证据与结论并作出有依据解释的要求。",
+    "teaching_focus_and_difficulty_analysis": "重点是建立考古遗存与北京人制作工具、使用火和群体生活等结论的对应关系；难点是从多项材料的并列列举转向证据—推理—结论的完整解释。",
+    "planned_duration_minutes": 45,
+    "teaching_environment_and_ai_support_conditions": "普通教室，可投影，课桌可进行一次分组调整；有考古遗存图片卡、证据关系学习单和2台平板；仅迁移检验组可轮流使用AI，学生先独立作答；教师不能同时进行多个一对一指导。",
+    "teacher_lesson_conception": "希望先让全班辨析考古证据，再按不同需要完成证据对应和关系建构，最后共同形成证据—推理—结论框架。"
+  },
+  "diagnostic_task_context": {
+    "task_id": "DT-BJ-001",
+    "task_title": "北京人生活证据解释",
+    "task_text": "几十万年前没有文字记载，我们凭什么知道北京人会制作工具、使用火和群体生活？请与AI对话说出你的想法。",
+    "task_materials_summary": "学生可结合北京人遗址出土的石器、用火遗迹、人类化石及共同活动遗存进行解释。",
+    "response_mode": "学生与AI对话",
+    "task_requirements": "说明判断所依据的考古证据，并解释证据如何支持相应历史结论。",
+    "source_ref": "/diagnostic-tasks/DT-BJ-001"
+  },
+  "class_diagnosis_result": {
+    "schema_version": "1.0",
+    "class_summary": {
+      "total_students": 4,
+      "distribution": [
+        {"level": "P", "level_name": "前结构", "count": 1, "proportion": 0.25, "students": [{"student_id": "S01", "student_name": "学生甲"}]},
+        {"level": "U", "level_name": "单点结构", "count": 1, "proportion": 0.25, "students": [{"student_id": "S02", "student_name": "学生乙"}]},
+        {"level": "M", "level_name": "多点结构", "count": 2, "proportion": 0.5, "students": [{"student_id": "S03", "student_name": "学生丙"}, {"student_id": "S04", "student_name": "学生丁"}]},
+        {"level": "R", "level_name": "关联结构", "count": 0, "proportion": 0, "students": []},
+        {"level": "EA", "level_name": "拓展抽象结构", "count": 0, "proportion": 0, "students": []}
+      ]
+    },
+    "overall_diagnosis": {
+      "dominant_levels": ["M"],
+      "overall_characteristics": "多数学生能列出多项考古遗存，但尚不能清楚说明遗存如何支持具体历史结论。",
+      "differentiation_summary": "班内同时存在未进入证据任务、单点作答和多点并列三类需要。",
+      "main_progression_direction": "从识别有效证据推进到建立证据—推理—结论关系。"
+    },
+    "level_analyses": [
+      {"level": "P", "level_name": "前结构", "count": 1, "main_performance": "只表示同意AI答案，未自主提出证据。", "main_obstacles": ["尚未进入证据解释任务"]},
+      {"level": "U", "level_name": "单点结构", "count": 1, "main_performance": "能指出一项用火遗迹，但只形成一个证据点。", "main_obstacles": ["不能扩展多项相关证据"]},
+      {"level": "M", "level_name": "多点结构", "count": 2, "main_performance": "列出石器、灰烬和化石等多项材料。", "main_obstacles": ["多个要素并列，缺少与具体结论的对应关系"]}
+    ],
+    "teaching_priorities": {
+      "teaching_focus": {"statement": "建立证据—推理—结论关系"},
+      "teaching_difficulty": {"statement": "从材料列举转向有依据的整体解释"}
+    },
+    "traceability": {
+      "levels_unchanged": true,
+      "level_assignments": [
+        {"student_id": "S01", "original_level": "P"},
+        {"student_id": "S02", "original_level": "U"},
+        {"student_id": "S03", "original_level": "M"},
+        {"student_id": "S04", "original_level": "M"}
+      ]
+    }
+  },
+  "goal_path_design": {
+    "schema_version": "1.2",
+    "design_status": "teacher_confirmed",
+    "common_core_goal": {
+      "goal_statement": "依据考古遗存解释北京人制作工具、使用火和群体生活的历史结论。",
+      "target_cognitive_structure": {"solo_level": "R", "level_name": "关联结构", "structure_and_rationale": "把不同遗存、推理过程和历史结论组织成完整证据关系。"},
+      "observable_success_criteria": ["至少建立两组正确的遗存—推理—结论关系", "能够说明证据如何支持结论"]
+    },
+    "progression_goals": [
+      {"goal_id": "PG1", "target_level_code": "U", "target_level_name": "单点结构目标", "source_levels": ["P"], "target_students": [{"student_id": "S01", "student_name": "学生甲", "current_level": "P"}], "goal_statement": "自主识别一项与北京人生活有关的有效考古证据。", "observable_achievement": "不依赖他人答案，指出一项证据及其对应结论。", "custom_goal_note": null},
+      {"goal_id": "PG2", "target_level_code": "M", "target_level_name": "多点结构目标", "source_levels": ["U"], "target_students": [{"student_id": "S02", "student_name": "学生乙", "current_level": "U"}], "goal_statement": "识别分别支持工具、用火和群体生活的多项证据。", "observable_achievement": "至少列出两项相关证据并分别指出对应结论。", "custom_goal_note": null},
+      {"goal_id": "PG3", "target_level_code": "R", "target_level_name": "关联结构目标", "source_levels": ["M"], "target_students": [{"student_id": "S03", "student_name": "学生丙", "current_level": "M"}, {"student_id": "S04", "student_name": "学生丁", "current_level": "M"}], "goal_statement": "建立遗存、推理与历史结论之间的完整关系。", "observable_achievement": "用证据—推理—结论结构解释至少两项历史结论。", "custom_goal_note": null}
+    ],
+    "student_goal_assignments": [
+      {"student_id": "S01", "student_name": "学生甲", "original_level": "P", "primary_goal_id": "PG1"},
+      {"student_id": "S02", "student_name": "学生乙", "original_level": "U", "primary_goal_id": "PG2"},
+      {"student_id": "S03", "student_name": "学生丙", "original_level": "M", "primary_goal_id": "PG3"},
+      {"student_id": "S04", "student_name": "学生丁", "original_level": "M", "primary_goal_id": "PG3"}
+    ],
+    "intervention_path": {
+      "primary_path_type": "并行分层型",
+      "primary_path_label": "并行分层型",
+      "teacher_facing_path": "全班共同定向（C）→分层活动同时开展〔个体支持（I）｜同质小组活动（H）〕→全班共同汇聚（C）→综合应用（A）",
+      "topology_notation": "C→{I1|I2|H1}→C→A",
+      "stages": [
+        {"stage_id": "ST1", "stage_name": "共同定向", "duration_minutes": 5, "activity_units": [{"unit_id": "ST1-C1", "organization_code": "C", "organization_name": "全班共同活动（C）", "target_goal_ids": ["PG1", "PG2", "PG3"], "target_students": [{"student_id": "S01", "student_name": "学生甲"}, {"student_id": "S02", "student_name": "学生乙"}, {"student_id": "S03", "student_name": "学生丙"}, {"student_id": "S04", "student_name": "学生丁"}], "activity_summary": "共同明确历史结论需要考古证据支持。"}]},
+        {"stage_id": "ST2", "stage_name": "分层并行探究", "duration_minutes": 20, "activity_units": [
+          {"unit_id": "ST2-I1", "organization_code": "I", "organization_name": "个体学习或个别支持（I）", "target_goal_ids": ["PG1"], "target_students": [{"student_id": "S01", "student_name": "学生甲"}], "activity_summary": "形成一个自主证据点。"},
+          {"unit_id": "ST2-I2", "organization_code": "I", "organization_name": "个体学习或个别支持（I）", "target_goal_ids": ["PG2"], "target_students": [{"student_id": "S02", "student_name": "学生乙"}], "activity_summary": "扩展多项相关证据。"},
+          {"unit_id": "ST2-H1", "organization_code": "H", "organization_name": "同质小组活动（H）", "target_goal_ids": ["PG3"], "target_students": [{"student_id": "S03", "student_name": "学生丙"}, {"student_id": "S04", "student_name": "学生丁"}], "activity_summary": "建立证据—推理—结论关系。"}
+        ]},
+        {"stage_id": "ST3", "stage_name": "共同汇聚", "duration_minutes": 10, "activity_units": [{"unit_id": "ST3-C1", "organization_code": "C", "organization_name": "全班共同活动（C）", "target_goal_ids": ["PG1", "PG2", "PG3"], "target_students": [{"student_id": "S01", "student_name": "学生甲"}, {"student_id": "S02", "student_name": "学生乙"}, {"student_id": "S03", "student_name": "学生丙"}, {"student_id": "S04", "student_name": "学生丁"}], "activity_summary": "汇聚并比较各组证据解释。"}]},
+        {"stage_id": "ST4", "stage_name": "综合应用", "duration_minutes": 10, "activity_units": [{"unit_id": "ST4-A1", "organization_code": "A", "organization_name": "综合应用（A）", "target_goal_ids": ["PG1", "PG2", "PG3"], "target_students": [{"student_id": "S01", "student_name": "学生甲"}, {"student_id": "S02", "student_name": "学生乙"}, {"student_id": "S03", "student_name": "学生丙"}, {"student_id": "S04", "student_name": "学生丁"}], "activity_summary": "在新材料中独立完成证据解释。"}]}
+      ],
+      "total_duration_minutes": 45
+    },
+    "teacher_confirmation": {"status": "teacher_confirmed", "items_to_confirm": [], "unresolved_decisions": []}
+  },
+  "activity_formative_design": {
+    "schema_version": "1.3",
+    "design_status": "teacher_confirmed",
+    "activity_sequence_summary": {
+      "total_duration_minutes": 45,
+      "stages": [
+        {"stage_id": "ST1", "stage_name": "共同定向", "duration_minutes": 5, "activity_ids": ["ACT-ST1-1"], "simultaneous": false},
+        {"stage_id": "ST2", "stage_name": "分层并行探究", "duration_minutes": 20, "activity_ids": ["ACT-ST2-1"], "simultaneous": true},
+        {"stage_id": "ST3", "stage_name": "共同汇聚", "duration_minutes": 10, "activity_ids": ["ACT-ST3-1"], "simultaneous": false},
+        {"stage_id": "ST4", "stage_name": "综合应用", "duration_minutes": 10, "activity_ids": ["ACT-ST4-1"], "simultaneous": false}
+      ]
+    },
+    "activities": [
+      {"activity_id": "ACT-ST1-1", "source_stage_id": "ST1", "source_unit_ids": ["ST1-C1"], "sequence_within_stage": 1, "activity_name": "先看证据再下结论", "activity_objective": "明确历史结论必须有考古证据支持。", "target_goal_ids": ["PG1", "PG2", "PG3"], "target_student_ids": ["S01", "S02", "S03", "S04"], "organization_forms": ["全班集体干预"], "dialogue_circles": ["师生会话圈"], "duration_minutes": 5, "learning_materials": ["考古遗存图片卡"], "student_task": "观察材料并区分遗存事实与历史结论。", "cognitive_processing": "形成证据意识和任务定向。", "scaffold_support": [], "participant_actions": [{"order": 1, "actor": "教师", "action": "呈现材料并提出证据要求。"}, {"order": 2, "actor": "学生", "action": "独立标出一项遗存和一项结论。"}], "learning_product": "个人初始证据标注", "differentiation_note": null, "parallel_group_tasks": []},
+      {"activity_id": "ACT-ST2-1", "source_stage_id": "ST2", "source_unit_ids": ["ST2-I1", "ST2-I2", "ST2-H1"], "sequence_within_stage": 1, "activity_name": "分组并行探究北京人生活证据", "activity_objective": "分别形成有效证据点、扩展多项证据和建构证据关系。", "target_goal_ids": ["PG1", "PG2", "PG3"], "target_student_ids": ["S01", "S02", "S03", "S04"], "organization_forms": ["个体干预", "同质小组干预"], "dialogue_circles": ["学生-内容会话圈", "师生会话圈", "生生会话圈"], "duration_minutes": 20, "learning_materials": ["考古遗存图片卡", "证据关系学习单"], "student_task": "各组同步完成与本组进阶目标相应的证据解释任务。", "cognitive_processing": "从任务聚焦和多点扩展推进到关系建构。", "scaffold_support": [{"target_students_or_group": "基础支持学生", "support": "提供证据类别卡，不提供完整对应答案。", "intensity": "高约束", "fading_condition": "能自主指出一项有效证据后撤去类别卡。"}, {"target_students_or_group": "关系建构组", "support": "提供空白的证据—推理—结论关系框架。", "intensity": "中等引导", "fading_condition": "能自主完成一组关系后改用空白纸。"}], "participant_actions": [{"order": 1, "actor": "教师", "action": "说明三类任务和共同产出要求。"}, {"order": 2, "actor": "学生", "action": "先独立处理本组材料。"}, {"order": 3, "actor": "同伴", "action": "关系建构组比较并修正关系。"}, {"order": 4, "actor": "教师", "action": "巡视并按表现撤减支架。"}], "learning_product": "个人证据卡或小组证据关系图", "differentiation_note": "共用核心材料，差异主要体现在认知要求和支架。", "parallel_group_tasks": [
+        {"source_unit_id": "ST2-I1", "group_name": "任务进入组", "organization_form": "个体干预", "dialogue_circles": ["学生-内容会话圈", "师生会话圈"], "target_goal_ids": ["PG1"], "target_student_ids": ["S01"], "activity_objective": "自主识别一项有效证据。", "learning_materials": ["证据类别卡"], "student_task": "选择一项证据并说明对应结论。", "cognitive_processing": "形成一个有效认知点。", "scaffold_support": [], "learning_product": "一张个人证据卡"},
+        {"source_unit_id": "ST2-I2", "group_name": "证据扩展组", "organization_form": "个体干预", "dialogue_circles": ["学生-内容会话圈"], "target_goal_ids": ["PG2"], "target_student_ids": ["S02"], "activity_objective": "扩展多项相关证据。", "learning_materials": ["考古遗存图片卡"], "student_task": "找出至少两项证据并标明对应结论。", "cognitive_processing": "从单点扩展为多点。", "scaffold_support": [], "learning_product": "个人多证据清单"},
+        {"source_unit_id": "ST2-H1", "group_name": "关系建构组", "organization_form": "同质小组干预", "dialogue_circles": ["生生会话圈"], "target_goal_ids": ["PG3"], "target_student_ids": ["S03", "S04"], "activity_objective": "建立遗存、推理与结论关系。", "learning_materials": ["证据关系学习单"], "student_task": "共同完成至少两组证据关系并解释。", "cognitive_processing": "由多点并列转向关系建构。", "scaffold_support": [], "learning_product": "小组证据关系图"}
+      ]},
+      {"activity_id": "ACT-ST3-1", "source_stage_id": "ST3", "source_unit_ids": ["ST3-C1"], "sequence_within_stage": 1, "activity_name": "共建北京人证据解释图", "activity_objective": "汇聚各组成果，形成全班共享的证据解释结构。", "target_goal_ids": ["PG1", "PG2", "PG3"], "target_student_ids": ["S01", "S02", "S03", "S04"], "organization_forms": ["全班集体干预"], "dialogue_circles": ["师生会话圈"], "duration_minutes": 10, "learning_materials": ["各组学习产出", "全班关系图"], "student_task": "展示、比较并整合证据解释。", "cognitive_processing": "把局部证据整合成整体解释。", "scaffold_support": [], "participant_actions": [{"order": 1, "actor": "学生", "action": "展示本组的一项证据解释。"}, {"order": 2, "actor": "教师", "action": "组织比较并补全全班关系图。"}], "learning_product": "全班证据解释图", "differentiation_note": "不同学生用各自达成的成果参与汇聚。", "parallel_group_tasks": []},
+      {"activity_id": "ACT-ST4-1", "source_stage_id": "ST4", "source_unit_ids": ["ST4-A1"], "sequence_within_stage": 1, "activity_name": "解释新的史前遗址", "activity_objective": "综合应用证据解释结构，在新材料中独立形成有依据的结论。", "target_goal_ids": ["PG1", "PG2", "PG3"], "target_student_ids": ["S01", "S02", "S03", "S04"], "organization_forms": ["个体干预"], "dialogue_circles": ["学生-内容会话圈"], "duration_minutes": 10, "learning_materials": ["新遗址材料单"], "student_task": "独立说明新遗址材料能够支持什么结论及理由。", "cognitive_processing": "迁移证据解释结构。", "scaffold_support": [], "participant_actions": [{"order": 1, "actor": "教师", "action": "发放新情境任务单。"}, {"order": 2, "actor": "学生", "action": "独立完成证据解释并自查。"}], "learning_product": "个人新情境解释单", "differentiation_note": "根据目标提供不同留白程度的学习单。", "parallel_group_tasks": []}
+    ],
+    "formative_evaluation_nodes": [
+      {"evaluation_id": "FE1", "after_activity_ids": ["ACT-ST2-1"], "evaluation_purpose": "判断学生是否达到各自阶段性目标并进入共同汇聚。", "target_goal_ids": ["PG1", "PG2", "PG3"], "target_student_ids": ["S01", "S02", "S03", "S04"], "evidence_task": "查看个人证据卡、清单和小组关系图，并抽取个人解释。", "evidence_sources": ["混合"], "evidence_description": "学生形成的证据及关系解释。", "judgment_criteria": [{"goal_id": "PG1", "meets_when": "自主指出一项有效证据及对应结论。", "not_yet_when": "仍需他人代答。"}, {"goal_id": "PG2", "meets_when": "列出至少两项证据并分别对应结论。", "not_yet_when": "仍只有一个证据点。"}, {"goal_id": "PG3", "meets_when": "建立至少两组证据—推理—结论关系。", "not_yet_when": "仍为材料并列。"}], "adjustment_rules": {"if_goal_reached": "进入共同汇聚并承担相应展示。", "if_not_yet": "保留支架并在汇聚时完成短修正。", "if_evidence_not_individual": "要求学生独立补写一组证据关系。"}, "decision_by": "教师判断"},
+      {"evaluation_id": "FE2", "after_activity_ids": ["ACT-ST3-1"], "evaluation_purpose": "判断学生能否进入新情境应用。", "target_goal_ids": ["PG1", "PG2", "PG3"], "target_student_ids": ["S01", "S02", "S03", "S04"], "evidence_task": "每名学生在全班关系图中标出一组证据关系并说明。", "evidence_sources": ["即时作答"], "evidence_description": "个人标注和简短说明。", "judgment_criteria": [{"goal_id": "PG1", "meets_when": "能独立找到有效证据。", "not_yet_when": "无法指出相关证据。"}, {"goal_id": "PG2", "meets_when": "能指出不同证据对应的结论。", "not_yet_when": "证据与结论错配。"}, {"goal_id": "PG3", "meets_when": "能说明证据如何支持结论。", "not_yet_when": "只能复述证据。"}], "adjustment_rules": {"if_goal_reached": "进入综合应用。", "if_not_yet": "保留全班关系图作为支架。", "if_evidence_not_individual": "请学生独立补充一项解释。"}, "decision_by": "教师判断"}
+    ],
+    "teacher_confirmation": {"status": "teacher_confirmed", "items_to_confirm": [], "unresolved_questions": []}
+  },
+  "integration_preferences": {
+    "plan_title": "北京人历史结论证据解释精准教学干预方案",
+    "class_name": "七年级（1）班",
+    "teacher_name": "林老师",
+    "teaching_date": null,
+    "show_student_names": false,
+    "include_review_appendix": true,
+    "wording_density": "concise"
+  }
+}

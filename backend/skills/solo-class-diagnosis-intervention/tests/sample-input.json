@@ -1,0 +1,168 @@
+{
+  "schema_version": "1.0",
+  "precision_teaching_context": {
+    "subject": "科学",
+    "grade": "五年级",
+    "textbook_version_and_chapter": "示例教材·相关章节",
+    "precision_teaching_topic": "基于对照实验解释温度对蒸发速度的影响",
+    "precision_teaching_goals": [
+      "能够区分实验现象、控制条件与结论",
+      "能够把多项实验信息组织成完整的证据解释"
+    ],
+    "precision_teaching_content": [
+      "蒸发现象",
+      "控制变量实验",
+      "证据—推理—结论关系"
+    ]
+  },
+  "student_diagnosis_results": [
+    {
+      "schema_version": "1.0",
+      "student": {"student_id": "S-01", "student_name": "陈晨"},
+      "evidence_sources": {"dialogue_used": true, "submitted_text_used": false},
+      "diagnosis": {
+        "level": "P",
+        "level_name": "前结构",
+        "rationale": "学生只说老师讲过温度会影响蒸发，没有自主使用实验信息。",
+        "next_level_gap": "尚未自主识别一个能够支持结论的实验现象或条件。",
+        "evidence": [
+          {
+            "source": "dialogue",
+            "ref": "s1",
+            "quote": "老师说温度高蒸发就快。",
+            "interpretation": "属于权威转述，没有形成任务相关的自主证据点。",
+            "evidence_role": "autonomous_content"
+          }
+        ],
+        "multi_source_note": null
+      },
+      "thinking_structure_summary": "尚未进入依据实验信息解释结论的认知活动。",
+      "progression": {
+        "current_level": "P",
+        "target_level": "U",
+        "main_obstacle": "把权威结论当作证据，不能自主识别实验信息。",
+        "concrete_goal": "自主指出一个实验现象或条件，并说明它与问题的直接联系。"
+      },
+      "strategies": [
+        {"title": "先找现象", "action": "先圈出一条实验中实际观察到的变化。", "transfer_use": "实验解释任务"},
+        {"title": "区分来源", "action": "把别人告诉的结论与材料本身显示的信息分开。", "transfer_use": "证据判断任务"}
+      ],
+      "traceability": {
+        "rubric_level": "P",
+        "rubric_trace_ids": ["G-P"],
+        "student_evidence_refs": ["s1"]
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "student": {"student_id": "S-02", "student_name": "李明"},
+      "evidence_sources": {"dialogue_used": true, "submitted_text_used": false},
+      "diagnosis": {
+        "level": "M",
+        "level_name": "多点结构",
+        "rationale": "学生列出了温度、水量、时间和容器等多项实验信息，但主要是并列罗列。",
+        "next_level_gap": "尚未说明控制其他条件后，观察差异为什么能够支持温度影响蒸发的结论。",
+        "evidence": [
+          {
+            "source": "dialogue",
+            "ref": "s1",
+            "quote": "实验里有温度、水量、时间和一样的杯子。",
+            "interpretation": "包含多个相关实验要素，但没有建立控制条件、现象与结论的关系。",
+            "evidence_role": "autonomous_content"
+          }
+        ],
+        "multi_source_note": null
+      },
+      "thinking_structure_summary": "能够识别多个实验要素，但信息主要并列，尚未形成控制变量关系。",
+      "progression": {
+        "current_level": "M",
+        "target_level": "R",
+        "main_obstacle": "不能把控制条件、观察差异和结论组织成完整关系链。",
+        "concrete_goal": "说明哪些条件保持一致、哪个条件改变，以及观察差异如何支持结论。"
+      },
+      "strategies": [
+        {"title": "关系表", "action": "把改变条件、控制条件、观察结果和结论填入关系表。", "transfer_use": "控制变量实验"},
+        {"title": "因为所以", "action": "用因为—所以句式连接实验差异与结论。", "transfer_use": "科学论证任务"}
+      ],
+      "traceability": {
+        "rubric_level": "M",
+        "rubric_trace_ids": ["G-M", "E1", "E2", "E3"],
+        "student_evidence_refs": ["s1"]
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "student": {"student_id": "S-03", "student_name": "王芳"},
+      "evidence_sources": {"dialogue_used": true, "submitted_text_used": false},
+      "diagnosis": {
+        "level": "M",
+        "level_name": "多点结构",
+        "rationale": "学生能够描述两组水的温度和水量变化，但没有解释公平比较的条件。",
+        "next_level_gap": "缺少其他条件相同这一关键关系，证据与结论尚未形成整体。",
+        "evidence": [
+          {
+            "source": "dialogue",
+            "ref": "s1",
+            "quote": "一杯水温度高，后来水少得多；另一杯温度低，水少得少。",
+            "interpretation": "描述了多个相关现象，但未说明控制条件如何排除其他解释。",
+            "evidence_role": "autonomous_content"
+          }
+        ],
+        "multi_source_note": null
+      },
+      "thinking_structure_summary": "能够比较实验现象，但尚未把公平比较条件纳入证据解释。",
+      "progression": {
+        "current_level": "M",
+        "target_level": "R",
+        "main_obstacle": "能比较结果但不能说明控制条件的证据作用。",
+        "concrete_goal": "把条件控制、现象比较和结论组织成完整解释。"
+      },
+      "strategies": [
+        {"title": "检查控制条件", "action": "比较结果前先列出必须保持一致的条件。", "transfer_use": "对照实验"},
+        {"title": "排除解释", "action": "说明控制条件如何排除其他可能原因。", "transfer_use": "因果解释任务"}
+      ],
+      "traceability": {
+        "rubric_level": "M",
+        "rubric_trace_ids": ["G-M", "E1", "E2", "E3"],
+        "student_evidence_refs": ["s1"]
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "student": {"student_id": "S-04", "student_name": "赵宇"},
+      "evidence_sources": {"dialogue_used": true, "submitted_text_used": false},
+      "diagnosis": {
+        "level": "R",
+        "level_name": "关联结构",
+        "rationale": "学生把控制条件、温度差异、水量变化和结论组织成完整解释。",
+        "next_level_gap": "尚未把控制变量推理迁移到新的实验情境或分析适用边界。",
+        "evidence": [
+          {
+            "source": "dialogue",
+            "ref": "s1",
+            "quote": "两组除温度外其他条件相同，所以水量变化的差别可以说明温度会影响蒸发速度。",
+            "interpretation": "建立了控制条件—观察差异—结论的整体关系。",
+            "evidence_role": "autonomous_content"
+          }
+        ],
+        "multi_source_note": null
+      },
+      "thinking_structure_summary": "能够用控制变量关系整合多项实验信息并形成当前情境的完整解释。",
+      "progression": {
+        "current_level": "R",
+        "target_level": "EA",
+        "main_obstacle": "完整结构尚未迁移到新实验或接受边界检验。",
+        "concrete_goal": "在新实验情境中迁移控制变量推理，并说明结论成立的条件。"
+      },
+      "strategies": [
+        {"title": "变式迁移", "action": "改变实验对象后复用控制变量结构。", "transfer_use": "新实验设计"},
+        {"title": "边界检验", "action": "提出一个使原结论需要修正的条件。", "transfer_use": "规律适用范围分析"}
+      ],
+      "traceability": {
+        "rubric_level": "R",
+        "rubric_trace_ids": ["G-R", "E1", "E2", "E3", "R1"],
+        "student_evidence_refs": ["s1"]
+      }
+    }
+  ]
+}

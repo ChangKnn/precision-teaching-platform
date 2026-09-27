@@ -1,0 +1,7 @@
+interface:
+  display_name: "精准诊断任务与生机会话设计"
+  short_description: "根据精准教学背景生成3个可选的生机会话诊断任务"
+  default_prompt: "使用 $precision-diagnostic-task-design，根据精准教学主题、目标和内容生成3个具有实质差异的诊断任务，供教师比较选择。"
+
+policy:
+  allow_implicit_invocation: true

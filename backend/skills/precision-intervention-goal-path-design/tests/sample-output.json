@@ -1,0 +1,220 @@
+{
+  "schema_version": "1.2",
+  "design_status": "pending_teacher_confirmation",
+  "common_core_goal": {
+    "goal_statement": "学生能够把改变条件、控制条件、观察结果和实验结论组织成有证据支持的完整解释。",
+    "target_cognitive_structure": {
+      "solo_level": "R",
+      "level_name": "关联结构",
+      "structure_and_rationale": "目标要求学生组织多项实验信息，建立控制条件—观察结果—结论之间的完整关系，核心在关系整合而不是信息数量。"
+    },
+    "observable_success_criteria": [
+      "能够在关系图或书面解释中标明改变条件、控制条件、观察结果和结论。",
+      "能够说明控制其他条件不变为什么使观察差异支持实验结论。"
+    ]
+  },
+  "progression_goals": [
+    {
+      "goal_id": "PG1",
+      "target_level_code": "U",
+      "target_level_name": "U 单点结构目标",
+      "source_levels": ["P"],
+      "target_students": [
+        {"student_id": "S-01", "student_name": "陈晨", "current_level": "P"}
+      ],
+      "goal_statement": "从实验记录中自主识别一个能够用于判断结论的有效条件或观察结果。",
+      "observable_achievement": "能够独立指出一条实验条件或观察结果，并说明它与实验问题相关。",
+      "custom_goal_note": null
+    },
+    {
+      "goal_id": "PG2",
+      "target_level_code": "R",
+      "target_level_name": "R 关联结构目标",
+      "source_levels": ["M"],
+      "target_students": [
+        {"student_id": "S-02", "student_name": "李明", "current_level": "M"},
+        {"student_id": "S-03", "student_name": "王芳", "current_level": "M"}
+      ],
+      "goal_statement": "建立改变条件、控制条件、观察结果和实验结论之间的完整证据关系。",
+      "observable_achievement": "能够完成关系图，并用完整推理说明观察差异为什么支持结论。",
+      "custom_goal_note": null
+    },
+    {
+      "goal_id": "PG3",
+      "target_level_code": "EA",
+      "target_level_name": "EA 拓展抽象结构目标",
+      "source_levels": ["R"],
+      "target_students": [
+        {"student_id": "S-04", "student_name": "赵宇", "current_level": "R"}
+      ],
+      "goal_statement": "把控制变量证据解释迁移到改变容器或湿度的新实验，并判断原结论的适用条件。",
+      "observable_achievement": "能够预测新情境中的结果，指出保持和改变的条件，并说明原结论是否仍适用。",
+      "custom_goal_note": null
+    }
+  ],
+  "student_goal_assignments": [
+    {"student_id": "S-01", "student_name": "陈晨", "original_level": "P", "primary_goal_id": "PG1"},
+    {"student_id": "S-02", "student_name": "李明", "original_level": "M", "primary_goal_id": "PG2"},
+    {"student_id": "S-03", "student_name": "王芳", "original_level": "M", "primary_goal_id": "PG2"},
+    {"student_id": "S-04", "student_name": "赵宇", "original_level": "R", "primary_goal_id": "PG3"}
+  ],
+  "intervention_path": {
+    "primary_path_types": ["递进推进型", "并行分层型"],
+    "primary_path_label": "递进推进型＋并行分层型",
+    "mode_explanation": "课堂整体按照共同定向、分层探究、共同汇聚和综合应用逐步推进，核心探究阶段由三个临时学习单元同时开展不同深度的学习。",
+    "recommendation_reasons": [
+      "班级形成P、M、R三个目标和支持需要清晰的临时群体。",
+      "同一实验材料可以支持不同加工深度，三个活动单元可以在同一时段开展。",
+      "45分钟及现有纸笔和平板资源能够支持三路短时并行并共同汇聚。"
+    ],
+    "teacher_facing_path": "全班共同定向（C）→ 分层活动同时开展〔个体学习（I）｜同质小组活动（H）｜个体学习（I）〕→ 全班汇聚（C）→ 综合应用（A）",
+    "topology_notation": "C → {I1 | H1 | I2} → C → A",
+    "alternative_path": {
+      "path_types": ["递进推进型", "主线嵌入型"],
+      "path_label": "递进推进型＋主线嵌入型",
+      "mode_explanation": "全班沿共同任务逐步推进，在核心学习阶段为少数有需要的学生嵌入短时支持。",
+      "suitable_when": "教师难以同时管理三个活动单元，且P学生的缺口能够通过短时巡视补足时。",
+      "tradeoff": "课堂管理更简单，但M和R学生获得的专门关系建构与迁移时间会减少。"
+    },
+    "stages": [
+      {
+        "stage_id": "ST1",
+        "stage_name": "共同定向",
+        "duration_minutes": 5,
+        "activity_units": [
+          {
+            "unit_id": "ST1-C1",
+            "organization_code": "C",
+            "organization_name": "全班共同活动（C）",
+            "activity_name": "明确实验解释的证据要求",
+            "target_goal_ids": ["PG1", "PG2", "PG3"],
+            "target_students": [
+              {"student_id": "S-01", "student_name": "陈晨"},
+              {"student_id": "S-02", "student_name": "李明"},
+              {"student_id": "S-03", "student_name": "王芳"},
+              {"student_id": "S-04", "student_name": "赵宇"}
+            ],
+            "activity_summary": "共同明确完整实验解释需要条件、观察和结论之间的证据关系。"
+          }
+        ]
+      },
+      {
+        "stage_id": "ST2",
+        "stage_name": "分层活动同时开展",
+        "duration_minutes": 20,
+        "activity_units": [
+          {
+            "unit_id": "ST2-I1",
+            "organization_code": "I",
+            "organization_name": "个体学习或个别支持（I）",
+            "activity_name": "提取可用的实验依据",
+            "target_goal_ids": ["PG1"],
+            "target_students": [
+              {"student_id": "S-01", "student_name": "陈晨"}
+            ],
+            "activity_summary": "从实验材料中形成一个可以用于判断结论的自主证据点。"
+          },
+          {
+            "unit_id": "ST2-H1",
+            "organization_code": "H",
+            "organization_name": "同质小组活动（H）",
+            "activity_name": "建构条件与结论的关系",
+            "target_goal_ids": ["PG2"],
+            "target_students": [
+              {"student_id": "S-02", "student_name": "李明"},
+              {"student_id": "S-03", "student_name": "王芳"}
+            ],
+            "activity_summary": "把改变条件、控制条件、观察结果和结论组织成完整证据关系。"
+          },
+          {
+            "unit_id": "ST2-I2",
+            "organization_code": "I",
+            "organization_name": "个体学习或个别支持（I）",
+            "activity_name": "迁移检验证据解释框架",
+            "target_goal_ids": ["PG3"],
+            "target_students": [
+              {"student_id": "S-04", "student_name": "赵宇"}
+            ],
+            "activity_summary": "将已有证据解释迁移到改变关键条件的新实验情境。"
+          }
+        ]
+      },
+      {
+        "stage_id": "ST3",
+        "stage_name": "共同汇聚",
+        "duration_minutes": 10,
+        "activity_units": [
+          {
+            "unit_id": "ST3-C1",
+            "organization_code": "C",
+            "organization_name": "全班共同活动（C）",
+            "activity_name": "共建实验解释框架",
+            "target_goal_ids": ["PG1", "PG2", "PG3"],
+            "target_students": [
+              {"student_id": "S-01", "student_name": "陈晨"},
+              {"student_id": "S-02", "student_name": "李明"},
+              {"student_id": "S-03", "student_name": "王芳"},
+              {"student_id": "S-04", "student_name": "赵宇"}
+            ],
+            "activity_summary": "汇集不同学习成果，形成全班共享的证据解释框架。"
+          }
+        ]
+      },
+      {
+        "stage_id": "ST4",
+        "stage_name": "综合应用",
+        "duration_minutes": 10,
+        "activity_units": [
+          {
+            "unit_id": "ST4-A1",
+            "organization_code": "A",
+            "organization_name": "综合应用（A）",
+            "activity_name": "运用框架解释新实验",
+            "target_goal_ids": ["PG1", "PG2", "PG3"],
+            "target_students": [
+              {"student_id": "S-01", "student_name": "陈晨"},
+              {"student_id": "S-02", "student_name": "李明"},
+              {"student_id": "S-03", "student_name": "王芳"},
+              {"student_id": "S-04", "student_name": "赵宇"}
+            ],
+            "activity_summary": "在新的综合情境中运用证据解释框架，并按各自进阶目标形成不同深度的表达。"
+          }
+        ]
+      }
+    ],
+    "total_duration_minutes": 45,
+    "feasibility_note": "阶段时长为5+20+10+10=45分钟；ST2三个活动单元同时开展，20分钟只计算一次。",
+    "implementation_notes": [
+      "S-01采用短时个体支持，不把单个学生标记为同质小组。",
+      "分层活动使用同一核心材料，差异体现在加工深度和支持方式。",
+      "若教师实际无法管理三路并行，应改用备选的主线嵌入型。"
+    ]
+  },
+  "teacher_confirmation": {
+    "status": "pending_teacher_confirmation",
+    "items_to_confirm": [
+      "共同核心目标及其R关联结构定位。",
+      "PG1至PG3的目标表述和学生归属。",
+      "并行分层型作为主要路径，主线嵌入型作为条件性备选。",
+      "ST2三个活动单元同时开展。",
+      "各阶段建议时长合计45分钟。"
+    ],
+    "unresolved_decisions": [
+      "教师能否同时管理ST2的三个活动单元。"
+    ]
+  },
+  "handoff": {
+    "for_activity_design": [
+      "依据ST1至ST4和各活动单元细化任务、支架、材料与师生互动。",
+      "保持ST2三个单元同时开展及各自20分钟的共同时间边界。"
+    ],
+    "for_evaluation_design": [
+      "依据共同目标和PG1至PG3的可观察表现，自行确定评价位置、证据任务与调节规则。",
+      "使用原始班级诊断中的起点层级，不从Skill 1的目标反推学生层级。"
+    ],
+    "for_integration_check": [
+      "检查活动是否对应目标、学生、组织方式和建议时长。",
+      "检查形成性评价是否由评价Skill补充，而非回写为Skill 1职责。"
+    ]
+  }
+}

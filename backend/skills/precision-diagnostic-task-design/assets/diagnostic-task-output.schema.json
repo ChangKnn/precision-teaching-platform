@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.codex/precision-diagnostic-task-design/output.schema.json",
+  "title": "精准诊断任务三方案输出",
+  "type": "object",
+  "required": ["schema_version", "diagnostic_task_design", "internal_design_records"],
+  "additionalProperties": false,
+  "$defs": {
+    "dialogue_rules": {
+      "type": "object",
+      "required": ["required", "prohibited"],
+      "additionalProperties": false,
+      "properties": {
+        "required": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "prohibited": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "required": [
+        "candidate_id",
+        "name",
+        "externalization_focus",
+        "interaction_mode",
+        "task_content",
+        "ai_role",
+        "dialogue_rules",
+        "estimated_duration_minutes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "candidate_id": {"type": "string", "pattern": "^candidate_[123]$"},
+        "name": {"type": "string", "minLength": 1},
+        "externalization_focus": {"type": "string", "minLength": 1},
+        "interaction_mode": {"type": "string", "minLength": 1},
+        "task_content": {"type": "string", "minLength": 20},
+        "ai_role": {"type": "string", "minLength": 1},
+        "dialogue_rules": {"$ref": "#/$defs/dialogue_rules"},
+        "estimated_duration_minutes": {"type": "integer", "minimum": 10, "maximum": 30}
+      }
+    },
+    "quality_review": {
+      "type": "object",
+      "required": ["goal_alignment", "thinking_externalization", "answer_non_leakage", "age_appropriateness", "rubric_affordance_review"],
+      "additionalProperties": false,
+      "properties": {
+        "goal_alignment": {"type": "string", "minLength": 1},
+        "thinking_externalization": {"type": "string", "minLength": 1},
+        "answer_non_leakage": {"type": "string", "minLength": 1},
+        "age_appropriateness": {"type": "string", "minLength": 1},
+        "rubric_affordance_review": {"type": "string", "minLength": 1}
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "diagnostic_task_design": {
+      "type": "object",
+      "required": ["comparison", "recommended_candidate_id", "recommendation_rationale", "candidates"],
+      "additionalProperties": false,
+      "properties": {
+        "comparison": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "required": ["candidate_id", "name", "externalization_focus", "interaction_mode", "estimated_duration_minutes"],
+            "additionalProperties": false,
+            "properties": {
+              "candidate_id": {"type": "string", "pattern": "^candidate_[123]$"},
+              "name": {"type": "string", "minLength": 1},
+              "externalization_focus": {"type": "string", "minLength": 1},
+              "interaction_mode": {"type": "string", "minLength": 1},
+              "estimated_duration_minutes": {"type": "integer", "minimum": 10, "maximum": 30}
+            }
+          }
+        },
+        "recommended_candidate_id": {"type": "string", "pattern": "^candidate_[123]$"},
+        "recommendation_rationale": {"type": "string", "minLength": 1},
+        "candidates": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"$ref": "#/$defs/candidate"}
+        }
+      }
+    },
+    "internal_design_records": {
+      "type": "object",
+      "required": ["candidate_records", "diversity_review"],
+      "additionalProperties": false,
+      "properties": {
+        "candidate_records": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "required": ["candidate_id", "selected_externalization_strategy", "selection_rationale", "target_thinking_evidence", "quality_review"],
+            "additionalProperties": false,
+            "properties": {
+              "candidate_id": {"type": "string", "pattern": "^candidate_[123]$"},
+              "selected_externalization_strategy": {"type": "string", "enum": ["自我解释", "同伴解释", "以教为学", "辩论", "其他"]},
+              "selection_rationale": {"type": "string", "minLength": 1},
+              "target_thinking_evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+              "quality_review": {"$ref": "#/$defs/quality_review"}
+            }
+          }
+        },
+        "diversity_review": {
+          "type": "object",
+          "required": ["differentiating_dimensions", "substantive_difference_conclusion"],
+          "additionalProperties": false,
+          "properties": {
+            "differentiating_dimensions": {"type": "array", "minItems": 2, "items": {"type": "string", "minLength": 1}},
+            "substantive_difference_conclusion": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    }
+  }
+}
+

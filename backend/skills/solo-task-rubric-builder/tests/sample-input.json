@@ -1,0 +1,30 @@
+{
+  "precision_teaching_context": {
+    "subject": "历史",
+    "grade": "七年级",
+    "textbook_version_and_chapter": "统编版七年级上册·中国境内早期人类与文明的起源",
+    "precision_teaching_topic": "依据考古证据形成历史解释",
+    "precision_teaching_goals": [
+      "能够区分历史主张与支持主张的考古证据",
+      "能够说明不同证据怎样共同支持对无文字时代生活的解释"
+    ],
+    "precision_teaching_content": [
+      "考古遗存与历史认识",
+      "证据—结论关系",
+      "多种证据的综合解释"
+    ]
+  },
+  "diagnostic_task": {
+    "task_text": "没有文字记载时，我们可以依据哪些材料了解早期人类的生活？请选择材料并说明理由。",
+    "materials": [
+      "石器与加工痕迹",
+      "灰烬和烧骨",
+      "动物化石",
+      "现代人的想象故事"
+    ],
+    "requirements": [
+      "选择你认为有效的材料",
+      "说明材料与结论之间的关系"
+    ]
+  }
+}

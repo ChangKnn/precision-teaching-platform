@@ -1,0 +1,329 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.codex/skills/solo-class-diagnosis-intervention/class-diagnosis-output.schema.json",
+  "title": "Class SOLO aggregation and downstream intervention design basis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "class_summary",
+    "overall_diagnosis",
+    "level_analyses",
+    "teaching_priorities",
+    "grouping_recommendations",
+    "intervention_design_basis",
+    "traceability"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.1"},
+    "class_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total_students", "distribution"],
+      "properties": {
+        "total_students": {"type": "integer", "minimum": 1},
+        "distribution": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {"$ref": "#/$defs/distributionItem"}
+        }
+      }
+    },
+    "overall_diagnosis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dominant_levels",
+        "overall_characteristics",
+        "differentiation_summary",
+        "main_progression_direction",
+        "basis_student_ids"
+      ],
+      "properties": {
+        "dominant_levels": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/levelCode"}
+        },
+        "overall_characteristics": {"type": "string", "minLength": 1},
+        "differentiation_summary": {"type": "string", "minLength": 1},
+        "main_progression_direction": {"type": "string", "minLength": 1},
+        "basis_student_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "level_analyses": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": {"$ref": "#/$defs/levelAnalysis"}
+    },
+    "teaching_priorities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["teaching_focus", "teaching_difficulty"],
+      "properties": {
+        "teaching_focus": {"$ref": "#/$defs/priorityItem"},
+        "teaching_difficulty": {"$ref": "#/$defs/priorityItem"}
+      }
+    },
+    "grouping_recommendations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "homogeneous_groups",
+        "heterogeneous_groups",
+        "heterogeneous_not_recommended_reason",
+        "ungrouped_students",
+        "usage_note"
+      ],
+      "properties": {
+        "homogeneous_groups": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/homogeneousGroup"}
+        },
+        "heterogeneous_groups": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/heterogeneousGroup"}
+        },
+        "heterogeneous_not_recommended_reason": {"type": ["string", "null"]},
+        "ungrouped_students": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/studentRef"}
+        },
+        "usage_note": {"type": "string", "minLength": 1}
+      }
+    },
+    "intervention_design_basis": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/interventionDesignBasisItem"}
+    },
+    "traceability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_skill",
+        "input_student_count",
+        "output_student_ids",
+        "level_assignments",
+        "levels_unchanged",
+        "teaching_context_fields_used"
+      ],
+      "properties": {
+        "source_skill": {"const": "solo-student-diagnosis-feedback"},
+        "input_student_count": {"type": "integer", "minimum": 1},
+        "output_student_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "level_assignments": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["student_id", "original_level"],
+            "properties": {
+              "student_id": {"type": "string", "minLength": 1},
+              "original_level": {"$ref": "#/$defs/levelCode"}
+            }
+          }
+        },
+        "levels_unchanged": {"const": true},
+        "teaching_context_fields_used": {
+          "type": "array",
+          "minItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "subject",
+              "grade",
+              "textbook_version_and_chapter",
+              "precision_teaching_topic",
+              "precision_teaching_goals",
+              "precision_teaching_content"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "levelCode": {
+      "type": "string",
+      "enum": ["P", "U", "M", "R", "EA"]
+    },
+    "studentRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["student_id", "student_name"],
+      "properties": {
+        "student_id": {"type": "string", "minLength": 1},
+        "student_name": {"type": "string", "minLength": 1}
+      }
+    },
+    "distributionItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "allOf": [
+        {"if": {"properties": {"level": {"const": "P"}}}, "then": {"properties": {"level_name": {"const": "前结构"}}}},
+        {"if": {"properties": {"level": {"const": "U"}}}, "then": {"properties": {"level_name": {"const": "单点结构"}}}},
+        {"if": {"properties": {"level": {"const": "M"}}}, "then": {"properties": {"level_name": {"const": "多点结构"}}}},
+        {"if": {"properties": {"level": {"const": "R"}}}, "then": {"properties": {"level_name": {"const": "关联结构"}}}},
+        {"if": {"properties": {"level": {"const": "EA"}}}, "then": {"properties": {"level_name": {"const": "拓展抽象结构"}}}}
+      ],
+      "required": ["level", "level_name", "level_meaning", "count", "proportion", "students"],
+      "properties": {
+        "level": {"$ref": "#/$defs/levelCode"},
+        "level_name": {"type": "string", "minLength": 1},
+        "level_meaning": {"type": "string", "minLength": 1},
+        "count": {"type": "integer", "minimum": 0},
+        "proportion": {"type": "number", "minimum": 0, "maximum": 1},
+        "students": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/studentRef"}
+        }
+      }
+    },
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["student_id", "student_name", "source_ref", "quote", "interpretation"],
+      "properties": {
+        "student_id": {"type": "string", "minLength": 1},
+        "student_name": {"type": "string", "minLength": 1},
+        "source_ref": {"type": "string", "minLength": 1},
+        "quote": {"type": "string", "minLength": 1},
+        "interpretation": {"type": "string", "minLength": 1}
+      }
+    },
+    "levelAnalysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "allOf": [
+        {"if": {"properties": {"level": {"const": "P"}}}, "then": {"properties": {"level_name": {"const": "前结构"}}}},
+        {"if": {"properties": {"level": {"const": "U"}}}, "then": {"properties": {"level_name": {"const": "单点结构"}}}},
+        {"if": {"properties": {"level": {"const": "M"}}}, "then": {"properties": {"level_name": {"const": "多点结构"}}}},
+        {"if": {"properties": {"level": {"const": "R"}}}, "then": {"properties": {"level_name": {"const": "关联结构"}}}},
+        {"if": {"properties": {"level": {"const": "EA"}}}, "then": {"properties": {"level_name": {"const": "拓展抽象结构"}}}}
+      ],
+      "required": [
+        "level",
+        "level_name",
+        "level_meaning",
+        "count",
+        "students",
+        "main_performance",
+        "typical_evidence",
+        "main_obstacles"
+      ],
+      "properties": {
+        "level": {"$ref": "#/$defs/levelCode"},
+        "level_name": {"type": "string", "minLength": 1},
+        "level_meaning": {"type": "string", "minLength": 1},
+        "count": {"type": "integer", "minimum": 1},
+        "students": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/studentRef"}
+        },
+        "main_performance": {"type": "string", "minLength": 1},
+        "typical_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/evidenceRef"}
+        },
+        "main_obstacles": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "priorityItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statement", "diagnosis_basis", "goal_basis"],
+      "properties": {
+        "statement": {"type": "string", "minLength": 1},
+        "diagnosis_basis": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "goal_basis": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "homogeneousGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["group_id", "students", "common_characteristics", "progression_direction", "use_case"],
+      "properties": {
+        "group_id": {"type": "string", "pattern": "^H[1-9][0-9]*$"},
+        "students": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"$ref": "#/$defs/studentRef"}
+        },
+        "common_characteristics": {"type": "string", "minLength": 1},
+        "progression_direction": {"type": "string", "minLength": 1},
+        "use_case": {"type": "string", "minLength": 1}
+      }
+    },
+    "heterogeneousGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["group_id", "students", "grouping_rationale", "collaboration_direction", "shared_product"],
+      "properties": {
+        "group_id": {"type": "string", "pattern": "^X[1-9][0-9]*$"},
+        "students": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"$ref": "#/$defs/studentRef"}
+        },
+        "grouping_rationale": {"type": "string", "minLength": 1},
+        "collaboration_direction": {"type": "string", "minLength": 1},
+        "shared_product": {"type": "string", "minLength": 1}
+      }
+    },
+    "interventionDesignBasisItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "basis_id",
+        "target_students",
+        "diagnostic_finding",
+        "intended_cognitive_change",
+        "design_requirements"
+      ],
+      "properties": {
+        "basis_id": {"type": "string", "pattern": "^D[1-9][0-9]*$"},
+        "target_students": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/studentRef"}
+        },
+        "diagnostic_finding": {"type": "string", "minLength": 1},
+        "intended_cognitive_change": {"type": "string", "minLength": 1},
+        "design_requirements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

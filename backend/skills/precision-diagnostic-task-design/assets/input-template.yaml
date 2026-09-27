@@ -1,0 +1,10 @@
+precision_teaching_context:
+  subject: ""
+  grade: ""
+  textbook_version_and_chapter: ""
+  precision_teaching_topic: ""
+  precision_teaching_goals:
+    - ""
+  precision_teaching_content:
+    - ""
+

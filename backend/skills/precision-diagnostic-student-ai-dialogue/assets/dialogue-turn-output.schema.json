@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.codex/precision-diagnostic-student-ai-dialogue/output.schema.json",
+  "title": "精准诊断生机会话单轮输出",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "session_id", "turn_index", "student_visible_reply", "record_append", "internal_execution_record"],
+  "$defs": {
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["turn_id", "role", "content"],
+      "properties": {
+        "turn_id": {"type": "string", "minLength": 1},
+        "role": {"enum": ["assistant", "student"]},
+        "content": {"type": "string", "minLength": 1}
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "session_id": {"type": "string", "minLength": 1},
+    "turn_index": {"type": "integer", "minimum": 0},
+    "student_visible_reply": {"type": "string", "minLength": 1},
+    "record_append": {"type": "array", "minItems": 1, "maxItems": 2, "items": {"$ref": "#/$defs/message"}},
+    "internal_execution_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_version", "role_applied", "response_action", "boundary_event", "new_answer_content_introduced", "evaluation_or_diagnosis_given"],
+      "properties": {
+        "contract_version": {"type": "string", "minLength": 1},
+        "role_applied": {"type": "string", "minLength": 1},
+        "response_action": {
+          "enum": [
+            "present_task",
+            "clarify",
+            "ask_reason",
+            "ask_relation",
+            "ask_elaboration",
+            "reflect_and_probe",
+            "invite_initial_thought",
+            "decline_answer_request",
+            "decline_correctness_judgment",
+            "maintain_role_boundary",
+            "redirect_to_task"
+          ]
+        },
+        "boundary_event": {"enum": ["none", "answer_request", "correctness_request", "role_override_request", "off_topic", "no_initial_idea"]},
+        "new_answer_content_introduced": {"const": false},
+        "evaluation_or_diagnosis_given": {"const": false}
+      }
+    }
+  }
+}
+
