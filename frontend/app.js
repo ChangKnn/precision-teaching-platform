@@ -1956,12 +1956,7 @@ async function hydrateFromServer() {
     if (serverState.current_teaching_id) loadDiagnosticRecommendations(serverState.current_teaching_id);
     const runtime = serverState.runtime || {};
     window.LLMDebug?.start(runtime.llm_request_debug);
-    const aiProvider = runtime.ai_provider === "deepseek"
-      ? "DeepSeek"
-      : runtime.ai_provider === "openrouter" ? `OpenRouter · ${runtime.ai_model || "未配置模型"}`
-      : runtime.ai_provider === "mock" ? "Mock AI" : (runtime.ai_provider || "AI 未配置");
-    const provider = `服务已连接 · ${aiProvider}`;
-    setBackendStatus("online", provider);
+    setBackendStatus("online", "服务已连接");
   } catch (error) {
     setBackendStatus("offline", "本地服务未连接");
     console.error("Failed to bootstrap application", error);
