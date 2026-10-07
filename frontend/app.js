@@ -2,6 +2,7 @@
 
 const ui = {
   currentPage: "blocks",
+  editingTeachingId: null,
   diagnosisStep: 2,
   interventionStep: 1,
   diagnosisType: "pre",
@@ -15,6 +16,7 @@ const ui = {
   activeInterventionClassroomId: null,
   interventionClassroomTeachingId: null,
   goalPathAppliedKey: null,
+  goalPathDirty: false,
   activityFormativeDirty: false,
   activityFormativeError: null,
   diagnosticRecommendations: null,
@@ -24,6 +26,10 @@ const ui = {
 const pages = Array.from(document.querySelectorAll(".page"));
 const toast = document.getElementById("toast");
 let rubricSaveTimer;
+let goalPathAutosaveTimer;
+let goalPathSaveQueue = Promise.resolve();
+let goalPathEditSerial = 0;
+let teachingDraftSavePromise;
 const studentReportSaveQueues = new Map();
 function renderDiagnosticRecommendations(result, status = "not_generated") {
   ui.diagnosticRecommendations = result?.diagnostic_task_design || null;
@@ -639,12 +645,15 @@ function renderStudentResultDetail(result) {
   const submittedWork = result.submitted_text
     ? `<blockquote class="submitted-text-evidence">${escapeHTML(result.submitted_text)}</blockquote>`
     : `<p class="muted">本次未提交文字成果；生成报告时仅使用完整对话。</p>`;
+  const evidence = report?.result?.diagnosis?.evidence?.[0];
   const reportCard = !report ? `<article class="card individual-report-card report-empty-card">
       <div class="card-heading"><div><span class="section-kicker">2 · 个体反馈报告</span><h2>${escapeHTML(result.student.name)}的个体反馈报告</h2><p>依据已确认量规和完整会话${result.submitted_text ? "，结合文字成果" : ""}生成。</p></div><span class="status neutral">尚未生成</span></div>
       <div class="stage-empty-state"><span>SOLO 个体诊断</span><h2>生成学生报告</h2>${rubricReady ? "" : '<p>请先返回诊断设计，在“分析标准”步骤确认当前任务量规。</p>'}<button class="button primary" data-generate-student-report="${escapeHTML(result.id)}" ${rubricReady ? "" : "disabled"}>${rubricReady ? "生成报告" : "等待量规确认"}</button></div>
     </article>` : `<article class="card individual-report-card">
-      <div class="card-heading"><div><span class="section-kicker">2 · 个体反馈报告</span><h2>${escapeHTML(result.student.name)}的个体反馈报告</h2><p>${reportHasNewSections ? "按新版六部分展示；点击任一章节内容即可编辑，离开后自动保存。" : "这份报告采用旧版结构；重新生成后会按新版六部分展示，当前可点击编辑整篇。"}</p></div><span class="status ${reportStatusClass}">${reportStatus}</span></div>
-      <div class="teacher-report-sections">${renderTeacherReportSections(report.report_text)}</div>
+      <div class="card-heading"><div><span class="section-kicker">2 · 个体诊断</span><h2>${escapeHTML(result.student.name)}的诊断要点</h2><p>先看结论与下一步；完整依据可展开核对和编辑。</p></div><span class="status ${reportStatusClass}">${reportStatus}</span></div>
+      <div class="individual-brief"><p><b>本次表现：</b>${escapeHTML(report.result.diagnosis.level_name)} · ${escapeHTML(report.result.diagnosis.rationale.slice(0, 115))}${report.result.diagnosis.rationale.length > 115 ? "…" : ""}</p><p><b>下一步：</b>${escapeHTML(report.result.progression.concrete_goal.slice(0, 120))}${report.result.progression.concrete_goal.length > 120 ? "…" : ""}</p>${evidence ? `<div class="individual-key-evidence"><b>关键证据：</b><blockquote>${escapeHTML(evidence.quote)}</blockquote></div>` : ""}</div>
+        <details class="teacher-report-details"><summary>查看并编辑完整诊断报告</summary><div class="teacher-report-sections">${renderTeacherReportSections(report.report_text)}</div></details>
+      <section class="student-facing-card"><h3>将推送给学生的诊断报告</h3><p>这份报告保留表现、依据、进阶方向和练习建议，并用学生容易理解的语言表达。请核对后再推送；学生端不会显示教师版报告。</p><textarea id="studentFeedbackEditor" rows="18">${escapeHTML(report.student_feedback_text || "")}</textarea><button class="button" id="saveStudentFeedback">保存学生报告</button></section>
       <div class="report-footer"><span class="autosave-state" id="feedbackAutosaveState">${report._saveError ? "保存失败，请再次编辑重试" : report._saving ? "正在自动保存…" : report.status === "stale" ? "上游内容已变化" : "已保存"}</span><div><button class="button" data-generate-student-report="${escapeHTML(result.id)}">重新生成</button><button class="button primary" id="pushStudentFeedback" data-report-status="${report.status === "confirmed" ? "pushed" : "confirmed"}" ${report.provider === "mock" || report.status === "stale" || report.status === "pushed" || report._saveError || report._saving ? "disabled" : ""}>${report.provider === "mock" ? "Mock 报告不可确认" : report.status === "confirmed" ? "推送给学生" : report.status === "pushed" ? "已推送" : "确认报告"}</button></div></div>
     </article>`;
   panel.innerHTML = `<article class="card learning-record-card">
@@ -654,7 +663,51 @@ function renderStudentResultDetail(result) {
       <div class="conversation-messages" role="region" aria-label="${escapeHTML(result.student.name)}的对话记录" tabindex="0">${result.messages.map(message => `<div class="record-message ${message.role === "student" ? "student" : "ai"}"><b>${message.role === "student" ? "学生" : "AI"}</b><p>${escapeHTML(message.content)}</p><time>${escapeHTML(formatUpdatedAt(message.created_at))}</time></div>`).join("")}</div>
     </section>
     <section class="submitted-work"><div class="record-section-heading"><div><h3>最终作答文本</h3><p>${result.submitted_text ? "学生提交的成果原文。" : "学生未填写，可依据对话记录继续分析。"}</p></div></div>${submittedWork}</section>
-  </article>${reportCard}`;
+  </article>${reportCard}${renderCustomIndividualReport(result)}`;
+}
+
+function customEvidenceNames(payload) {
+  const names = new Map();
+  (payload?.results || []).forEach(studentResult => {
+    studentResult.messages.forEach(message => names.set(`turn-${message.id}`, studentResult.student.name));
+    names.set(`submission-${studentResult.id}`, studentResult.student.name);
+  });
+  return names;
+}
+
+function customReportContent(report, payload) {
+  if (!report?.result) return "";
+  const names = customEvidenceNames(payload);
+  const data = report.result;
+  return `<div class="custom-analysis-report">
+    <p>${escapeHTML(data.summary)}</p>
+    ${(data.findings || []).map(item => `<section><h3>${escapeHTML(item.criterion)}</h3><p>${escapeHTML(item.finding)}</p>
+      ${(item.evidence || []).map(evidence => `<blockquote><b>${escapeHTML(names.get(evidence.source_id) || "学生原话")}：</b>${escapeHTML(evidence.quote)}</blockquote>`).join("")}</section>`).join("")}
+    ${data.suggestions?.length ? `<h3>后续建议</h3><ul>${data.suggestions.map(item => `<li>${escapeHTML(item)}</li>`).join("")}</ul>` : ""}
+    ${data.limitations?.length ? `<p class="report-caution"><b>分析限制：</b>${escapeHTML(data.limitations.join("；"))}</p>` : ""}
+  </div>`;
+}
+
+function renderCustomIndividualReport(result) {
+  if (!serverState.current_workspace?.custom_analysis_standard?.individual_enabled) return "";
+  const report = result.custom_analysis;
+  const label = report?.status === "stale" ? "标准或学生证据已变化，请重新生成" : report?.provider === "mock" ? "Mock 预览，不能作为正式反馈" : report ? "依据教师自定义标准生成，请核对证据" : "尚未生成";
+  return `<article class="card individual-report-card custom-analysis-report">
+    <div class="card-heading"><div><span class="section-kicker">教师自定义标准 · 个人反馈</span><h2>${escapeHTML(result.student.name)}的补充分析</h2><p>${label}</p></div>
+      <button class="button" data-generate-custom="individual" data-custom-subject="${escapeHTML(result.id)}">${report ? "重新生成" : "生成个人反馈"}</button></div>
+    ${customReportContent(report, serverState.studentResults)}</article>`;
+}
+
+function renderCustomClassReport(payload) {
+  if (!serverState.current_workspace?.custom_analysis_standard?.class_enabled || !ui.activeClassroomId) return "";
+  const report = payload.custom_class_reports?.[ui.activeClassroomId];
+  const classroom = payload.classrooms.find(item => item.id === ui.activeClassroomId);
+  const count = payload.results.filter(item => item.student.classroom_id === ui.activeClassroomId).length;
+  const label = report?.status === "stale" ? "标准或学生证据已变化，请重新生成" : report?.provider === "mock" ? "Mock 预览，不能作为正式反馈" : report ? `已分析 ${report.result.analyzed_student_count} 名已提交学生；请核对证据` : "尚未生成";
+  return `<article class="card class-report-card custom-analysis-report">
+    <div class="card-heading"><div><span class="section-kicker">教师自定义标准 · 班级反馈</span><h2>${escapeHTML(classroom?.name || "班级")}的补充分析</h2><p>${label}</p></div>
+      <button class="button" data-generate-custom="class" data-custom-subject="${escapeHTML(ui.activeClassroomId)}" ${count ? "" : "disabled"}>${report ? "重新生成" : "生成班级反馈"}</button></div>
+    ${customReportContent(report, payload)}</article>`;
 }
 
 function renderClassReport(payload) {
@@ -671,12 +724,12 @@ function renderClassReport(payload) {
   const report = payload.class_reports?.[ui.activeClassroomId];
   const panel = document.getElementById("classEvidencePanel");
   if (!classrooms.length || !report) {
-    panel.innerHTML = '<article class="card stage-empty-state"><span>等待个体报告</span><h2>尚无班级诊断报告</h2><p>学生提交成果并生成个体报告后，这里会自动汇总更新。</p></article>';
+    panel.innerHTML = '<article class="card stage-empty-state"><span>等待个体报告</span><h2>尚无班级 SOLO 诊断报告</h2><p>学生提交成果并生成个体报告后，这里会自动汇总更新。</p></article>' + renderCustomClassReport(payload);
     return;
   }
   const stateText = { queued: "等待生成", running: "正在生成", failed: "生成失败", ready: "AI 初判 · 教师核对" }[report.status] || "等待生成";
   if (!report.result) {
-    panel.innerHTML = `<article class="card stage-empty-state"><span>solo-class-diagnosis-intervention</span><h2>${stateText}</h2><p>${report.error ? escapeHTML(report.error) : "基于已有学生个体报告，正在汇总班级思维结构与教学决策依据。"}</p>${report.status === "failed" ? '<button class="button primary" id="retryClassReport">重新生成班级报告</button>' : ""}</article>`;
+    panel.innerHTML = `<article class="card stage-empty-state"><span>SOLO 班级分析</span><h2>${stateText}</h2><p>${report.error ? escapeHTML(report.error) : "基于已有学生个体报告，正在汇总班级思维结构与教学决策依据。"}</p>${report.status === "failed" ? '<button class="button primary" id="retryClassReport">重新生成班级报告</button>' : ""}</article>` + renderCustomClassReport(payload);
     return;
   }
   const data = report.result;
@@ -686,7 +739,13 @@ function renderClassReport(payload) {
   const studentNames = items => (items || []).map(item => escapeHTML(item.student_name)).join("、") || "无";
   const basisDetails = (title, items) => `<details class="class-basis-details"><summary>${title}</summary><ul>${(items || []).map(item => `<li>${escapeHTML(item)}</li>`).join("")}</ul></details>`;
   const priorityCard = (title, item) => `<article><h3>${title}</h3><p>${escapeHTML(item.statement)}</p>${basisDetails("诊断依据", item.diagnosis_basis)}${basisDetails("目标依据", item.goal_basis)}</article>`;
-  const groupCard = (group, type) => `<article><b>${escapeHTML(group.group_id)} · ${studentNames(group.students)}</b><p>${escapeHTML(type === "homogeneous" ? group.common_characteristics : group.grouping_rationale)}</p><small>${escapeHTML(type === "homogeneous" ? group.progression_direction : group.collaboration_direction)}</small></article>`;
+  const groupCard = (group, type) => `<article><h4>${escapeHTML(group.group_name || group.group_id)}</h4><p class="group-members">${studentNames(group.students)}</p><p><b>${type === "homogeneous" ? "共同点" : "分组依据"}：</b>${escapeHTML(type === "homogeneous" ? group.common_characteristics : group.grouping_rationale)}</p><small><b>教学建议：</b>${escapeHTML(type === "homogeneous" ? group.progression_direction : group.collaboration_direction)}</small></article>`;
+  const diagnosedIds = new Set(classroomResults.filter(item => item.report?.result).map(item => item.student.id));
+  const coversEveryone = items => {
+    const ids = items.flatMap(group => group.students.map(student => student.student_id));
+    return ids.length === diagnosedIds.size && new Set(ids).size === ids.length && ids.every(id => diagnosedIds.has(id));
+  };
+  const groupingReady = coversEveryone(groups.homogeneous_groups) && (!groups.heterogeneous_groups.length || coversEveryone(groups.heterogeneous_groups));
   panel.innerHTML = `<article class="card class-report-card">
     <div class="card-heading"><div><span class="section-kicker">班级诊断 · ${data.class_summary.total_students} 份个体报告</span><h2>班级学生思维结构情况</h2></div><span class="status ${report.status === "ready" ? "warning" : "neutral"}">${stateText}</span></div>
     ${report.status === "failed" ? `<p class="class-report-warning">本次自动更新失败：${escapeHTML(report.error || "未知错误")}。下方为上一次报告。</p><button class="button" id="retryClassReport">重新生成</button>` : ""}
@@ -694,12 +753,12 @@ function renderClassReport(payload) {
     <div class="class-distribution">${distribution.map(item => `<section class="solo-step level-${item.level.toLowerCase()}"><header><span>${item.level}</span><b>${escapeHTML(item.level_name)}</b><strong>${item.count} 人 · ${Math.round(item.proportion * 100)}%</strong></header><p>${studentNames(item.students)}</p><small>${escapeHTML(item.level_meaning)}</small></section>`).join("")}</div>
     <p class="solo-note">SOLO 层级只表示学生在本次任务中的思维结构，不是固定能力标签。</p>
   </article>
-  <article class="card class-report-card"><h2>整体与分层分析</h2><p>${escapeHTML(data.overall_diagnosis.overall_characteristics)}</p><p>${escapeHTML(data.overall_diagnosis.differentiation_summary)}</p><p><b>主要进阶方向：</b>${escapeHTML(data.overall_diagnosis.main_progression_direction)}</p>
-    <div class="class-report-grid">${data.level_analyses.map(item => `<section><h3>${item.level}（${escapeHTML(item.level_name)}）· ${item.count} 人</h3><p>${escapeHTML(item.main_performance)}</p><small>主要障碍：${escapeHTML(item.main_obstacles.join("；"))}</small><small>典型依据：${item.typical_evidence.map(evidence => `${escapeHTML(evidence.student_name)}： “${escapeHTML(evidence.quote)}”`).join("；")}</small></section>`).join("")}</div>
+  <article class="card class-report-card"><h2>整体与分层分析</h2><p>${escapeHTML(data.overall_diagnosis.overall_characteristics)}</p><p><b>下一步重点：</b>${escapeHTML(data.overall_diagnosis.main_progression_direction)}</p>
+    <div class="class-report-grid">${data.level_analyses.map(item => `<section><h3>${item.level}（${escapeHTML(item.level_name)}）· ${item.count} 人</h3><p><b>当前表现：</b>${escapeHTML(item.main_performance)}</p><p><b>主要困难：</b>${escapeHTML(item.main_obstacles[0] || "暂无")}</p><p><b>教学建议：</b>${escapeHTML(item.teaching_suggestion || "旧版报告尚无分层教学建议，请重新生成班级报告。")}</p>${basisDetails("查看典型证据", item.typical_evidence.map(evidence => `${evidence.student_name}：“${evidence.quote}”`))}</section>`).join("")}</div>
   </article>
   <article class="card class-report-card"><h2>教学重难点</h2><div class="class-report-grid">${priorityCard("教学重点", priorities.teaching_focus)}${priorityCard("教学难点", priorities.teaching_difficulty)}</div></article>
-  <article class="card class-report-card"><h2>临时分组建议</h2><p>${escapeHTML(groups.usage_note)}</p><div class="class-report-grid"><section><h3>同质分组</h3>${groups.homogeneous_groups.length ? groups.homogeneous_groups.map(item => groupCard(item, "homogeneous")).join("") : "<p>当前不建议同质分组。</p>"}</section><section><h3>异质分组</h3>${groups.heterogeneous_groups.length ? groups.heterogeneous_groups.map(item => groupCard(item, "heterogeneous")).join("") : `<p>${escapeHTML(groups.heterogeneous_not_recommended_reason || "当前不建议异质分组。")}</p>`}</section></div><p>未分组学生：${studentNames(groups.ungrouped_students)}</p></article>
-  <article class="card class-report-card"><h2>后续干预设计依据</h2><div class="class-report-grid">${data.intervention_design_basis.map(item => `<section><h3>${escapeHTML(item.basis_id)} · ${studentNames(item.target_students)}</h3><p>${escapeHTML(item.diagnostic_finding)}</p><p><b>认知变化：</b>${escapeHTML(item.intended_cognitive_change)}</p><small>设计条件：${escapeHTML(item.design_requirements.join("；"))}</small></section>`).join("")}</div><details><summary>查看完整教师报告</summary><pre class="class-report-markdown">${escapeHTML(report.report_text || "")}</pre></details></article>`;
+  <article class="card class-report-card"><h2>临时分组建议</h2>${groupingReady ? `<p>${escapeHTML(groups.usage_note)}</p><div class="class-report-grid"><section><h3>同质分组</h3>${groups.homogeneous_groups.map(item => groupCard(item, "homogeneous")).join("")}</section><section><h3>异质分组</h3>${groups.heterogeneous_groups.length ? groups.heterogeneous_groups.map(item => groupCard(item, "heterogeneous")).join("") : `<p>${escapeHTML(groups.heterogeneous_not_recommended_reason || "本轮不建议异质分组。")}</p>`}</section></div>` : `<p class="class-report-warning">这份旧版分组建议未覆盖全部已诊断学生，请重新生成后查看完整分组。</p><button class="button" id="retryClassReport">重新生成班级报告</button>`}</article>
+  ${renderCustomClassReport(payload)}`;
 }
 
 function renderStudentResults(payload) {
@@ -717,7 +776,7 @@ function renderStudentResults(payload) {
   }
   ui.activeStudentResultIndex = Math.min(ui.activeStudentResultIndex, results.length - 1);
   const rubricReady = serverState.current_workspace?.rubric?.status === "confirmed";
-  studentPanel.innerHTML = `<div class="card student-feedback-toolbar"><div><b>个体报告生成</b><span>${generatedCount}/${results.length} 份已生成 · ${pushableCount} 份已确认待推送</span></div><div class="student-feedback-actions"><button class="button" id="generateAllStudentReports" ${rubricReady ? "" : "disabled"}>${rubricReady ? "生成全部待分析报告" : "请先确认任务量规"}</button><button class="button primary" id="pushConfirmedStudentReports" ${pushableCount ? "" : "disabled"}>一键推送已确认报告</button></div></div><div class="student-review-layout">
+  studentPanel.innerHTML = `<div class="card student-feedback-toolbar"><div><b>个体报告生成</b><span>${generatedCount}/${results.length} 份已生成 · ${pushableCount} 份已确认待推送</span></div><div class="student-feedback-actions"><button class="button" id="generateAllStudentReports" ${rubricReady ? "" : "disabled"}>${rubricReady ? "生成全部待分析报告" : "请先确认任务量规"}</button>${serverState.current_workspace?.custom_analysis_standard?.individual_enabled ? '<button class="button" id="generateAllCustomReports">生成全部个人补充反馈</button>' : ""}<button class="button primary" id="pushConfirmedStudentReports" ${pushableCount ? "" : "disabled"}>一键推送已确认报告</button></div></div><div class="student-review-layout">
     <aside class="card student-list" id="studentResultList"><div class="list-header"><b>${results.length} 名学生</b><span>真实提交</span></div>${results.map((result, index) => `<button class="${index === ui.activeStudentResultIndex ? "active" : ""}" data-result-index="${index}"><span><b>${escapeHTML(result.student.name)}</b><small>${result.messages.filter(message => message.role === "student").length} 次发言 · ${result.submitted_text ? "有文字成果" : "仅有会话"}</small></span><em>${result.report ? ({ draft: "待确认", confirmed: "已确认", pushed: "已推送", stale: "需重生成" }[result.report.status]) : "待生成"}</em></button>`).join("")}</aside>
     <div class="student-review-main" id="studentResultDetail"></div>
   </div>`;
@@ -768,15 +827,39 @@ function goalPathTeacherInput() {
   };
 }
 
-function goalPathReadOnlyRows(path) {
+function goalPathTargetLevels(ids, goals = [], common = null) {
+  if (ids.length !== 1) return ["待确定主要层级"];
+  const goalNames = new Map(goals.map(goal => [goal.goal_id, goal.target_level_name]));
+  if (common) goalNames.set("CG", `共同核心目标（${common.target_cognitive_structure.level_name}）`);
+  return [...new Set(ids.map(id => goalNames.get(id) || id))];
+}
+
+function goalPathReadOnlyRows(path, goals = [], common = null) {
   return path.stages.map(stage => stage.activity_units.map((unit, unitIndex) => `<tr>
-    ${unitIndex === 0 ? `<td rowspan="${stage.activity_units.length}"><span class="goal-path-stage-code">${escapeHTML(stage.stage_id)}</span>${escapeHTML(stage.stage_name)}</td>` : ""}
-    <td>${escapeHTML(unit.activity_name)}</td>
+    ${unitIndex === 0 ? `<td rowspan="${stage.activity_units.length}">${escapeHTML(stage.activity_units.length === 1 ? unit.activity_name : stage.stage_name)}</td>` : ""}
     <td>${escapeHTML(unit.organization_name)}</td>
-    <td>${escapeHTML(unit.activity_summary)}</td>
-    <td>${escapeHTML(unit.target_students.map(student => student.student_name).join("、") || "—")}<small>${escapeHTML(unit.target_goal_ids.join("、") || "—")}</small></td>
+    <td>${stage.activity_units.length > 1 ? `<b>${escapeHTML(unit.activity_name)}</b><br>` : ""}${escapeHTML(unit.activity_summary)}</td>
+    <td>${goalPathTargetLevels(unit.target_goal_ids, goals, common).map(escapeHTML).join("、") || "—"}</td>
     <td>${unitIndex === 0 ? `${Number(stage.duration_minutes)} 分钟` : "同阶段"}</td>
   </tr>`).join("")).join("");
+}
+
+function goalPathGoalRow(goal) {
+  const id = escapeHTML(goal.goal_id);
+  const students = (goal.target_students || []).map(item => escapeHTML(item.student_name)).join("、");
+  return `<tr data-gp-goal-row="${id}"><td><input aria-label="${id} 目标层级" data-gp-goal-name value="${escapeHTML(goal.target_level_name)}"><small>面向 ${escapeHTML(goal.source_levels?.join("、") || "待填写")}</small><button type="button" class="button small goal-path-delete-goal" data-gp-delete-goal="${id}" aria-label="删除 ${id} 进阶目标">删除</button></td>
+    <td><textarea aria-label="${id} 具体目标内容" data-gp-field="goal_statement" rows="4">${escapeHTML(goal.goal_statement)}</textarea></td>
+    <td><textarea aria-label="${id} 相关学生姓名" data-gp-goal-students rows="4" placeholder="姓名之间用顿号分隔">${students}</textarea></td>
+    <td><textarea aria-label="${id} 可观察的达成表现" data-gp-field="observable_achievement" rows="4">${escapeHTML(goal.observable_achievement)}</textarea></td></tr>`;
+}
+
+function markGoalPathDirty() {
+  ui.goalPathDirty = true;
+  goalPathEditSerial += 1;
+  goalPathSaveState("正在编辑…");
+  document.getElementById("goalPathStatus").textContent = "修改待保存";
+  document.querySelector('#interventionSteps [data-istep="3"]').disabled = true;
+  scheduleGoalPathAutosave();
 }
 
 function renderGoalPath(payload) {
@@ -786,16 +869,17 @@ function renderGoalPath(payload) {
   const prerequisite = document.getElementById("goalPathPrerequisite");
   const content = document.getElementById("goalPathGeneratedContent");
   const generate = document.getElementById("generateGoalPath");
-  const confirm = document.getElementById("confirmGoalPath");
-  const saveDraft = document.getElementById("saveGoalPathDraft");
+  const dialogue = document.getElementById("goalPathAiDialogue");
   const next = document.getElementById("nextFromGoalPath");
   const legacyCompleted = !design && serverState?.current_workspace?.intervention?.status === "completed";
   generate.disabled = !available;
-  generate.hidden = !design;
+  dialogue.hidden = !design;
+  const previousRequest = document.getElementById("goalPathPreviousRequest");
+  const lastRequest = design?.regeneration_request;
+  previousRequest.hidden = !lastRequest;
+  previousRequest.textContent = lastRequest ? `上次提出的要求：${lastRequest}` : "";
   document.getElementById("generateTeacherAnalysis").disabled = !available;
-  confirm.hidden = !design || design.status === "stale";
-  saveDraft.hidden = !design || design.status === "stale";
-  next.disabled = design?.status !== "teacher_confirmed";
+  next.disabled = !design || design.status === "stale";
   const activityTab = document.querySelector('#interventionSteps [data-istep="3"]');
   activityTab.disabled = design?.status !== "teacher_confirmed" && !legacyCompleted;
   activityTab.title = activityTab.disabled ? "请先生成并确认目标与路径" : "";
@@ -803,7 +887,8 @@ function renderGoalPath(payload) {
   resourceTab.disabled = serverState?.activityFormative?.design?.status !== "teacher_confirmed" && !legacyCompleted;
   resourceTab.title = resourceTab.disabled ? "请先确认学习活动与形成性评价" : "";
   status.textContent = !available ? "等待班级报告" : design?.status === "stale" ? "上游诊断已更新" :
-    design?.status === "teacher_confirmed" ? "教师已确认" : design ? "待教师确认" : "待生成";
+    design?.status === "teacher_confirmed" ? "已保存" : design ? "已生成 · 修改自动保存" : "待生成";
+  if (!ui.goalPathDirty) goalPathSaveState(design?.status === "teacher_confirmed" ? "已自动保存" : "");
   status.className = `status ${design?.status === "teacher_confirmed" ? "success" : available ? "warning" : "neutral"}`;
   prerequisite.innerHTML = !available
     ? '<p class="goal-path-notice">当前班级尚无可用的 SOLO 聚合诊断报告。请先在“诊断结果反馈”生成学生个体报告与班级报告，再回到这里。</p>'
@@ -817,35 +902,31 @@ function renderGoalPath(payload) {
   const result = design.result;
   const common = result.common_core_goal;
   const path = result.intervention_path;
-  const students = list => (list || []).map(item => escapeHTML(item.student_name)).join("、");
   const organizationOptions = [
     ["C", "全班共同活动（C）"], ["H", "同质小组活动（H）"],
     ["X", "异质小组协同（X）"], ["I", "个体学习或个别支持（I）"],
     ["S", "学习站轮转（S）"], ["A", "综合应用（A）"]
   ];
   const activityRow = (stage, stageIndex, unit, unitIndex) => {
-    const targetStudents = new Set(unit.target_students.map(student => student.student_id));
-    const targetGoals = new Set(unit.target_goal_ids);
-    const picker = `<details class="goal-path-target-picker"><summary>${students(unit.target_students) || "选择学生"}<small>${escapeHTML(unit.target_goal_ids.join("、") || "选择目标")}</small></summary>
-      <div><strong>面向学生</strong>${result.student_goal_assignments.map(student => `<label><input type="checkbox" data-gp-target-student data-gp-stage="${stageIndex}" data-gp-unit="${unitIndex}" value="${escapeHTML(student.student_id)}" ${targetStudents.has(student.student_id) ? "checked" : ""}>${escapeHTML(student.student_name)}</label>`).join("")}</div>
-      <div><strong>目标</strong>${result.progression_goals.map(goal => `<label><input type="checkbox" data-gp-target-goal data-gp-stage="${stageIndex}" data-gp-unit="${unitIndex}" value="${escapeHTML(goal.goal_id)}" ${targetGoals.has(goal.goal_id) ? "checked" : ""}>${escapeHTML(goal.goal_id)} · ${escapeHTML(goal.target_level_name)}</label>`).join("")}</div></details>`;
-    return `<tr>${unitIndex === 0 ? `<td rowspan="${stage.activity_units.length}"><span class="goal-path-stage-code">${escapeHTML(stage.stage_id)}</span><textarea aria-label="${escapeHTML(stage.stage_id)} 阶段名称" data-gp-stage-name="${stageIndex}" rows="2">${escapeHTML(stage.stage_name)}</textarea></td>` : ""}
-      <td><textarea data-gp-stage="${stageIndex}" data-gp-unit="${unitIndex}" data-gp-unit-field="activity_name" rows="2">${escapeHTML(unit.activity_name)}</textarea></td>
+    const selectedGoal = unit.target_goal_ids.length === 1 ? unit.target_goal_ids[0] : null;
+    const picker = `<details class="goal-path-target-picker"><summary>${escapeHTML(goalPathTargetLevels(unit.target_goal_ids, result.progression_goals, common).join("、") || "选择目标层级")}</summary>
+      <div><label><input type="radio" name="gp-target-${stageIndex}-${unitIndex}" data-gp-target-goal data-gp-stage="${stageIndex}" data-gp-unit="${unitIndex}" value="CG" ${selectedGoal === "CG" ? "checked" : ""}>共同核心目标 · ${escapeHTML(common.target_cognitive_structure.level_name)}</label>${result.progression_goals.map(goal => `<label><input type="radio" name="gp-target-${stageIndex}-${unitIndex}" data-gp-target-goal data-gp-stage="${stageIndex}" data-gp-unit="${unitIndex}" value="${escapeHTML(goal.goal_id)}" ${selectedGoal === goal.goal_id ? "checked" : ""}>${escapeHTML(goal.goal_id)} · ${escapeHTML(goal.target_level_name)}</label>`).join("")}</div></details>`;
+    return `<tr>${unitIndex === 0 ? `<td rowspan="${stage.activity_units.length}"><textarea aria-label="${escapeHTML(stage.stage_id)} 活动名称" data-gp-stage-name="${stageIndex}" rows="3">${escapeHTML(stage.activity_units.length === 1 ? unit.activity_name : stage.stage_name)}</textarea></td>` : ""}
       <td><select aria-label="${escapeHTML(stage.stage_id)} 活动组织形式" data-gp-org-code data-gp-stage="${stageIndex}" data-gp-unit="${unitIndex}">${organizationOptions.map(([code, label]) => `<option value="${code}" ${code === unit.organization_code ? "selected" : ""}>${escapeHTML(code === unit.organization_code ? unit.organization_name : label)}</option>`).join("")}</select></td>
-      <td><textarea data-gp-stage="${stageIndex}" data-gp-unit="${unitIndex}" data-gp-unit-field="activity_summary" rows="3">${escapeHTML(unit.activity_summary)}</textarea></td>
+      <td>${stage.activity_units.length > 1 ? `<label class="goal-path-group-name">小组名称<input data-gp-stage="${stageIndex}" data-gp-unit="${unitIndex}" data-gp-unit-field="activity_name" value="${escapeHTML(unit.activity_name)}"></label>` : ""}<textarea aria-label="活动内容简介" data-gp-stage="${stageIndex}" data-gp-unit="${unitIndex}" data-gp-unit-field="activity_summary" rows="3">${escapeHTML(unit.activity_summary)}</textarea></td>
       <td>${picker}</td><td>${unitIndex === 0 ? `<input type="number" min="1" data-gp-stage-duration="${stageIndex}" value="${stage.duration_minutes}">分钟` : "同阶段"}</td></tr>`;
   };
-  const activityHead = "<thead><tr><th>阶段</th><th>活动名称</th><th>组织形式</th><th>活动内容简介</th><th>面向学生与目标</th><th>建议时长</th></tr></thead>";
+  const activityHead = "<thead><tr><th>活动名称</th><th>组织形式</th><th>活动内容简介</th><th>目标层级</th><th>建议时长</th></tr></thead>";
   content.innerHTML = `<div class="goal-path-generated">
     <section><h3>共同核心目标</h3><label>核心目标<textarea data-gp-common="goal_statement" rows="3">${escapeHTML(common.goal_statement)}</textarea></label>
       <label>目标认知结构及理由 <small>${escapeHTML(common.target_cognitive_structure.solo_level)}（${escapeHTML(common.target_cognitive_structure.level_name)}）</small><textarea data-gp-structure rows="3">${escapeHTML(common.target_cognitive_structure.structure_and_rationale)}</textarea></label>
       <label>可观察的达成表现（每行一条）<textarea data-gp-criteria rows="3">${escapeHTML(common.observable_success_criteria.join("\n"))}</textarea></label></section>
-    <section><h3>分层进阶目标</h3><div class="goal-path-table-wrap"><table class="goal-path-goals-table"><thead><tr><th>目标层级</th><th>具体目标内容</th><th>相关学生姓名</th><th>可观察的达成表现</th></tr></thead><tbody>${result.progression_goals.map((goal, index) => `<tr><td>${escapeHTML(goal.target_level_name)}<small>面向 ${escapeHTML(goal.source_levels.join("、"))}</small></td><td><textarea data-gp-goal="${index}" data-gp-field="goal_statement" rows="3">${escapeHTML(goal.goal_statement)}</textarea></td><td>${students(goal.target_students)}</td><td><textarea data-gp-goal="${index}" data-gp-field="observable_achievement" rows="3">${escapeHTML(goal.observable_achievement)}</textarea></td></tr>`).join("")}</tbody></table></div><p class="goal-path-help">学生归属来自上游诊断；若需调整名单，请修改或补充个体诊断后重新生成。</p></section>
+    <section><div class="goal-path-path-heading"><h3>分层进阶目标</h3><button type="button" class="button small" data-gp-add-goal>＋ 新增目标</button></div><div class="goal-path-table-wrap"><table class="goal-path-goals-table"><thead><tr><th>目标层级</th><th>具体目标内容</th><th>相关学生姓名</th><th>可观察的达成表现</th></tr></thead><tbody>${result.progression_goals.map(goalPathGoalRow).join("")}</tbody></table></div></section>
     <section><h3>推荐课堂组织与推进</h3><p><b>主要组织模式：</b>${escapeHTML(path.primary_path_label)}</p><p><b>模式说明：</b>${escapeHTML(path.mode_explanation)}</p><ul>${path.recommendation_reasons.map(reason => `<li>${escapeHTML(reason)}</li>`).join("")}</ul><p><b>课堂推进安排：</b>${escapeHTML(path.teacher_facing_path)}</p>${path.alternative_path ? `<p><b>备选：</b>${escapeHTML(path.alternative_path.path_label)}；${escapeHTML(path.alternative_path.suitable_when)}；代价：${escapeHTML(path.alternative_path.tradeoff)}</p>` : ""}</section>
     <section><div class="goal-path-path-heading"><h3>课堂活动路径</h3><button type="button" class="button small" data-gp-toggle-edit>修改</button></div><p>同一阶段内的活动同时开展，时长只计算一次。</p>
-      <div class="goal-path-table-wrap" data-gp-path-readonly><table class="goal-path-activity-table">${activityHead}<tbody>${goalPathReadOnlyRows(path)}</tbody></table></div>
+      <div class="goal-path-table-wrap" data-gp-path-readonly><table class="goal-path-activity-table">${activityHead}<tbody>${goalPathReadOnlyRows(path, result.progression_goals, common)}</tbody></table></div>
       <div class="goal-path-table-wrap" data-gp-path-editor hidden><table class="goal-path-activity-table goal-path-activity-editor">${activityHead}<tbody>${path.stages.map((stage, stageIndex) => stage.activity_units.map((unit, unitIndex) => activityRow(stage, stageIndex, unit, unitIndex)).join("")).join("")}</tbody></table></div>
-      <p class="goal-path-help">阶段总时长：${path.total_duration_minutes} 分钟；请保持与第 1 步设定一致。修改后请点击下方“保存修改”或“确认目标与路径”。</p></section>
+      </section>
     <section><h3>请教师确认</h3><ul>${result.teacher_confirmation.items_to_confirm.map(item => `<li>${escapeHTML(item)}</li>`).join("")}</ul>${result.teacher_confirmation.unresolved_decisions.length ? `<p>待决定：${escapeHTML(result.teacher_confirmation.unresolved_decisions.join("；"))}</p>` : ""}</section>
   </div>`;
 }
@@ -858,12 +939,40 @@ function activityRequirementsInput() {
   };
 }
 
-function renderNumberedActivityLines(value) {
-  const lines = String(value || "").split(/\r?\n/)
-    .map(line => line.replace(/^\s*\d+[.、)]\s*/, "").trim()).filter(Boolean);
-  return lines.length
-    ? `<ol class="af-action-list">${lines.map(line => `<li>${escapeHTML(line)}</li>`).join("")}</ol>`
-    : '<span class="af-muted">暂无内容</span>';
+function activityFieldText(activity, kind, legacyOverride = "") {
+  const studentActions = activity.participant_actions
+    .filter(action => ["学生", "同伴"].includes(action.actor))
+    .map(action => `${action.actor === "同伴" ? "同伴：" : ""}${action.action}`);
+  const base = legacyOverride || (kind === "objective" ? activity.activity_objective
+    : kind === "product" ? activity.learning_product : studentActions.join("\n"));
+  const groupField = {objective: "activity_objective", student: "student_task", product: "learning_product"}[kind];
+  return [base, ...activity.parallel_group_tasks.map(group => `${group.group_name}\n${group[groupField]}`)]
+    .filter(Boolean).join("\n\n");
+}
+
+function applyUnifiedActivitySections(activity, kind, text) {
+  const groups = activity.parallel_group_tasks;
+  if (!text || !groups.length) return;
+  const sections = text.split(/\n\s*\n/).map(part => part.trim()).filter(Boolean);
+  if (sections.length !== groups.length + 1) return;
+  const parsedGroups = sections.slice(1).map(section => {
+    const [name, ...body] = section.split("\n");
+    return {name: name?.trim(), body: body.join("\n").trim()};
+  });
+  if (parsedGroups.some(group => !group.name || !group.body)) return;
+  const field = {objective: "activity_objective", student: "student_task", product: "learning_product"}[kind];
+  parsedGroups.forEach((group, index) => {
+    groups[index].group_name = group.name;
+    groups[index][field] = group.body;
+  });
+  if (kind === "objective") activity.activity_objective = sections[0];
+  if (kind === "product") activity.learning_product = sections[0];
+}
+
+function compactEvaluationText(value, limit = 32) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  const first = text.split(/[。；;！!？?]/)[0].trim() || text;
+  return first.length <= limit ? first : `${first.slice(0, limit - 1)}…`;
 }
 
 function renderActivityFormative(payload) {
@@ -908,33 +1017,37 @@ function renderActivityFormative(payload) {
   const result = design.result;
   const presentationOverrides = design.presentation_overrides || {};
   const goalNames = new Map([["CG", "共同核心目标"], ...(serverState?.goalPath?.design?.result?.progression_goals || []).map(item => [item.goal_id, item.target_level_name])]);
-  const goalLabel = ids => ids.map(id => goalNames.get(id) || id).join("、");
+  const shortGoalName = goalId => (goalNames.get(goalId) || goalId)
+    .replace("拓展抽象结构深化", "拓展深化").replace(/结构$/, "");
   const actionsFor = (activity, actors) => activity.participant_actions.filter(action => actors.includes(action.actor));
-  const inline = (value, selector, materials = false) => `<span class="af-inline-text" data-af-inline-target="${escapeHTML(selector)}"${materials ? ' data-af-inline-materials="true"' : ""}>${escapeHTML(value)}</span>`;
+  const inline = (value, selector, materials = false, label = "") => `<span class="af-inline-text" data-af-inline-target="${escapeHTML(selector)}"${materials ? ' data-af-inline-materials="true"' : ""}${label ? ` data-af-inline-label="${escapeHTML(label)}"` : ""}>${escapeHTML(value)}</span>`;
   const actionList = (activity, activityIndex, actions) => actions.length
-    ? `<ol class="af-action-list">${actions.map(action => `<li>${action.actor === "同伴" ? "同伴：" : ""}${inline(action.action, `[data-af-action='${activityIndex}:${activity.participant_actions.indexOf(action)}']`)}</li>`).join("")}</ol>`
+    ? `<div class="af-action-lines">${actions.map(action => `<div>${action.actor === "同伴" ? "同伴：" : ""}${inline(action.action, `[data-af-action='${activityIndex}:${activity.participant_actions.indexOf(action)}']`)}</div>`).join("")}</div>`
     : '<span class="af-muted">无需单独安排</span>';
   const activityCards = result.activities.map((activity, activityIndex) => {
     const groups = activity.parallel_group_tasks;
     const override = presentationOverrides[activity.activity_id] || {};
-    const groupObjectives = override.objective || groups.every(group => group.activity_objective === activity.activity_objective) ? "" : groups.map((group, groupIndex) => `<div class="af-group-line"><b>${escapeHTML(group.group_name)}</b>${inline(group.activity_objective, `[data-af-group='${activityIndex}:${groupIndex}'][data-af-group-field='activity_objective']`)}</div>`).join("");
-    const studentActions = actionsFor(activity, ["学生", "同伴"]);
-    const groupTasks = override.student || groups.every(group => studentActions.length === 1 && group.student_task === studentActions[0].action) ? "" : groups.map((group, groupIndex) => `<div class="af-group-line"><b>${escapeHTML(group.group_name)}</b>${inline(group.student_task, `[data-af-group='${activityIndex}:${groupIndex}'][data-af-group-field='student_task']`)}</div>`).join("");
-    const groupProducts = override.product || groups.every(group => group.learning_product === activity.learning_product) ? "" : groups.map((group, groupIndex) => `<div class="af-group-line"><b>${escapeHTML(group.group_name)}</b>${inline(group.learning_product, `[data-af-group='${activityIndex}:${groupIndex}'][data-af-group-field='learning_product']`)}</div>`).join("");
+    const objectiveText = override.objective_full || activityFieldText(activity, "objective", override.objective);
+    const studentText = override.student_full || activityFieldText(activity, "student", override.student);
+    const productText = override.product_full || activityFieldText(activity, "product", override.product);
     const supportCount = activity.scaffold_support.length + groups.reduce((count, group) => count + group.scaffold_support.length, 0);
     const supportSummary = supportCount ? `<details class="af-support-details"><summary>查看差异化支持（${supportCount}项）</summary><ul>${activity.scaffold_support.map((item, supportIndex) => `<li><b>${escapeHTML(item.target_students_or_group)}：</b>${inline(item.support, `[data-af-support='${activityIndex}:${supportIndex}'][data-af-support-field='support']`)} <small>撤除：${inline(item.fading_condition || "", `[data-af-support='${activityIndex}:${supportIndex}'][data-af-support-field='fading_condition']`)}</small></li>`).join("")}${groups.flatMap((group, groupIndex) => group.scaffold_support.map((item, supportIndex) => `<li><b>${escapeHTML(group.group_name)}：</b>${inline(item.support, `[data-af-group-support='${activityIndex}:${groupIndex}:${supportIndex}'][data-af-group-support-field='support']`)} <small>撤除：${inline(item.fading_condition || "", `[data-af-group-support='${activityIndex}:${groupIndex}:${supportIndex}'][data-af-group-support-field='fading_condition']`)}</small></li>`)).join("")}</ul></details>` : "";
     const actionEditors = activity.participant_actions.map((action, actionIndex) => `<label>${escapeHTML(action.actor)}活动<textarea data-af-action="${activityIndex}:${actionIndex}" rows="2">${escapeHTML(action.action)}</textarea></label>`).join("");
     const supportEditors = activity.scaffold_support.map((item, supportIndex) => `<label>${escapeHTML(item.target_students_or_group)} · ${escapeHTML(item.intensity)}支持<textarea data-af-support="${activityIndex}:${supportIndex}" data-af-support-field="support" rows="2">${escapeHTML(item.support)}</textarea></label><label>撤除条件<textarea data-af-support="${activityIndex}:${supportIndex}" data-af-support-field="fading_condition" rows="2">${escapeHTML(item.fading_condition || "")}</textarea></label>`).join("");
     const groupEditors = groups.map((group, groupIndex) => `<section class="af-group-editor"><h5>${escapeHTML(group.group_name)}</h5><label>本组目标<textarea data-af-group="${activityIndex}:${groupIndex}" data-af-group-field="activity_objective" rows="2">${escapeHTML(group.activity_objective)}</textarea></label><label>本组任务<textarea data-af-group="${activityIndex}:${groupIndex}" data-af-group-field="student_task" rows="2">${escapeHTML(group.student_task)}</textarea></label><label>本组产出<textarea data-af-group="${activityIndex}:${groupIndex}" data-af-group-field="learning_product" rows="2">${escapeHTML(group.learning_product)}</textarea></label>${group.scaffold_support.map((item, supportIndex) => `<label>本组支持 · ${escapeHTML(item.intensity)}<textarea data-af-group-support="${activityIndex}:${groupIndex}:${supportIndex}" data-af-group-support-field="support" rows="2">${escapeHTML(item.support)}</textarea></label><label>撤除条件<textarea data-af-group-support="${activityIndex}:${groupIndex}:${supportIndex}" data-af-group-support-field="fading_condition" rows="2">${escapeHTML(item.fading_condition || "")}</textarea></label>`).join("")}</section>`).join("");
     return `<article class="activity-lesson-card"><header><div class="af-activity-title"><small>活动 ${activityIndex + 1} · ${activity.duration_minutes} 分钟</small><h4>${escapeHTML(activity.activity_name)}</h4><p>${escapeHTML(activity.organization_forms.join(" · "))}</p></div>${groups.length ? `<span class="af-parallel-badge">${groups.length} 个并行单元</span>` : ""}</header>
-      <table class="activity-lesson-table"><tbody><tr><th>活动目标</th><td class="af-edit-block" data-af-edit-label="活动目标" data-af-unified="objective" data-af-activity-index="${activityIndex}"><p>${inline(override.objective || activity.activity_objective, `[data-af-presentation='${activityIndex}:objective']`)}</p>${groupObjectives ? `<div class="af-group-summary">${groupObjectives}</div>` : ""}</td></tr><tr><th>活动过程</th><td><div class="activity-process-grid"><div class="af-edit-block" data-af-edit-label="教师活动"><b>教师活动</b>${actionList(activity, activityIndex, actionsFor(activity, ["教师"]))}</div><div class="af-edit-block" data-af-edit-label="学生活动" data-af-unified="student" data-af-activity-index="${activityIndex}"><b>学生活动</b>${override.student ? renderNumberedActivityLines(override.student) : actionList(activity, activityIndex, studentActions)}${groupTasks ? `<div class="af-group-summary">${groupTasks}</div>` : ""}</div><div class="af-edit-block" data-af-edit-label="AI辅助"><b>AI辅助</b>${actionList(activity, activityIndex, actionsFor(activity, ["AI"]))}</div></div></td></tr><tr><th>学习材料与资源</th><td class="af-edit-block" data-af-edit-label="学习材料与资源"><p>${inline(activity.learning_materials.join("、"), `[data-af-materials='${activityIndex}']`, true)}</p></td></tr><tr><th>学习产出</th><td class="af-edit-block" data-af-edit-label="学习产出" data-af-unified="product" data-af-activity-index="${activityIndex}"><p>${inline(override.product || activity.learning_product, `[data-af-presentation='${activityIndex}:product']`)}</p>${groupProducts ? `<div class="af-group-summary">${groupProducts}</div>` : ""}</td></tr></tbody></table>
-      ${supportSummary}<div class="af-hidden-editors" hidden><label>活动名称<input data-af-activity="${activityIndex}" data-af-field="activity_name" value="${escapeHTML(activity.activity_name)}"></label><label>活动目标<textarea data-af-activity="${activityIndex}" data-af-field="activity_objective">${escapeHTML(activity.activity_objective)}</textarea></label>${actionEditors}<label>学习材料与资源<textarea data-af-materials="${activityIndex}">${escapeHTML(activity.learning_materials.join("\n"))}</textarea></label><label>学习产出<textarea data-af-activity="${activityIndex}" data-af-field="learning_product">${escapeHTML(activity.learning_product)}</textarea></label>${supportEditors}${groupEditors}<input data-af-new-action="${activityIndex}:AI" value=""><input data-af-presentation="${activityIndex}:objective" value="${escapeHTML(override.objective || "")}"><input data-af-presentation="${activityIndex}:student" value="${escapeHTML(override.student || "")}"><input data-af-presentation="${activityIndex}:product" value="${escapeHTML(override.product || "")}"></div></article>`;
+      <table class="activity-lesson-table"><tbody><tr><th>活动目标</th><td class="af-edit-block" data-af-edit-label="活动目标" data-af-unified="objective" data-af-activity-index="${activityIndex}"><div class="af-unified-preview">${escapeHTML(objectiveText)}</div></td></tr><tr><th>活动过程</th><td><div class="activity-process-grid"><div class="af-edit-block" data-af-edit-label="教师活动"><b>教师活动</b>${actionList(activity, activityIndex, actionsFor(activity, ["教师"]))}</div><div class="af-edit-block" data-af-edit-label="学生活动" data-af-unified="student" data-af-activity-index="${activityIndex}"><b>学生活动</b><div class="af-unified-preview">${escapeHTML(studentText)}</div></div><div class="af-edit-block" data-af-edit-label="AI辅助"><b>AI辅助</b>${actionList(activity, activityIndex, actionsFor(activity, ["AI"]))}</div></div></td></tr><tr><th>学习材料与资源</th><td class="af-edit-block" data-af-edit-label="学习材料与资源"><p>${inline(activity.learning_materials.join("、"), `[data-af-materials='${activityIndex}']`, true)}</p></td></tr><tr><th>学习产出</th><td class="af-edit-block" data-af-edit-label="学习产出" data-af-unified="product" data-af-activity-index="${activityIndex}"><div class="af-unified-preview">${escapeHTML(productText)}</div></td></tr></tbody></table>
+      ${supportSummary}<div class="af-hidden-editors" hidden><label>活动名称<input data-af-activity="${activityIndex}" data-af-field="activity_name" value="${escapeHTML(activity.activity_name)}"></label><label>活动目标<textarea data-af-activity="${activityIndex}" data-af-field="activity_objective">${escapeHTML(activity.activity_objective)}</textarea></label>${actionEditors}<label>学习材料与资源<textarea data-af-materials="${activityIndex}">${escapeHTML(activity.learning_materials.join("\n"))}</textarea></label><label>学习产出<textarea data-af-activity="${activityIndex}" data-af-field="learning_product">${escapeHTML(activity.learning_product)}</textarea></label>${supportEditors}${groupEditors}<input data-af-new-action="${activityIndex}:教师" value=""><input data-af-new-action="${activityIndex}:AI" value=""><input data-af-presentation="${activityIndex}:objective_full" value="${escapeHTML(override.objective_full || "")}"><input data-af-presentation="${activityIndex}:student_full" value="${escapeHTML(override.student_full || "")}"><input data-af-presentation="${activityIndex}:product_full" value="${escapeHTML(override.product_full || "")}"></div></article>`;
   }).join("");
   const evaluationRows = result.formative_evaluation_nodes.map((evaluation, evaluationIndex) => {
     const activityNumber = result.activities.findIndex(item => item.activity_id === evaluation.after_activity_ids.at(-1)) + 1;
-    const criteria = evaluation.judgment_criteria.map((item, criterionIndex) => `<p><b>${escapeHTML(goalNames.get(item.goal_id) || item.goal_id)}：</b>${inline(item.meets_when, `[data-af-criterion='${evaluationIndex}:${criterionIndex}'][data-af-criterion-field='meets_when']`)}</p><small>尚未达到：${inline(item.not_yet_when, `[data-af-criterion='${evaluationIndex}:${criterionIndex}'][data-af-criterion-field='not_yet_when']`)}</small>`).join("");
+    const criteriaDetails = evaluation.judgment_criteria.map((item, criterionIndex) => {
+      const goalName = shortGoalName(item.goal_id);
+      return `<p><b>${escapeHTML(goalName)}：</b>${inline(item.meets_when, `[data-af-criterion='${evaluationIndex}:${criterionIndex}'][data-af-criterion-field='meets_when']`, false, `${goalName} · 达到`)}</p><small>未达：${inline(item.not_yet_when, `[data-af-criterion='${evaluationIndex}:${criterionIndex}'][data-af-criterion-field='not_yet_when']`, false, `${goalName} · 尚未达到`)}</small>`;
+    }).join("");
+    const criteria = `<details class="af-criteria-details"><summary>${evaluation.judgment_criteria.length} 个层级的判断标准</summary><div>${criteriaDetails}</div></details>`;
     const rules = evaluation.adjustment_rules;
-    return `<tr><td><b>活动${activityNumber}之后</b></td><td class="af-edit-block" data-af-edit-label="对象与目标"><p>${inline(evaluation.evaluation_purpose, `[data-af-eval='${evaluationIndex}'][data-af-eval-field='evaluation_purpose']`)}</p><small>${escapeHTML(goalLabel(evaluation.target_goal_ids))}</small></td><td class="af-edit-block" data-af-edit-label="评价任务与证据"><p>${inline(evaluation.evidence_task, `[data-af-eval='${evaluationIndex}'][data-af-eval-field='evidence_task']`)}</p><small>${inline(evaluation.evidence_description, `[data-af-eval='${evaluationIndex}'][data-af-eval-field='evidence_description']`)}</small></td><td class="af-edit-block" data-af-edit-label="达成标准">${criteria}</td><td class="af-edit-block" data-af-edit-label="评价结果处理"><p><b>达到：</b>${inline(rules.if_goal_reached, `[data-af-rule='${evaluationIndex}'][data-af-rule-field='if_goal_reached']`)}</p><p><b>尚未达到：</b>${inline(rules.if_not_yet, `[data-af-rule='${evaluationIndex}'][data-af-rule-field='if_not_yet']`)}</p><p><b>证据不清：</b>${inline(rules.if_evidence_not_individual, `[data-af-rule='${evaluationIndex}'][data-af-rule-field='if_evidence_not_individual']`)}</p></td><td class="af-edit-block" data-af-edit-label="判断主体">${inline(evaluation.decision_by, `[data-af-decision='${evaluationIndex}']`)}</td></tr>`;
+    return `<tr><td><b>活动${activityNumber}之后</b></td><td class="af-edit-block" data-af-edit-label="对象与目标"><p>${inline(compactEvaluationText(evaluation.evaluation_purpose, 32), `[data-af-eval='${evaluationIndex}'][data-af-eval-field='evaluation_purpose']`)}</p></td><td class="af-edit-block" data-af-edit-label="评价任务与证据"><p>${inline(compactEvaluationText(evaluation.evidence_task, 32), `[data-af-eval='${evaluationIndex}'][data-af-eval-field='evidence_task']`, false, "评价任务")}</p><span hidden>${inline("", `[data-af-eval='${evaluationIndex}'][data-af-eval-field='evidence_description']`, false, "证据来源")}</span></td><td class="af-edit-block af-criteria-cell" data-af-edit-label="达成标准">${criteria}</td><td class="af-edit-block af-result-cell" data-af-edit-label="评价结果处理"><p>达标推进；未达补教；证据不清则补证。</p><span hidden>${inline("", `[data-af-rule='${evaluationIndex}'][data-af-rule-field='if_goal_reached']`, false, "达到后的处理")}${inline("", `[data-af-rule='${evaluationIndex}'][data-af-rule-field='if_not_yet']`, false, "尚未达到的处理")}${inline("", `[data-af-rule='${evaluationIndex}'][data-af-rule-field='if_evidence_not_individual']`, false, "个人证据不清时")}</span></td><td class="af-edit-block" data-af-edit-label="判断主体">${inline(evaluation.decision_by, `[data-af-decision='${evaluationIndex}']`)}</td></tr>`;
   }).join("");
   const evaluationEditors = result.formative_evaluation_nodes.map((evaluation, evaluationIndex) => `<section class="af-evaluation-editor"><h4>评价 ${evaluationIndex + 1}</h4><div class="af-editor-grid"><label>对象与目标<textarea data-af-eval="${evaluationIndex}" data-af-eval-field="evaluation_purpose" rows="2">${escapeHTML(evaluation.evaluation_purpose)}</textarea></label><label>评价任务<textarea data-af-eval="${evaluationIndex}" data-af-eval-field="evidence_task" rows="2">${escapeHTML(evaluation.evidence_task)}</textarea></label><label>证据<textarea data-af-eval="${evaluationIndex}" data-af-eval-field="evidence_description" rows="2">${escapeHTML(evaluation.evidence_description)}</textarea></label>${evaluation.judgment_criteria.map((criterion, criterionIndex) => `<label>${escapeHTML(goalNames.get(criterion.goal_id) || criterion.goal_id)} · 达到<textarea data-af-criterion="${evaluationIndex}:${criterionIndex}" data-af-criterion-field="meets_when" rows="2">${escapeHTML(criterion.meets_when)}</textarea></label><label>尚未达到<textarea data-af-criterion="${evaluationIndex}:${criterionIndex}" data-af-criterion-field="not_yet_when" rows="2">${escapeHTML(criterion.not_yet_when)}</textarea></label>`).join("")}<label>达到后的处理<textarea data-af-rule="${evaluationIndex}" data-af-rule-field="if_goal_reached" rows="2">${escapeHTML(evaluation.adjustment_rules.if_goal_reached)}</textarea></label><label>尚未达到的处理<textarea data-af-rule="${evaluationIndex}" data-af-rule-field="if_not_yet" rows="2">${escapeHTML(evaluation.adjustment_rules.if_not_yet)}</textarea></label><label>个人证据不清时<textarea data-af-rule="${evaluationIndex}" data-af-rule-field="if_evidence_not_individual" rows="2">${escapeHTML(evaluation.adjustment_rules.if_evidence_not_individual)}</textarea></label><label>判断主体<select data-af-decision="${evaluationIndex}">${["教师判断", "AI汇总后教师判断", "教师结合课堂观察与AI汇总判断"].map(option => `<option ${option === evaluation.decision_by ? "selected" : ""}>${option}</option>`).join("")}</select></label></div></section>`).join("");
   content.innerHTML = `<div class="activity-formative-generated"><h3>一、学习活动设计</h3>${activityCards}<h3>二、形成性评价</h3><div class="formative-table-wrap"><table class="formative-table"><thead><tr><th>评价时机</th><th>对象与目标</th><th>评价任务与证据</th><th>达成标准</th><th>评价结果处理</th><th>判断主体</th></tr></thead><tbody>${evaluationRows}</tbody></table></div><div class="af-hidden-editors" hidden>${evaluationEditors}</div><section class="activity-confirm-list"><h3>三、请教师确认</h3><ul>${result.teacher_confirmation.items_to_confirm.map(item => `<li>${escapeHTML(item)}</li>`).join("")}</ul>${result.teacher_confirmation.unresolved_questions.length ? `<p>待决定：${escapeHTML(result.teacher_confirmation.unresolved_questions.join("；"))}</p>` : ""}</section></div>`;
@@ -992,6 +1105,10 @@ function collectActivityFormativeEdits() {
   root.querySelectorAll("[data-af-group]").forEach(field => {
     const [activityIndex, groupIndex] = field.dataset.afGroup.split(":").map(Number);
     result.activities[activityIndex].parallel_group_tasks[groupIndex][field.dataset.afGroupField] = field.value.trim();
+  });
+  root.querySelectorAll("[data-af-presentation$='_full'][data-af-full-dirty='1']").forEach(field => {
+    const [activityIndex, fullKind] = field.dataset.afPresentation.split(":");
+    applyUnifiedActivitySections(result.activities[Number(activityIndex)], fullKind.replace(/_full$/, ""), field.value.trim());
   });
   root.querySelectorAll("[data-af-group-support]").forEach(field => {
     const [activityIndex, groupIndex, supportIndex] = field.dataset.afGroupSupport.split(":").map(Number);
@@ -1079,11 +1196,62 @@ function collectGoalPathEdits() {
   const structure = root.querySelector("[data-gp-structure]").value.trim();
   result.common_core_goal.target_cognitive_structure.structure_and_rationale = structure;
   result.common_core_goal.observable_success_criteria = root.querySelector("[data-gp-criteria]").value.split("\n").map(item => item.trim()).filter(Boolean);
-  root.querySelectorAll("[data-gp-goal]").forEach(field => {
-    result.progression_goals[Number(field.dataset.gpGoal)][field.dataset.gpField] = field.value.trim();
+  const originalGoals = new Map(original.progression_goals.map(goal => [goal.goal_id, goal]));
+  result.progression_goals = [...root.querySelectorAll("[data-gp-goal-row]")].map(row => {
+    const id = row.dataset.gpGoalRow;
+    const goal = structuredClone(originalGoals.get(id) || {
+      goal_id: id, target_level_code: "CUSTOM", target_level_name: "", source_levels: [],
+      target_students: [], goal_statement: "", observable_achievement: "", custom_goal_note: null
+    });
+    goal.target_level_name = row.querySelector("[data-gp-goal-name]").value.trim();
+    goal.goal_statement = row.querySelector('[data-gp-field="goal_statement"]').value.trim();
+    goal.observable_achievement = row.querySelector('[data-gp-field="observable_achievement"]').value.trim();
+    goal.custom_goal_note = goal.target_level_code === "CUSTOM" ? goal.target_level_name : null;
+    return goal;
   });
+  const studentLookup = new Map(result.student_goal_assignments.map(student => [student.student_id, {
+    student_id: student.student_id, student_name: student.student_name, current_level: student.original_level
+  }]));
+  const studentsByName = new Map();
+  result.student_goal_assignments.forEach(student => {
+    const matches = studentsByName.get(student.student_name) || [];
+    matches.push(student.student_id);
+    studentsByName.set(student.student_name, matches);
+  });
+  const assignedIds = new Set();
+  let studentEditError = "";
+  result.progression_goals.forEach((goal, index) => {
+    const row = root.querySelector(`[data-gp-goal-row="${goal.goal_id}"]`);
+    const names = row.querySelector("[data-gp-goal-students]").value
+      .split(/[、，,；;\n]+/).map(name => name.trim()).filter(Boolean);
+    goal.target_students = names.map(name => {
+      const matches = studentsByName.get(name) || [];
+      if (matches.length !== 1) {
+        studentEditError ||= matches.length ? `“${name}”对应多名学生，请先核对班级名单` : `“${name}”不在本次诊断名单中，请核对姓名`;
+        return null;
+      }
+      const id = matches[0];
+      if (assignedIds.has(id)) {
+        studentEditError ||= `“${name}”被分配到多个进阶目标，请只保留一次`;
+        return null;
+      }
+      assignedIds.add(id);
+      return studentLookup.get(id);
+    }).filter(Boolean);
+    goal.source_levels = [...new Set(goal.target_students.map(student => student.current_level))];
+    goal.target_students.forEach(student => {
+      const assignment = result.student_goal_assignments.find(item => item.student_id === student.student_id);
+      assignment.primary_goal_id = goal.goal_id;
+    });
+  });
+  if (!studentEditError && assignedIds.size !== studentLookup.size) {
+    const missing = [...studentLookup].filter(([id]) => !assignedIds.has(id)).map(([, student]) => student.student_name);
+    studentEditError = `还有学生未分配进阶目标：${missing.join("、")}`;
+  }
   root.querySelectorAll("[data-gp-stage-name]").forEach(field => {
-    result.intervention_path.stages[Number(field.dataset.gpStageName)].stage_name = field.value.trim();
+    const stage = result.intervention_path.stages[Number(field.dataset.gpStageName)];
+    stage.stage_name = field.value.trim();
+    if (stage.activity_units.length === 1) stage.activity_units[0].activity_name = stage.stage_name;
   });
   root.querySelectorAll("[data-gp-stage-duration]").forEach(field => {
     result.intervention_path.stages[Number(field.dataset.gpStageDuration)].duration_minutes = Number(field.value);
@@ -1091,9 +1259,6 @@ function collectGoalPathEdits() {
   root.querySelectorAll("[data-gp-unit-field]").forEach(field => {
     result.intervention_path.stages[Number(field.dataset.gpStage)].activity_units[Number(field.dataset.gpUnit)][field.dataset.gpUnitField] = field.value.trim();
   });
-  const studentLookup = new Map(result.student_goal_assignments.map(student => [student.student_id, {
-    student_id: student.student_id, student_name: student.student_name
-  }]));
   const organizationNames = {
     C: "全班共同活动（C）", H: "同质小组活动（H）", X: "异质小组协同（X）",
     I: "个体学习或个别支持（I）", S: "学习站轮转（S）", A: "综合应用（A）"
@@ -1107,30 +1272,99 @@ function collectGoalPathEdits() {
       unit.organization_code = code;
       organizationCounts[code] = (organizationCounts[code] || 0) + 1;
       unit.unit_id = `${stage.stage_id}-${code}${organizationCounts[code]}`;
-      unit.target_students = [...root.querySelectorAll(`[data-gp-target-student]${cellSelector}:checked`)]
-        .map(field => studentLookup.get(field.value)).filter(Boolean);
       unit.target_goal_ids = [...root.querySelectorAll(`[data-gp-target-goal]${cellSelector}:checked`)]
         .map(field => field.value);
+      const originalUnit = original.intervention_path.stages[stageIndex].activity_units[unitIndex];
+      const membershipChanged = unit.target_goal_ids.some(id => {
+        const oldGoal = original.progression_goals.find(goal => goal.goal_id === id);
+        const newGoal = result.progression_goals.find(goal => goal.goal_id === id);
+        return oldGoal && newGoal && oldGoal.target_students.map(student => student.student_id).join() !== newGoal.target_students.map(student => student.student_id).join();
+      });
+      if (["C", "A"].includes(code)) {
+        unit.target_students = [...studentLookup.values()].map(student => ({ student_id: student.student_id, student_name: student.student_name }));
+      } else if (["H", "I"].includes(code) && (membershipChanged || unit.target_goal_ids.join() !== originalUnit.target_goal_ids.join())) {
+        const ids = new Set(unit.target_goal_ids.flatMap(id => id === "CG"
+          ? [...studentLookup.keys()]
+          : result.progression_goals.find(goal => goal.goal_id === id)?.target_students.map(student => student.student_id) || []));
+        unit.target_students = [...ids].map(id => ({ student_id: id, student_name: studentLookup.get(id).student_name }));
+      }
     });
   });
   result.intervention_path.total_duration_minutes = result.intervention_path.stages.reduce((sum, stage) => sum + stage.duration_minutes, 0);
-  return result;
+  return { result, studentEditError };
 }
 
 function goalPathEditError(result) {
+  if (!result.progression_goals.length) return "请至少保留一个进阶目标";
+  for (const [index, goal] of result.progression_goals.entries()) {
+    if (!goal.target_level_name) return `请填写第 ${index + 1} 个目标的层级名称`;
+    if (!goal.goal_statement || !goal.observable_achievement) return `请填写第 ${index + 1} 个目标的内容与可观察表现`;
+    if (!goal.target_students.length) return `请为第 ${index + 1} 个进阶目标选择学生`;
+  }
   const stages = result.intervention_path.stages;
   for (const [index, stage] of stages.entries()) {
-    if (!stage.stage_name) return `请填写第 ${index + 1} 阶段的名称`;
+    if (!stage.stage_name) return `请填写第 ${index + 1} 个活动的名称`;
     if (!Number.isInteger(stage.duration_minutes) || stage.duration_minutes < 1) return `请填写第 ${index + 1} 阶段的有效时长`;
     for (const [unitIndex, unit] of stage.activity_units.entries()) {
       const label = `第 ${index + 1} 阶段第 ${unitIndex + 1} 项活动`;
       if (unit.activity_name.length < 2 || !unit.activity_summary) return `请完善${label}的名称和内容`;
-      if (!unit.target_students.length || !unit.target_goal_ids.length) return `请为${label}至少选择一名学生和一个目标`;
+      if (!unit.target_students.length || unit.target_goal_ids.length !== 1) return `请为${label}选择一个主要目标层级并核对学生`;
+      if (unit.target_goal_ids[0] !== "CG" && !result.progression_goals.some(goal => goal.goal_id === unit.target_goal_ids[0])) return `请为${label}重新选择目标层级`;
     }
   }
   const planned = serverState?.goalPath?.design?.teacher_instructional_context?.planned_duration_minutes;
   if (result.intervention_path.total_duration_minutes !== planned) return `课堂阶段时长总和须为 ${planned} 分钟`;
   return "";
+}
+
+function goalPathSaveState(message) {
+  document.getElementById("goalPathAutosaveState").textContent = message;
+}
+
+function scheduleGoalPathAutosave() {
+  window.clearTimeout(goalPathAutosaveTimer);
+  goalPathAutosaveTimer = window.setTimeout(() => {
+    saveGoalPathEdits().catch(error => {
+      goalPathSaveState(error.message.includes("请") ? "待补全后自动保存" : "自动保存失败");
+      if (!error.message.includes("请")) showToast(`自动保存失败：${error.message}`);
+    });
+  }, 700);
+}
+
+function saveGoalPathEdits(confirmOnSave = false) {
+  window.clearTimeout(goalPathAutosaveTimer);
+  const pending = goalPathSaveQueue.then(async () => {
+    const design = serverState?.goalPath?.design;
+    if (!design || design.status === "stale") throw new Error("方案已失效，请重新生成");
+    const { result, studentEditError } = collectGoalPathEdits();
+    const editError = studentEditError || goalPathEditError(result);
+    if (editError) throw new Error(editError);
+    if (!ui.goalPathDirty && !confirmOnSave) return design;
+    const serial = goalPathEditSerial;
+    const teachingId = serverState.current_teaching_id;
+    const classroomId = ui.activeInterventionClassroomId;
+    const confirmed = confirmOnSave || design.status === "teacher_confirmed";
+    goalPathSaveState("正在保存…");
+    const payload = await window.PlatformAPI.saveGoalPath(teachingId, classroomId, result, confirmed);
+    if (serverState.current_teaching_id === teachingId && ui.activeInterventionClassroomId === classroomId) {
+      serverState.goalPath.design = payload.design;
+      ui.goalPathAppliedKey = null;
+      if (serial === goalPathEditSerial) {
+        ui.goalPathDirty = false;
+        goalPathSaveState("已自动保存");
+        document.getElementById("goalPathStatus").textContent = "已保存";
+        const preview = document.querySelector("#goalPathGeneratedContent [data-gp-path-readonly] tbody");
+        if (preview) preview.innerHTML = goalPathReadOnlyRows(result.intervention_path, result.progression_goals, result.common_core_goal);
+        document.getElementById("nextFromGoalPath").disabled = false;
+        document.querySelector('#interventionSteps [data-istep="3"]').disabled = !confirmed;
+      } else {
+        scheduleGoalPathAutosave();
+      }
+    }
+    return payload.design;
+  });
+  goalPathSaveQueue = pending.catch(() => {});
+  return pending;
 }
 
 function applyConfirmedGoalPathToActivities() {
@@ -1140,6 +1374,7 @@ function applyConfirmedGoalPathToActivities() {
   if (ui.goalPathAppliedKey === key) return;
   const result = design.result;
   const goals = new Map(result.progression_goals.map(goal => [goal.goal_id, goal.goal_statement]));
+  goals.set("CG", result.common_core_goal.goal_statement);
   const byCode = {
     C: ["全班共同活动", "全班", "师生"],
     H: ["同质小组并行", "同质小组", "生生"],
@@ -1240,6 +1475,7 @@ function updateCurrentTeachingContext(teaching) {
 
 function populateTeachingEditor(teaching) {
   if (!teaching) return;
+  updateTeachingEditorMode(teaching);
   document.getElementById("blockTheme").value = teaching.title || "";
   document.getElementById("blockGoal").value = teaching.goal || "";
   document.getElementById("blockContent").value = teaching.content || "";
@@ -1248,6 +1484,84 @@ function populateTeachingEditor(teaching) {
   document.getElementById("blockGrade").value = teaching.grade || "高一";
   document.getElementById("blockTextbook").value = teaching.textbook || "";
   document.getElementById("blockPeriods").value = teaching.estimated_periods || 1;
+}
+
+function updateTeachingEditorMode(teaching) {
+  const published = Boolean(teaching && teaching.status !== "draft");
+  document.getElementById("publishedTeachingNotice").hidden = !published;
+  document.querySelector("#page-block-edit .draft-state").textContent = published ? "修改需确认；已有任务与报告保持原样" : "返回列表时保存草稿";
+  document.getElementById("saveBlockDraftButton").textContent = published ? "保存修改" : "保存草稿";
+  document.getElementById("createBlockButton").textContent = published ? "保存修改并进入诊断设计" : "保存并进入诊断设计";
+}
+
+function teachingEditIntent(existing, payload) {
+  if (!existing || existing.status === "draft") return null;
+  const labels = { title: "主题", rationale: "选题说明", goal: "目标", content: "教学内容", subject: "学科", grade: "年级", textbook: "教材章节", estimated_periods: "预计课时" };
+  const changes = Object.keys(labels).filter(field => existing[field] !== payload[field]).map(field => labels[field]);
+  if (!changes.length) return null;
+  const accepted = window.confirm(`本次修改：${changes.join("、")}。\n\n请确认这只是完善表述，不改变原诊断任务的教学范围与判断依据。已发布任务、学生提交和已有报告会保持原样，不会自动重算。\n\n若是实质调整，请点“取消”并开启新的精准教学。`);
+  if (!accepted) {
+    const error = new Error("已取消保存，修改仍保留在当前页面");
+    error.code = "TEACHING_SAVE_CANCELLED";
+    throw error;
+  }
+  return "wording";
+}
+
+function teachingFormPayload() {
+  return {
+    title: document.getElementById("blockTheme").value.trim(),
+    goal: document.getElementById("blockGoal").value.trim(),
+    content: document.getElementById("blockContent").value.trim(),
+    rationale: document.getElementById("blockRationale").value.trim(),
+    subject: document.getElementById("blockSubject").value,
+    grade: document.getElementById("blockGrade").value,
+    textbook: document.getElementById("blockTextbook").value.trim(),
+    estimated_periods: Number(document.getElementById("blockPeriods").value || 1)
+  };
+}
+
+function prepareNewTeachingEditor() {
+  ui.editingTeachingId = null;
+  updateTeachingEditorMode(null);
+  document.getElementById("blockForm").reset();
+  for (const id of ["blockTheme", "blockGoal", "blockContent", "blockRationale", "blockTextbook"]) {
+    document.getElementById(id).value = "";
+  }
+  document.getElementById("blockPeriods").value = 1;
+  populateTeachingSubjects(serverState.teacher.subject);
+  document.getElementById("blockGrade").value = "高一";
+  document.getElementById("teachingEditorHeading").textContent = "开启新的精准教学";
+}
+
+async function persistTeachingDraft() {
+  const payload = teachingFormPayload();
+  if (!ui.editingTeachingId && ![payload.title, payload.goal, payload.content, payload.rationale, payload.textbook].some(Boolean)) {
+    return false;
+  }
+  const existing = ui.editingTeachingId ? getTeachingById(ui.editingTeachingId) : null;
+  if (existing && Object.entries(payload).every(([key, value]) => existing[key] === value)) return true;
+  const editIntent = teachingEditIntent(existing, payload);
+  const teaching = ui.editingTeachingId
+    ? await window.PlatformAPI.updateTeaching(ui.editingTeachingId, payload, editIntent)
+    : await window.PlatformAPI.createTeachingDraft(payload);
+  ui.editingTeachingId = teaching.id;
+  serverState.current_teaching_id = teaching.id;
+  serverState.precision_teachings = [teaching, ...serverState.precision_teachings.filter(item => item.id !== teaching.id)];
+  storeWorkspace(await window.PlatformAPI.getWorkspace(teaching.id));
+  updateTeachingEditorMode(teaching);
+  document.getElementById("teachingEditorHeading").textContent = "编辑精准教学";
+  return true;
+}
+
+async function saveTeachingDraft() {
+  if (teachingDraftSavePromise) return teachingDraftSavePromise;
+  teachingDraftSavePromise = persistTeachingDraft();
+  try {
+    return await teachingDraftSavePromise;
+  } finally {
+    teachingDraftSavePromise = null;
+  }
 }
 
 function renderTeachingSelector() {
@@ -1266,7 +1580,7 @@ function renderTeachingSelector() {
   serverState.precision_teachings.forEach(teaching => {
     const option = document.createElement("option");
     option.value = teaching.id;
-    option.textContent = `${teaching.status === "active" ? "进行中" : teaching.status === "completed" ? "已完成" : "草稿"} · ${teaching.grade}${teaching.subject} · ${teaching.title}`;
+    option.textContent = `${teaching.status === "active" ? "进行中" : teaching.status === "completed" ? "已完成" : "草稿"} · ${teaching.grade}${teaching.subject} · ${teaching.title || "未命名精准教学"}`;
     select.append(option);
   });
   const fallbackId = serverState.precision_teachings[0].id;
@@ -1278,16 +1592,22 @@ function renderTeachingSelector() {
 function stageAccessible(pageName) {
   if (!["diagnosis", "feedback", "intervention"].includes(pageName)) return true;
   if (!serverState?.current_workspace) return false;
-  return pageName === "diagnosis" || Boolean(serverState.current_workspace.stages[pageName].accessible);
+  if (pageName === "diagnosis") {
+    const teaching = serverState.current_workspace.teaching;
+    return Boolean(teaching.title?.trim() && teaching.goal?.trim() && teaching.content?.trim());
+  }
+  return Boolean(serverState.current_workspace.stages[pageName].accessible);
 }
 
 function renderStageNavigation(workspace) {
   ["diagnosis", "feedback", "intervention"].forEach(stage => {
     const button = document.querySelector(`.nav-item[data-page="${stage}"]`);
-    const accessible = Boolean(workspace?.stages[stage].accessible);
+    const accessible = stage === "diagnosis"
+      ? Boolean(workspace?.teaching?.title?.trim() && workspace?.teaching?.goal?.trim() && workspace?.teaching?.content?.trim())
+      : Boolean(workspace?.stages[stage].accessible);
     button.disabled = !accessible;
     button.classList.toggle("locked", !accessible);
-    button.title = accessible ? "" : !workspace ? "请先创建精准教学" : stage === "feedback" ? "发布诊断任务后开放" : "确认诊断反馈后开放";
+    button.title = accessible ? "" : !workspace ? "请先创建精准教学" : stage === "diagnosis" ? "请先补全精准教学主题、目标和内容" : stage === "feedback" ? "发布诊断任务后开放" : "确认诊断反馈后开放";
   });
 }
 
@@ -1298,16 +1618,19 @@ function applyWorkspace(workspace) {
   document.getElementById("diagnosisTaskText").value = diagnosis.task_text || "";
   document.getElementById("diagnosisRoleText").value = diagnosis.ai_role || "";
   document.getElementById("diagnosisDuration").value = diagnosis.duration_minutes || 15;
-  document.getElementById("publishDuration").textContent = `${diagnosis.duration_minutes || 15} 分钟`;
   const typeCopy = {
     pre: ["课前诊断", "本次结果将作为课堂干预设计的主要证据来源。"],
     during: ["课中诊断", "本次结果用于判断当前活动效果并调整后续活动。"],
     post: ["课后诊断", "本次结果将与课前证据比较，用于分析本轮干预后的表现变化。"]
   }[ui.diagnosisType];
-  document.getElementById("publishDiagnosisType").textContent = typeCopy[0];
   const publishButton = document.getElementById("publishTaskButton");
   publishButton.textContent = diagnosis.status === "published" ? "更新已发布任务" : "确认发布";
   renderRubric(workspace.rubric);
+  const customStandard = workspace.custom_analysis_standard || {};
+  document.getElementById("customAnalysisCriteria").value = customStandard.criteria || "";
+  document.getElementById("customAnalysisIndividual").checked = Boolean(customStandard.individual_enabled);
+  document.getElementById("customAnalysisClass").checked = Boolean(customStandard.class_enabled);
+  document.getElementById("customAnalysisSaveStatus").textContent = customStandard.criteria ? "自定义标准已保存" : "未启用自定义分析";
   const analysisRubricStep = document.getElementById("analysisRubricStep");
   const rubricConfirmedForAnalysis = workspace.rubric?.status === "confirmed";
   analysisRubricStep.classList.toggle("done", rubricConfirmedForAnalysis);
@@ -1447,13 +1770,12 @@ function renderRubric(record) {
     const detail = [
       ...(row.adjacent_boundaries || []).map(item => `边界：${item}`),
       ...(row.typical_expressions || []).map(item => `示例：${item}`),
-      `追溯：${(row.trace_to || []).join("、")}`,
       ...(row.limitations || []).map(item => `限制：${item}`)
     ].join("\n");
     return `<tr data-rubric-level="${level}"><th>${rubricLevelNames[level]}${row.status === "not_reasonably_elicitable" ? "<small>当前任务难以引出</small>" : ""}</th>
       <td contenteditable="true" data-rubric-field="core_performance">${escapeHTML(rubricListText(row.core_performance))}</td>
       <td contenteditable="true" data-rubric-field="decision_evidence">${escapeHTML(rubricListText(row.decision_evidence))}</td>
-      <td class="rubric-trace-cell">${escapeHTML(detail).replaceAll("\n", "<br>")}</td></tr>`;
+      <td class="rubric-boundary-cell">${escapeHTML(detail).replaceAll("\n", "<br>")}</td></tr>`;
   }).join("");
   const confirmed = record.status === "confirmed";
   const stale = record.status === "stale";
@@ -1481,6 +1803,34 @@ function rubricFromEditor() {
     });
   });
   return rubric;
+}
+
+function customAnalysisDraft() {
+  return {
+    criteria: document.getElementById("customAnalysisCriteria").value.trim(),
+    individual_enabled: document.getElementById("customAnalysisIndividual").checked,
+    class_enabled: document.getElementById("customAnalysisClass").checked
+  };
+}
+
+function customAnalysisDirty() {
+  const current = serverState.current_workspace?.custom_analysis_standard || {};
+  const draft = customAnalysisDraft();
+  return draft.criteria !== (current.criteria || "") ||
+    draft.individual_enabled !== Boolean(current.individual_enabled) ||
+    draft.class_enabled !== Boolean(current.class_enabled);
+}
+
+async function saveCustomAnalysisStandard() {
+  const teachingId = serverState.current_teaching_id;
+  const response = await window.PlatformAPI.saveCustomAnalysisStandard(teachingId, customAnalysisDraft());
+  if (serverState.current_teaching_id === teachingId) {
+    serverState.current_workspace.custom_analysis_standard = response.standard;
+    document.getElementById("customAnalysisSaveStatus").textContent = response.standard.criteria
+      ? "自定义标准已保存" : "未启用自定义分析";
+    if (serverState.studentResults) await loadStudentResults(teachingId);
+  }
+  return response.standard;
 }
 
 async function persistRubric(confirmed, { rerender = true } = {}) {
@@ -1542,7 +1892,7 @@ function renderTeachingList(teachings) {
     return;
   }
   list.innerHTML = teachings.map(teaching => {
-    const title = escapeHTML(teaching.title);
+    const title = escapeHTML(teaching.title || "未命名精准教学");
     const goal = escapeHTML(teaching.goal);
     const meta = `${escapeHTML(teaching.grade)}${escapeHTML(teaching.subject)}${teaching.textbook ? ` · ${escapeHTML(teaching.textbook)}` : ""}`;
     const updatedAt = escapeHTML(formatUpdatedAt(teaching.updated_at));
@@ -1550,7 +1900,7 @@ function renderTeachingList(teachings) {
       return `<article class="teaching-item card compact${teaching.id === serverState.current_teaching_id ? " current-teaching-card" : ""}" data-teaching-id="${escapeHTML(teaching.id)}">
         <div class="teaching-item-main">
           <div class="eyebrow"><span class="status neutral">草稿</span><span>${meta} · 预计 ${Number(teaching.estimated_periods)} 课时</span></div>
-          <h2>${title}</h2><p class="teaching-goal muted">${goal}</p>
+          <h2><button class="teaching-title-link" type="button" data-page="block-edit" data-open-teaching="${escapeHTML(teaching.id)}">${title}</button></h2><p class="teaching-goal muted">${goal}</p>
         </div>
         <footer class="teaching-item-footer"><span>最近更新：${updatedAt}</span><div class="teaching-footer-actions"><button class="button small danger" data-delete-teaching="${escapeHTML(teaching.id)}" data-teaching-title="${title}">删除</button><button class="button" data-page="block-edit" data-open-teaching="${escapeHTML(teaching.id)}">继续编辑</button></div></footer>
       </article>`;
@@ -1564,7 +1914,7 @@ function renderTeachingList(teachings) {
     return `<article class="teaching-item card${teaching.id === serverState.current_teaching_id ? " current-teaching-card" : ""}" data-teaching-id="${escapeHTML(teaching.id)}">
       <div class="teaching-item-main">
         <div class="eyebrow"><span class="status success">${projectLabel}</span><span>${meta}</span><span>预计 ${Number(teaching.estimated_periods)} 课时</span></div>
-        <h2>${title}</h2><p class="teaching-goal">${goal}</p>
+        <h2><button class="teaching-title-link" type="button" data-page="block-edit" data-open-teaching="${escapeHTML(teaching.id)}">${title}</button></h2><p class="teaching-goal">${goal}</p>
         <div class="teaching-progress" aria-label="精准教学进度">
           <button class="${diagnosisDone ? "complete" : "current"}" data-page="diagnosis" data-open-teaching="${escapeHTML(teaching.id)}"><span>1</span><b>精准诊断任务设计与发布</b><small>${diagnosisDone ? "任务已发布" : "待设计"}</small></button>
           <button class="${feedbackDone ? "complete" : feedbackOpen ? "current" : "locked"}" data-page="feedback" data-open-teaching="${escapeHTML(teaching.id)}" ${feedbackOpen ? "" : "disabled"}><span>2</span><b>诊断结果反馈</b><small>${feedbackDone ? "结果已确认" : feedbackOpen ? "待确认" : "完成诊断后开放"}</small></button>
@@ -1608,6 +1958,7 @@ async function hydrateFromServer() {
     window.LLMDebug?.start(runtime.llm_request_debug);
     const aiProvider = runtime.ai_provider === "deepseek"
       ? "DeepSeek"
+      : runtime.ai_provider === "openrouter" ? `OpenRouter · ${runtime.ai_model || "未配置模型"}`
       : runtime.ai_provider === "mock" ? "Mock AI" : (runtime.ai_provider || "AI 未配置");
     const provider = `服务已连接 · ${aiProvider}`;
     setBackendStatus("online", provider);
@@ -1804,8 +2155,6 @@ function getDesiredInterventionDuration() {
 
 function updateInterventionDurationContext() {
   const minutes = getDesiredInterventionDuration();
-  const summary = document.getElementById("interventionDurationSummary");
-  if (summary) summary.textContent = `基于诊断结果设计共${minutes}分钟的课堂方案。`;
   const brief = document.getElementById("pathDesignBrief");
   if (brief) brief.value = brief.value.replace(/【现实条件】全课\d+分钟(?:（\d+课时）)?/, `【现实条件】全课${minutes}分钟`);
   updateInterventionTimeTotal();
@@ -2616,21 +2965,22 @@ function showIntegrationReport(payload) {
   serverState.integrationReport = report;
   generate.disabled = !payload.ready;
   generate.hidden = !report;
-  generate.textContent = "AI重新生成教学报告";
+  generate.textContent = "AI重新生成教学方案";
   actions.hidden = !report;
   const exportReady = report?.status === "current";
   document.getElementById("downloadInterventionPdf").disabled = !exportReady;
+  document.getElementById("downloadInterventionDocx").disabled = !exportReady;
   document.getElementById("downloadInterventionReport").disabled = !exportReady;
   if (!report) {
     status.hidden = Boolean(payload.ready);
     status.textContent = payload.ready ? "" : payload.prerequisite || "上游资料尚未齐备。";
-    target.innerHTML = `<div class="stage-empty-state"><span>教学报告与方案审核</span><h2>尚未生成</h2><button class="button primary" id="refreshInterventionReportEmpty" ${payload.ready ? "" : "disabled"}>AI生成教学报告</button></div>`;
+    target.innerHTML = `<div class="stage-empty-state"><span>教学方案总览与审核</span><h2>尚未生成</h2><button class="button primary" id="refreshInterventionReportEmpty" ${payload.ready ? "" : "disabled"}>AI生成教学方案</button></div>`;
     return;
   }
   status.hidden = false;
   status.textContent = exportReady
-    ? `报告已生成 · ${report.result.audit_summary.overall_conclusion}`
-    : `上游资料已变化，旧报告仅供对照。${payload.prerequisite || "请重新生成后再导出。"}`;
+    ? `方案已生成 · ${report.result.audit_summary.overall_conclusion}`
+    : `上游资料已变化，旧方案仅供对照。${payload.prerequisite || "请重新生成后再导出。"}`;
   target.innerHTML = buildInterventionReport(report);
 }
 
@@ -2642,34 +2992,35 @@ async function renderInterventionReport() {
   document.getElementById("integrationReportActions").hidden = true;
   document.getElementById("refreshInterventionReport").hidden = true;
   document.getElementById("integrationReportStatus").hidden = false;
-  document.getElementById("integrationReportStatus").textContent = "正在读取报告状态…";
+  document.getElementById("integrationReportStatus").textContent = "正在读取方案状态…";
   document.getElementById("downloadInterventionPdf").disabled = true;
+  document.getElementById("downloadInterventionDocx").disabled = true;
   document.getElementById("downloadInterventionReport").disabled = true;
-  target.innerHTML = '<p class="report-empty">正在读取已保存的教学报告…</p>';
+  target.innerHTML = '<p class="report-empty">正在读取已保存的教学方案…</p>';
   try {
     const payload = await window.PlatformAPI.getIntegrationReport(teachingId, classroomId);
     if (serverState?.current_teaching_id !== teachingId || ui.activeInterventionClassroomId !== classroomId) return;
     showIntegrationReport(payload);
   } catch (error) {
-    document.getElementById("integrationReportStatus").textContent = `报告读取失败：${error.message}`;
+    document.getElementById("integrationReportStatus").textContent = `方案读取失败：${error.message}`;
     target.innerHTML = `<p class="report-empty">${escapeHTML(error.message)}</p>`;
   }
 }
 
 function downloadInterventionReport() {
   const content = document.getElementById("interventionReportContent").innerHTML;
-  const title = getTeachingById(serverState.current_teaching_id)?.title || "精准干预教学报告";
+  const title = getTeachingById(serverState.current_teaching_id)?.title || "精准干预教学方案";
   const style = `body{font-family:Arial,"Microsoft YaHei",sans-serif;color:#1d2d2e;line-height:1.65;max-width:900px;margin:40px auto;padding:0 24px}h2,h3,h4{color:#174f4a}section{border-top:1px solid #d8e5e3;padding:18px 0}p{white-space:pre-wrap}table{border-collapse:collapse;width:100%}td,th{border:1px solid #d8e5e3;padding:8px}.report-context-table{table-layout:fixed}.report-context-table th:first-child,.report-context-table td:first-child{width:23%}.report-action-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.report-stage-list,.report-levels{display:flex;gap:12px;flex-wrap:wrap}.report-stage-list span,.report-levels span{padding:5px 9px;background:#eef7f5;border-radius:5px}.report-activity,.report-evaluations article{border:1px solid #d8e5e3;border-radius:8px;padding:15px;margin:12px 0}@media print{body{margin:0;max-width:none}}`;
-  const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>${escapeHTML(title)}｜教学报告</title><style>${style}</style></head><body>${content}</body></html>`;
+  const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>${escapeHTML(title)}｜教学方案</title><style>${style}</style></head><body>${content}</body></html>`;
   const url = URL.createObjectURL(new Blob([html], {type: "text/html;charset=utf-8"}));
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${title.replace(/[\\/:*?"<>|]/g, "-")}-教学报告.html`;
+  link.download = `${title.replace(/[\\/:*?"<>|]/g, "-")}-教学方案.html`;
   document.body.append(link);
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 10000);
-  showToast("已开始下载 HTML 教学报告");
+  showToast("已开始下载 HTML 教学方案");
 }
 
 async function downloadInterventionPdf(button) {
@@ -2679,20 +3030,45 @@ async function downloadInterventionPdf(button) {
   button.textContent = "正在生成 PDF…";
   try {
     const blob = await window.PlatformAPI.downloadIntegrationReportPdf(teachingId, classroomId);
-    const title = getTeachingById(teachingId)?.title || "精准干预教学报告";
+    const title = getTeachingById(teachingId)?.title || "精准干预教学方案";
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${title.replace(/[\\/:*?"<>|]/g, "-")}-教学报告.pdf`;
+    link.download = `${title.replace(/[\\/:*?"<>|]/g, "-")}-教学方案.pdf`;
     document.body.append(link);
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 10000);
-    showToast("已开始下载 PDF 教学报告");
+    showToast("已开始下载 PDF 教学方案");
   } catch (error) {
     showToast(`PDF 导出失败：${error.message}`);
   } finally {
     button.textContent = "下载 PDF";
+    button.disabled = serverState?.integrationReport?.status !== "current";
+  }
+}
+
+async function downloadInterventionDocx(button) {
+  const teachingId = serverState.current_teaching_id;
+  const classroomId = ui.activeInterventionClassroomId;
+  button.disabled = true;
+  button.textContent = "正在生成 Word…";
+  try {
+    const blob = await window.PlatformAPI.downloadIntegrationReportDocx(teachingId, classroomId);
+    const title = getTeachingById(teachingId)?.title || "精准干预教学方案";
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${title.replace(/[\\/:*?"<>|]/g, "-")}-教学方案.docx`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 10000);
+    showToast("已开始下载可编辑 Word 教学方案");
+  } catch (error) {
+    showToast(`Word 导出失败：${error.message}`);
+  } finally {
+    button.textContent = "导出可编辑 Word";
     button.disabled = serverState?.integrationReport?.status !== "current";
   }
 }
@@ -2870,6 +3246,13 @@ document.addEventListener("click", async event => {
   if (event.target.closest("#generateGoalPath, #generateGoalPathEmpty")) {
     const button = event.target.closest("#generateGoalPath, #generateGoalPathEmpty");
     const input = goalPathTeacherInput();
+    const isRevision = Boolean(serverState?.goalPath?.design);
+    const revisionRequest = document.getElementById("goalPathRevisionRequest").value.trim();
+    if (isRevision && !revisionRequest) {
+      showToast("请先写下希望 AI 调整的要求");
+      document.getElementById("goalPathRevisionRequest").focus();
+      return;
+    }
     const context = input.teacher_instructional_context;
     if (!ui.activeInterventionClassroomId) {
       showToast("请先选择已发布诊断任务的班级");
@@ -2901,21 +3284,86 @@ document.addEventListener("click", async event => {
     button.disabled = true;
     button.textContent = "正在生成…";
     try {
+      if (isRevision && ui.goalPathDirty) await saveGoalPathEdits();
+      input.regeneration_request = isRevision ? revisionRequest : null;
       const payload = await window.PlatformAPI.generateGoalPath(
         serverState.current_teaching_id, ui.activeInterventionClassroomId, input
       );
       serverState.goalPath = { ...serverState.goalPath, class_diagnosis_ready: true, design: payload.design };
       ui.goalPathAppliedKey = null;
+      ui.goalPathDirty = false;
+      goalPathEditSerial += 1;
+      document.getElementById("goalPathRevisionRequest").value = "";
       renderGoalPath(serverState.goalPath);
-      showToast("目标与课堂路径已生成，请核对后确认");
+      goalPathSaveState("已生成；修改将自动保存");
+      showToast("已按要求生成新方案，请核对；修改会自动保存");
     } catch (error) {
       showToast(`生成失败：${error.message}`);
     } finally {
       if (button.isConnected) {
         button.disabled = !serverState?.goalPath?.class_diagnosis_ready;
-        button.textContent = button.id === "generateGoalPathEmpty" ? "AI生成目标与路径" : "AI重新生成目标与路径";
+        button.textContent = button.id === "generateGoalPathEmpty" ? "AI生成目标与路径" : "发送要求并重新生成";
       }
     }
+    return;
+  }
+
+  if (event.target.closest("[data-gp-add-goal]")) {
+    const root = document.getElementById("goalPathGeneratedContent");
+    const rows = [...root.querySelectorAll("[data-gp-goal-row]")];
+    const nextNumber = Math.max(0, ...rows.map(row => Number(row.dataset.gpGoalRow.slice(2)))) + 1;
+    const id = `PG${nextNumber}`;
+    const goal = { goal_id: id, target_level_name: "", source_levels: [], target_students: [], goal_statement: "", observable_achievement: "" };
+    root.querySelector(".goal-path-goals-table tbody").insertAdjacentHTML("beforeend", goalPathGoalRow(goal));
+    root.querySelectorAll(".goal-path-target-picker").forEach(picker => {
+      const option = document.createElement("label");
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = picker.querySelector('input[type="radio"]').name;
+      radio.dataset.gpTargetGoal = "";
+      radio.dataset.gpStage = picker.querySelector('input[type="radio"]').dataset.gpStage;
+      radio.dataset.gpUnit = picker.querySelector('input[type="radio"]').dataset.gpUnit;
+      radio.value = id;
+      option.append(radio, document.createTextNode(`${id} · 新增目标`));
+      picker.querySelector("div").append(option);
+    });
+    markGoalPathDirty();
+    root.querySelector(`[data-gp-goal-row="${id}"] [data-gp-goal-name]`).focus();
+    return;
+  }
+
+  const deleteGoalButton = event.target.closest("[data-gp-delete-goal]");
+  if (deleteGoalButton) {
+    const root = document.getElementById("goalPathGeneratedContent");
+    const rows = [...root.querySelectorAll("[data-gp-goal-row]")];
+    if (rows.length === 1) { showToast("至少保留一个进阶目标"); return; }
+    const id = deleteGoalButton.dataset.gpDeleteGoal;
+    const row = deleteGoalButton.closest("[data-gp-goal-row]");
+    const names = row.querySelector("[data-gp-goal-students]").value.split(/[、，,；;\n]+/).map(name => name.trim()).filter(Boolean);
+    const referenced = Boolean(root.querySelector(`[data-gp-target-goal][value="${id}"]:checked`));
+    let destination = null;
+    if (names.length || referenced) {
+      const choices = rows.filter(other => other !== row).map(other =>
+        `${other.dataset.gpGoalRow}（${other.querySelector("[data-gp-goal-name]").value.trim() || "未命名"}）`).join("、");
+      const answer = window.prompt(`删除此目标后，相关学生及活动需要并入哪个目标？\n请输入目标编号：${choices}`, "");
+      if (answer === null) return;
+      destination = rows.find(other => other !== row && other.dataset.gpGoalRow.toUpperCase() === answer.trim().toUpperCase());
+      if (!destination) { showToast("请输入列表中有效的目标编号，未执行删除"); return; }
+      const target = destination.querySelector("[data-gp-goal-students]");
+      target.value = [...new Set([...target.value.split(/[、，,；;\n]+/), ...names].map(name => name.trim()).filter(Boolean))].join("、");
+    }
+    root.querySelectorAll(`.goal-path-target-picker [data-gp-target-goal][value="${id}"]`).forEach(input => {
+      const picker = input.closest(".goal-path-target-picker");
+      if (input.checked && destination) {
+        const replacement = [...picker.querySelectorAll("[data-gp-target-goal]")]
+          .find(option => option.value === destination.dataset.gpGoalRow);
+        replacement.checked = true;
+        picker.querySelector("summary").textContent = destination.querySelector("[data-gp-goal-name]").value.trim() || "新增目标";
+      }
+      input.parentElement.remove();
+    });
+    row.remove();
+    markGoalPathDirty();
     return;
   }
 
@@ -2930,8 +3378,8 @@ document.addEventListener("click", async event => {
       button.textContent = "完成修改";
       editor.querySelector("textarea, select, input")?.focus();
     } else {
-      const edited = collectGoalPathEdits();
-      display.querySelector("tbody").innerHTML = goalPathReadOnlyRows(edited.intervention_path);
+      const { result: edited } = collectGoalPathEdits();
+      display.querySelector("tbody").innerHTML = goalPathReadOnlyRows(edited.intervention_path, edited.progression_goals, edited.common_core_goal);
       editor.hidden = true;
       display.hidden = false;
       button.textContent = "修改";
@@ -2939,33 +3387,17 @@ document.addEventListener("click", async event => {
     return;
   }
 
-  if (event.target.closest("#saveGoalPathDraft, #confirmGoalPath")) {
-    const button = event.target.closest("#saveGoalPathDraft, #confirmGoalPath");
-    const confirmed = button.id === "confirmGoalPath";
-    const result = collectGoalPathEdits();
-    const editError = goalPathEditError(result);
-    if (editError) {
-      showToast(editError);
-      return;
-    }
+  if (event.target.closest("#nextFromGoalPath")) {
+    const button = event.target.closest("#nextFromGoalPath");
     button.disabled = true;
     try {
-      const payload = await window.PlatformAPI.saveGoalPath(
-        serverState.current_teaching_id, ui.activeInterventionClassroomId, result, confirmed
-      );
-      serverState.goalPath.design = payload.design;
-      ui.goalPathAppliedKey = null;
-      renderGoalPath(serverState.goalPath);
-      showToast(confirmed ? "目标与路径已由教师确认" : "修改已保存，仍待教师确认");
+      await saveGoalPathEdits(true);
+      setInterventionStep(3);
     } catch (error) {
-      showToast(`保存失败：${error.message}`);
+      showToast(`无法进入下一步：${error.message}`);
+    } finally {
       button.disabled = false;
     }
-    return;
-  }
-
-  if (event.target.closest("#nextFromGoalPath")) {
-    setInterventionStep(3);
     return;
   }
 
@@ -3053,6 +3485,26 @@ document.addEventListener("click", async event => {
 
   const pageButton = event.target.closest("[data-page]");
   if (pageButton) {
+    if (ui.currentPage === "intervention" && ui.interventionStep === 2 && ui.goalPathDirty) {
+      try { await saveGoalPathEdits(); }
+      catch (error) { showToast(`请先完成当前修改：${error.message}`); return; }
+    }
+    if (ui.currentPage === "diagnosis" && customAnalysisDirty()) {
+      try {
+        await saveCustomAnalysisStandard();
+      } catch (error) {
+        showToast(`自定义标准保存失败：${error.message}`);
+        return;
+      }
+    }
+    if (ui.currentPage === "block-edit" && pageButton.dataset.page !== "block-edit") {
+      try {
+        await saveTeachingDraft();
+      } catch (error) {
+        showToast(error.code === "TEACHING_SAVE_CANCELLED" ? error.message : `保存失败，请重试：${error.message}`);
+        return;
+      }
+    }
     if (pageButton.dataset.openTeaching) {
       try {
         await chooseCurrentTeaching(pageButton.dataset.openTeaching);
@@ -3066,8 +3518,16 @@ document.addEventListener("click", async event => {
       showToast("请先完善教师与班级信息");
       return;
     }
+    if (pageButton.dataset.page === "block-edit") {
+      if (pageButton.dataset.openTeaching) {
+        ui.editingTeachingId = pageButton.dataset.openTeaching;
+        document.getElementById("teachingEditorHeading").textContent = "编辑精准教学";
+      } else {
+        prepareNewTeachingEditor();
+      }
+    }
     if (!stageAccessible(pageButton.dataset.page)) {
-      showToast(!serverState?.current_workspace ? "请先创建一项精准教学" : pageButton.dataset.page === "feedback" ? "请先完成并发布诊断任务" : "请先完成诊断结果反馈并由教师确认");
+      showToast(!serverState?.current_workspace ? "请先创建一项精准教学" : pageButton.dataset.page === "diagnosis" ? "请先补全精准教学主题、目标和内容" : pageButton.dataset.page === "feedback" ? "请先完成并发布诊断任务" : "请先完成诊断结果反馈并由教师确认");
       return;
     }
     showPage(pageButton.dataset.page);
@@ -3081,6 +3541,14 @@ document.addEventListener("click", async event => {
   const diagnosisStep = event.target.closest("[data-dstep], [data-dnext]");
   if (diagnosisStep) {
     const targetStep = Number(diagnosisStep.dataset.dstep || diagnosisStep.dataset.dnext);
+    if (ui.diagnosisStep === 3 && targetStep !== 3 && customAnalysisDirty()) {
+      try {
+        await saveCustomAnalysisStandard();
+      } catch (error) {
+        showToast(`自定义标准保存失败：${error.message}`);
+        return;
+      }
+    }
     if (targetStep === 3) {
       await openRubricStep();
       return;
@@ -3095,6 +3563,11 @@ document.addEventListener("click", async event => {
 
   const interventionStep = event.target.closest("[data-istep], [data-istep-target]");
   if (interventionStep) {
+    const targetStep = Number(interventionStep.dataset.istep || interventionStep.dataset.istepTarget);
+    if (ui.interventionStep === 2 && targetStep !== 2 && ui.goalPathDirty) {
+      try { await saveGoalPathEdits(targetStep >= 3); }
+      catch (error) { showToast(`请先完成当前修改：${error.message}`); return; }
+    }
     setInterventionStep(interventionStep.dataset.istep || interventionStep.dataset.istepTarget);
     return;
   }
@@ -3102,6 +3575,76 @@ document.addEventListener("click", async event => {
   const feedbackTab = event.target.closest("[data-feedback-tab]");
   if (feedbackTab) {
     setFeedbackTab(feedbackTab.dataset.feedbackTab);
+    return;
+  }
+
+  if (event.target.closest("#saveCustomAnalysisStandard")) {
+    const button = document.getElementById("saveCustomAnalysisStandard");
+    button.disabled = true;
+    try {
+      await saveCustomAnalysisStandard();
+      showToast("教师自定义分析标准已保存");
+    } catch (error) {
+      showToast(`保存失败：${error.message}`);
+    } finally {
+      button.disabled = false;
+    }
+    return;
+  }
+
+  const customGenerate = event.target.closest("[data-generate-custom]");
+  if (customGenerate) {
+    const teachingId = serverState.current_teaching_id;
+    const mode = customGenerate.dataset.generateCustom;
+    const subjectId = customGenerate.dataset.customSubject;
+    customGenerate.disabled = true;
+    customGenerate.textContent = "正在分析…";
+    try {
+      const response = await window.PlatformAPI.generateCustomAnalysis(teachingId, mode, subjectId);
+      if (serverState.current_teaching_id !== teachingId) return;
+      if (mode === "class") {
+        serverState.studentResults.custom_class_reports[subjectId] = response.report;
+        renderClassReport(serverState.studentResults);
+      } else {
+        const result = serverState.studentResults.results.find(item => item.id === subjectId);
+        if (result) {
+          result.custom_analysis = response.report;
+          renderStudentResultDetail(result);
+        }
+      }
+      showToast(response.report.provider === "mock" ? "Mock 预览已生成，请配置真实模型后重新生成" : "自定义标准分析已生成，请核对证据");
+    } catch (error) {
+      showToast(`自定义分析失败：${error.message}`);
+      if (customGenerate.isConnected) {
+        customGenerate.disabled = false;
+        customGenerate.textContent = "重新生成";
+      }
+    }
+    return;
+  }
+
+  if (event.target.closest("#generateAllCustomReports")) {
+    const button = document.getElementById("generateAllCustomReports");
+    const teachingId = serverState.current_teaching_id;
+    const pending = serverState.studentResults.results.filter(item =>
+      item.student.classroom_id === ui.activeClassroomId && item.custom_analysis?.status !== "ready"
+    );
+    button.disabled = true;
+    let generated = 0;
+    try {
+      for (const result of pending) {
+        button.textContent = `生成中 ${generated + 1}/${pending.length}`;
+        const response = await window.PlatformAPI.generateCustomAnalysis(teachingId, "individual", result.id);
+        if (serverState.current_teaching_id !== teachingId) return;
+        result.custom_analysis = response.report;
+        generated += 1;
+      }
+      renderStudentResults(serverState.studentResults);
+      showToast(`已生成 ${generated} 份个人补充反馈，请逐份核对证据`);
+    } catch (error) {
+      renderStudentResults(serverState.studentResults);
+      showToast(`已完成 ${generated} 份，其余生成失败：${error.message}`);
+    }
     return;
   }
 
@@ -3191,7 +3734,6 @@ document.addEventListener("click", async event => {
       `禁止行为：${recommendation.dialogue_rules.prohibited.join("；")}`
     ].join("\n");
     document.getElementById("diagnosisDuration").value = recommendation.estimated_duration_minutes;
-    document.getElementById("publishDuration").textContent = `${recommendation.estimated_duration_minutes} 分钟`;
     showToast("已填入任务、AI 角色与规则和预计时长。请检查并保存草稿，再生成量规。");
     return;
   }
@@ -3205,6 +3747,16 @@ document.addEventListener("click", async event => {
       button.textContent = selected ? "已选择" : "选择此路径";
       button.classList.toggle("primary", selected);
     });
+    return;
+  }
+
+  if (event.target.closest("#toggleTaskRecommendations")) {
+    const button = document.getElementById("toggleTaskRecommendations");
+    const collapsed = button.getAttribute("aria-expanded") === "true";
+    document.getElementById("taskRecommendationBody").hidden = collapsed;
+    document.getElementById("taskRecommendations").classList.toggle("is-collapsed", collapsed);
+    button.setAttribute("aria-expanded", String(!collapsed));
+    button.textContent = collapsed ? "展开推荐" : "收起推荐";
     return;
   }
 
@@ -3319,6 +3871,24 @@ document.addEventListener("click", async event => {
     return;
   }
 
+  if (event.target.closest("#saveStudentFeedback")) {
+    const result = currentStudentResult();
+    const text = document.getElementById("studentFeedbackEditor")?.value.trim();
+    if (!result?.report || !text) { showToast("请先填写学生反馈"); return; }
+    const button = event.target.closest("#saveStudentFeedback");
+    button.disabled = true;
+    try {
+      const updated = await window.PlatformAPI.saveStudentReport(result.id, result.report.report_text, "draft", text);
+      result.report = updated.report;
+      renderStudentResults(serverState.studentResults);
+      showToast("学生版诊断报告已保存，请核对后确认");
+    } catch (error) {
+      button.disabled = false;
+      showToast(`学生反馈保存失败：${error.message}`);
+    }
+    return;
+  }
+
   if (event.target.closest("#pushStudentFeedback")) {
     const pushButton = event.target.closest("#pushStudentFeedback");
     pushButton.disabled = true;
@@ -3327,7 +3897,8 @@ document.addEventListener("click", async event => {
       const updated = await window.PlatformAPI.saveStudentReport(
         result.id,
         result.report.report_text,
-        pushButton.dataset.reportStatus
+        pushButton.dataset.reportStatus,
+        document.getElementById("studentFeedbackEditor")?.value.trim() || result.report.student_feedback_text
       );
       result.report = updated.report;
       renderStudentResults(serverState.studentResults);
@@ -3353,7 +3924,7 @@ document.addEventListener("click", async event => {
     try {
       for (const result of pending) {
         button.textContent = `正在推送 ${completed + 1}/${pending.length}`;
-        const updated = await window.PlatformAPI.saveStudentReport(result.id, result.report.report_text, "pushed");
+        const updated = await window.PlatformAPI.saveStudentReport(result.id, result.report.report_text, "pushed", result.report.student_feedback_text);
         result.report = updated.report;
         completed += 1;
       }
@@ -3560,32 +4131,33 @@ document.addEventListener("click", async event => {
     const teachingId = serverState.current_teaching_id;
     const classroomId = ui.activeInterventionClassroomId;
     button.disabled = true;
-    button.textContent = "正在生成并审核…";
+    button.textContent = "正在生成并审核教学方案…";
     const status = document.getElementById("integrationReportStatus");
     status.hidden = false;
-    status.textContent = "正在生成并审核教学报告，请稍候…";
+    status.textContent = "正在生成并审核教学方案，请稍候…";
     try {
       const payload = await window.PlatformAPI.generateIntegrationReport(teachingId, classroomId);
       if (serverState.current_teaching_id !== teachingId || ui.activeInterventionClassroomId !== classroomId) return;
       showIntegrationReport({ ready: true, report: payload.report });
-      showToast(`教学报告已生成：${payload.report.result.audit_summary.overall_conclusion}`);
+      showToast(`教学方案已生成：${payload.report.result.audit_summary.overall_conclusion}`);
     } catch (error) {
-      document.getElementById("integrationReportStatus").textContent = `报告生成失败：${error.message}`;
-      showToast(`报告生成失败：${error.message}`);
+      document.getElementById("integrationReportStatus").textContent = `方案生成失败：${error.message}`;
+      showToast(`方案生成失败：${error.message}`);
       if (button.isConnected) {
         button.disabled = false;
-        button.textContent = button.id === "refreshInterventionReportEmpty" ? "AI生成教学报告" : "AI重新生成教学报告";
+        button.textContent = button.id === "refreshInterventionReportEmpty" ? "AI生成教学方案" : "AI重新生成教学方案";
       }
     }
     return;
   }
 
-  if (event.target.closest("#downloadInterventionPdf, #downloadInterventionReport")) {
+  if (event.target.closest("#downloadInterventionPdf, #downloadInterventionDocx, #downloadInterventionReport")) {
     if (serverState?.integrationReport?.status !== "current") {
-      showToast("请先生成当前版本的教学报告");
+      showToast("请先生成当前版本的教学方案");
       return;
     }
     if (event.target.closest("#downloadInterventionPdf")) await downloadInterventionPdf(event.target.closest("#downloadInterventionPdf"));
+    else if (event.target.closest("#downloadInterventionDocx")) await downloadInterventionDocx(event.target.closest("#downloadInterventionDocx"));
     else downloadInterventionReport();
     return;
   }
@@ -3617,27 +4189,40 @@ document.addEventListener("click", async event => {
     button.disabled = true;
     button.textContent = "正在保存…";
     try {
-      const teaching = await window.PlatformAPI.createTeaching({
-        title: document.getElementById("blockTheme").value.trim(),
-        goal: document.getElementById("blockGoal").value.trim(),
-        content: document.getElementById("blockContent").value.trim(),
-        rationale: document.getElementById("blockRationale").value.trim(),
-        subject: document.getElementById("blockSubject").value,
-        grade: document.getElementById("blockGrade").value,
-        textbook: document.getElementById("blockTextbook").value.trim(),
-        estimated_periods: Number(document.getElementById("blockPeriods").value || 1)
-      });
-      serverState.precision_teachings.unshift(teaching);
+      if (teachingDraftSavePromise) await teachingDraftSavePromise;
+      const payload = teachingFormPayload();
+      if (!payload.title || !payload.goal || !payload.content) {
+        throw new Error("请先填写精准教学主题、目标和内容");
+      }
+      await saveTeachingDraft();
+      const teaching = getTeachingById(ui.editingTeachingId);
+      ui.editingTeachingId = teaching.id;
+      serverState.precision_teachings = [teaching, ...serverState.precision_teachings.filter(item => item.id !== teaching.id)];
       serverState.current_teaching_id = teaching.id;
       serverState.current_workspace = await window.PlatformAPI.getWorkspace(teaching.id);
       storeWorkspace(serverState.current_workspace);
       showPage("diagnosis");
       showToast("精准教学已保存，进入诊断设计");
     } catch (error) {
-      showToast(`保存失败：${error.message}`);
+      showToast(error.code === "TEACHING_SAVE_CANCELLED" ? error.message : `保存失败：${error.message}`);
     } finally {
       button.disabled = false;
-      button.textContent = "保存并进入诊断设计";
+      updateTeachingEditorMode(getTeachingById(ui.editingTeachingId));
+    }
+    return;
+  }
+
+  if (event.target.closest("#saveBlockDraftButton")) {
+    const button = event.target.closest("#saveBlockDraftButton");
+    button.disabled = true;
+    try {
+      const saved = await saveTeachingDraft();
+      showToast(saved ? getTeachingById(ui.editingTeachingId)?.status === "draft" ? "草稿已保存，可继续编辑同一项目" : "修改已保存；已有任务与报告保持原样" : "请先填写一些内容再保存草稿");
+    } catch (error) {
+      showToast(error.code === "TEACHING_SAVE_CANCELLED" ? error.message : `保存失败：${error.message}`);
+    } finally {
+      button.disabled = false;
+      updateTeachingEditorMode(getTeachingById(ui.editingTeachingId));
     }
     return;
   }
@@ -3694,12 +4279,21 @@ document.addEventListener("click", async event => {
   }
 });
 
+for (const id of ["customAnalysisCriteria", "customAnalysisIndividual", "customAnalysisClass"]) {
+  const control = document.getElementById(id);
+  control.addEventListener(id === "customAnalysisCriteria" ? "input" : "change", () => {
+    document.getElementById("customAnalysisSaveStatus").textContent = customAnalysisDirty()
+      ? "自定义标准有未保存的修改" : "自定义标准已保存";
+  });
+}
+
 function closeActivityEditBlock(block) {
   block?.querySelector(".af-block-editor")?.remove();
   block?.classList.remove("is-editing");
 }
 
 document.addEventListener("click", event => {
+  if (event.target.closest(".af-criteria-details > summary")) return;
   const block = event.target.closest(".af-edit-block");
   document.querySelectorAll(".af-edit-block.is-editing").forEach(open => {
     if (open !== block) closeActivityEditBlock(open);
@@ -3712,46 +4306,20 @@ document.addEventListener("click", event => {
   if (block.dataset.afUnified) {
     const activityIndex = Number(block.dataset.afActivityIndex);
     const kind = block.dataset.afUnified;
-    const overrideField = root.querySelector(`[data-af-presentation='${activityIndex}:${kind}']`);
+    const overrideField = root.querySelector(`[data-af-presentation='${activityIndex}:${kind}_full']`);
     const wrapper = document.createElement("label");
     wrapper.textContent = block.dataset.afEditLabel;
     const textarea = document.createElement("textarea");
-    textarea.rows = Math.max(5, Math.min(12, targets.length * 2 + 2));
-    const initialTargets = kind === "student"
-      ? targets.filter(display => display.dataset.afInlineTarget.startsWith("[data-af-action"))
-      : targets;
-    textarea.value = overrideField.value || initialTargets.map(display => {
-      const group = display.closest(".af-group-line")?.querySelector("b")?.textContent;
-      return `${group ? `${group}：` : ""}${root.querySelector(display.dataset.afInlineTarget)?.value || display.textContent}`;
-    }).join(kind === "student" ? "\n" : "\n\n");
-    if (kind === "student" && !textarea.value) {
-      textarea.value = serverState?.activityFormative?.design?.result?.activities?.[activityIndex]?.student_task || "";
-    }
-    let preview;
-    if (kind === "student") {
-      const hint = document.createElement("small");
-      hint.textContent = "每行一项，编号自动生成";
-      wrapper.append(hint);
-      preview = document.createElement("div");
-      preview.className = "af-editor-list-preview";
-      preview.innerHTML = renderNumberedActivityLines(textarea.value);
-    }
+    const preview = block.querySelector(".af-unified-preview");
+    textarea.value = overrideField.value || preview?.textContent || "";
+    textarea.rows = Math.max(6, Math.min(18, textarea.value.split("\n").length + 2));
     textarea.addEventListener("input", () => {
-      const value = textarea.value;
-      overrideField.value = value;
-      const base = targets[0];
-      if (kind === "student") {
-        const list = block.querySelector("ol.af-action-list");
-        if (list) list.outerHTML = renderNumberedActivityLines(value);
-        preview.innerHTML = renderNumberedActivityLines(value);
-      } else if (base) {
-        base.textContent = value;
-      }
-      block.querySelector(".af-group-summary")?.setAttribute("hidden", "");
+      overrideField.value = textarea.value;
+      overrideField.dataset.afFullDirty = "1";
+      if (preview) preview.textContent = textarea.value;
     });
     wrapper.append(textarea);
     editor.append(wrapper);
-    if (preview) editor.append(preview);
     block.classList.add("is-editing");
     block.append(editor);
     textarea.focus();
@@ -3778,7 +4346,7 @@ document.addEventListener("click", event => {
   const actionTargets = targets.filter(display => display.dataset.afInlineTarget.startsWith("[data-af-action"));
   if (actionTargets.length) {
     const wrapper = document.createElement("label");
-    wrapper.textContent = block.dataset.afEditLabel;
+    wrapper.textContent = `${block.dataset.afEditLabel}（如需编号，请直接输入）`;
     const textarea = document.createElement("textarea");
     textarea.rows = Math.max(3, actionTargets.length + 1);
     textarea.value = actionTargets.map(display => root.querySelector(display.dataset.afInlineTarget)?.value || "").join("\n");
@@ -3796,12 +4364,13 @@ document.addEventListener("click", event => {
   targets.filter(display => !actionTargets.includes(display)).forEach((display, index) => {
     const source = root.querySelector(display.dataset.afInlineTarget);
     const group = display.closest(".af-group-line")?.querySelector("b")?.textContent;
-    makeField(source, display, group || (targets.length > 1 ? `${block.dataset.afEditLabel} ${index + 1}` : block.dataset.afEditLabel));
+    makeField(source, display, display.dataset.afInlineLabel || group || (targets.length > 1 ? `${block.dataset.afEditLabel} ${index + 1}` : block.dataset.afEditLabel));
   });
-  if (!targets.length && block.dataset.afEditLabel === "AI辅助") {
+  if (!targets.length && ["AI辅助", "教师活动"].includes(block.dataset.afEditLabel)) {
     const card = block.closest(".activity-lesson-card");
     const index = [...card.parentElement.querySelectorAll(".activity-lesson-card")].indexOf(card);
-    makeField(root.querySelector(`[data-af-new-action='${index}:AI']`), null, "AI辅助");
+    const actor = block.dataset.afEditLabel === "AI辅助" ? "AI" : "教师";
+    makeField(root.querySelector(`[data-af-new-action='${index}:${actor}']`), null, block.dataset.afEditLabel);
   }
   if (!editor.children.length) return;
   block.classList.add("is-editing");
@@ -3823,8 +4392,10 @@ document.addEventListener("input", event => {
     document.querySelector('#interventionSteps [data-istep="4"]').disabled = true;
   }
   if (event.target.closest("#goalPathGeneratedContent")) {
-    document.getElementById("nextFromGoalPath").disabled = true;
-    document.getElementById("goalPathStatus").textContent = "有未保存的修改";
+    if (event.target.matches("[data-gp-target-goal]")) {
+      event.target.closest(".goal-path-target-picker")?.querySelector("summary")?.replaceChildren(document.createTextNode(event.target.parentElement.textContent.trim()));
+    }
+    markGoalPathDirty();
   }
   if (event.target.matches(".minute-input")) updateTimeTotal();
   if (event.target.matches(".intervention-minute-input")) updateInterventionTimeTotal();
@@ -3833,9 +4404,6 @@ document.addEventListener("input", event => {
     markActivitySequencePending();
   }
   if (event.target.matches("[data-inline-activity-field], [data-inline-branch-field]")) saveInlineActivityField(event.target);
-  if (event.target.id === "diagnosisDuration") {
-    document.getElementById("publishDuration").textContent = `${event.target.value || 0} 分钟`;
-  }
   if (event.target.matches("#rubricTableBody [contenteditable='true']")) {
     const record = serverState.current_workspace?.rubric;
     if (!record?.rubric) return;
@@ -3858,7 +4426,17 @@ document.addEventListener("input", event => {
 
 document.addEventListener("change", async event => {
   if (event.target.id === "interventionClassSelect") {
+    if (ui.goalPathDirty) {
+      try { await saveGoalPathEdits(); }
+      catch (error) {
+        event.target.value = ui.activeInterventionClassroomId;
+        showToast(`请先完成当前修改：${error.message}`);
+        return;
+      }
+    }
     ui.activeInterventionClassroomId = event.target.value;
+    ui.goalPathDirty = false;
+    goalPathEditSerial += 1;
     ui.goalPathAppliedKey = null;
     serverState.activityFormative = null;
     ui.activityFormativeError = null;

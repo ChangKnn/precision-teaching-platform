@@ -30,6 +30,7 @@
 - 主要表现：{{main_performance}}
 - 典型依据：{{typical_evidence_with_student_and_ref}}
 - 主要进阶障碍：{{main_obstacles}}
+- 教学建议：{{brief_teaching_suggestion}}
 
 ## 4. 教学重点与难点
 
@@ -49,7 +50,7 @@
 
 ### 同质分组
 
-#### {{homogeneous_group_id}}
+#### {{homogeneous_group_name}}（{{homogeneous_group_id}}）
 
 - 学生：{{students}}
 - 共同特点：{{common_characteristics}}
@@ -68,9 +69,9 @@
 - 合作规则：{{shared_collaboration_rule}}
 - 共同产出：{{shared_product}}
 
-| 小组 | 学生 | 组内互补依据 |
+| 小组名称 | 学生 | 组内互补依据 |
 |---|---|---|
-| {{heterogeneous_group_id}} | {{students}} | {{group_specific_complementarity}} |
+| {{heterogeneous_group_name}} | {{students}} | {{group_specific_complementarity}} |
 
 共同任务、合作规则和共同产出只能出现一次，不得在各组下重复。
 
@@ -78,13 +79,13 @@
 
 - 共同合作规则：{{shared_collaboration_rule}}
 
-| 小组 | 学生 | 任务重点 | 组内互补依据 |
+| 小组名称 | 学生 | 任务重点 | 组内互补依据 |
 |---|---|---|---|
-| {{heterogeneous_group_id}} | {{students}} | {{group_task_focus}} | {{group_specific_complementarity}} |
+| {{heterogeneous_group_name}} | {{students}} | {{group_task_focus}} | {{group_specific_complementarity}} |
 
 任务重点必须具有实质差异；若只是措辞不同，应改用格式 A。
 
-异质分组不得按 SOLO 层级机械配额。若方案面向全班，说明未进入上述小组的学生安排；若只面向部分学生，明确适用对象。
+异质分组不得按 SOLO 层级机械配额。同质方案以及任何已提出的异质方案都必须分别覆盖所有参与诊断的学生；如果无法形成有价值的全员异质方案，写明不建议的理由，不强行凑组。
 
 ## 6. 后续干预设计依据
 

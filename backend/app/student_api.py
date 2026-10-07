@@ -14,6 +14,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, 
 from fastapi.responses import FileResponse
 
 from .config import settings
+from .custom_analysis_api import custom_report_for, standard_for
 from .database import database, fetch_all, fetch_one, utc_now, write_audit
 from .schemas import StudentDiagnosisReportUpdate, StudentLogin, StudentMessageCreate, StudentTaskSubmit
 from .services.ai import run_student_diagnosis_report
@@ -200,7 +201,7 @@ def serialize_session(session: dict) -> dict:
     pushed_report = fetch_one(
         """
         SELECT session_id, skill_key, skill_version, provider, status,
-               report_text, pushed_at, updated_at
+               generated_json, student_feedback_text, pushed_at, updated_at
         FROM student_diagnosis_reports
         WHERE session_id = ? AND status = 'pushed'
         """,
@@ -215,8 +216,98 @@ def serialize_session(session: dict) -> dict:
         "submitted_text": session.get("submitted_text"),
         "messages": messages,
         "submissions": submissions,
-        "report": pushed_report,
+        "report": (
+            {
+                **{
+                    key: pushed_report[key]
+                    for key in ("session_id", "skill_key", "skill_version", "provider", "status", "pushed_at", "updated_at")
+                },
+                "report_text": student_feedback_for_row(pushed_report),
+            }
+            if pushed_report else None
+        ),
     }
+
+
+def student_feedback_for_row(report: dict) -> str:
+    saved = (report.get("student_feedback_text") or "").strip()
+    if saved:
+        return saved
+    # Earlier reports predate a separately generated student version. Present
+    # their existing diagnosis in student-facing language without a model call.
+    result = json.loads(report["generated_json"])
+    diagnosis = result.get("diagnosis") or {}
+    progression = result.get("progression") or {}
+
+    def student_language(value: str) -> str:
+        text = (value or "").strip()
+        for before, after in (
+            ("判为前结构", "说明这次还没有找到与问题直接相关的解题起点"),
+            ("符合前结构表现", "说明这次还没有找到与问题直接相关的解题起点"),
+            ("符合前结构", "说明这次还没有找到与问题直接相关的解题起点"),
+            ("达到单点结构", "说明你已经抓住一个有用的线索"),
+            ("符合多点结构", "说明你找到了多个线索，但还需把它们连起来"),
+            ("达到多点结构", "说明你找到了多个不同的有用信息"),
+            ("支持关联结构判断", "也说明你已经形成较完整的解题思路"),
+            ("完整支持本题内的关联结构", "说明你在本题中形成了较完整的解题思路"),
+            ("达到本任务的关联结构层级", "说明你已经把线索连成本题需要的完整思路"),
+            ("达到本任务的关联结构", "说明你已经把线索连成本题需要的完整思路"),
+            ("达到本题的关联结构", "说明你已经把线索连成本题需要的完整思路"),
+            ("达到多点结构的可观察表现", "说明你找到了多个不同的有用信息"),
+            ("证据支持U而非多个要素及其关系", "这说明你找到一个有用线索，但还没有把更多信息连起来"),
+            ("不能据此判断学生缺乏EA能力", "不能据此认为你无法在新情境中举一反三"),
+            ("不能据此判断你缺乏EA能力", "不能据此认为你无法在新情境中举一反三"),
+            ("因此综合判为R", "因此这次已形成较完整的解题思路"),
+            ("符合 EA", "说明你已把方法推广到新的条件"),
+            ("足以达到 U", "说明你已找到一个与问题直接相关的线索"),
+            ("量规所要求的", "更进一步的"),
+            ("有效认知点", "有用线索"),
+            ("拓展抽象结构", "在新情境中概括或运用方法"),
+            ("关联结构", "连贯的解题思路"),
+            ("多点结构", "多个线索尚未连成完整思路"),
+            ("单点结构", "一个有效线索"),
+            ("前结构", "尚未找到有效起点"),
+        ):
+            text = text.replace(before, after)
+        for before, after in (
+            ("学生自主", "你自己"), ("学生已经", "你已经"), ("学生能够", "你能够"),
+            ("学生", "你"), ("当前材料", "这次作答"), ("现有材料", "这次作答"),
+            ("提交文本", "提交的文字"), ("本任务", "这道题"), ("当前任务", "这道题"),
+            ("未观察到", "这次还没有看到"), ("尚未展示", "这次还没有展示"),
+            ("完成表现为", "做完后可以检查："), ("完成表现是", "做完后可以检查："),
+            ("完成表现：", "做完后可以检查："), ("主要障碍是", "当前最需要突破的是"),
+            ("认知要素", "有用的信息"), ("认知点", "有用的线索"),
+            ("认知活动", "思考过程"), ("层级", "表现"),
+        ):
+            text = text.replace(before, after)
+        text = re.sub(r"(?<![A-Za-z])(?:P|U|M|R|EA)（[^）]*）", "下一步", text)
+        text = re.sub(r"(?<![A-Za-z])(?:P|U|M|R|EA)(?=\s*(?:表现|判断|要求))", "相应", text)
+        return text
+
+    summary = student_language(result.get("thinking_structure_summary") or "")
+    for before, after in (
+        ("信息识别：", "你找到了什么："), ("关系建构：", "你怎样把信息连起来："),
+        ("整体组织：", "你的解题过程："), ("抽象迁移：", "换个情境再想想："),
+    ):
+        summary = summary.replace(before, f"\n- **{after}**")
+    evidence_lines = []
+    for item in (diagnosis.get("evidence") or [])[:2]:
+        quote = (item.get("quote") or "").strip()
+        interpretation = student_language(item.get("interpretation") or "")
+        if quote:
+            evidence_lines.append(f"- 你写道：“{quote}”\n  这说明：{interpretation}")
+    strategy_lines = [
+        f"{index}. **{student_language(item.get('title') or '练习建议')}**：{student_language(item.get('action') or '')}"
+        for index, item in enumerate((result.get("strategies") or [])[:3], start=1)
+    ]
+    return (
+        f"### 这次的学习表现\n{student_language(diagnosis.get('rationale') or '')}\n\n"
+        f"### 你的作答告诉了我们什么\n{chr(10).join(evidence_lines) or '请和老师一起核对本次作答中的关键依据。'}\n\n"
+        f"### 你现在的思路\n{summary}\n\n"
+        f"### 接下来要突破什么\n{student_language(progression.get('main_obstacle') or diagnosis.get('next_level_gap') or '')}\n\n"
+        f"### 下一步目标\n{student_language(progression.get('concrete_goal') or '')}\n\n"
+        f"### 可以怎样练\n{chr(10).join(strategy_lines) or '请和老师一起确定下一步练习。'}"
+    )
 
 
 def serialize_student_report(session_id: str) -> dict | None:
@@ -231,6 +322,7 @@ def serialize_student_report(session_id: str) -> dict | None:
         "status": report["status"],
         "result": json.loads(report["generated_json"]),
         "report_text": report["report_text"],
+        "student_feedback_text": student_feedback_for_row(report),
         "generated_at": report["generated_at"],
         "reviewed_at": report["reviewed_at"],
         "pushed_at": report["pushed_at"],
@@ -564,6 +656,7 @@ def student_results(teaching_id: str, background_tasks: BackgroundTasks) -> dict
         """,
         (teaching_id,),
     )
+    custom_standard = standard_for(teaching_id)
     results = []
     for row in rows:
         detail = serialize_session(row)
@@ -577,6 +670,10 @@ def student_results(teaching_id: str, background_tasks: BackgroundTasks) -> dict
             "classroom_id": row["classroom_id"],
         }
         detail["report"] = serialize_student_report(row["id"])
+        detail["custom_analysis"] = (
+            custom_report_for(teaching_id, "individual", row["id"])
+            if custom_standard["individual_enabled"] else None
+        )
         results.append(detail)
     classrooms = fetch_all(
         """
@@ -589,8 +686,13 @@ def student_results(teaching_id: str, background_tasks: BackgroundTasks) -> dict
     class_reports = {}
     for classroom in classrooms:
         class_reports[classroom["id"]] = queue_class_report(teaching_id, classroom["id"], background_tasks)
+    custom_class_reports = {
+        classroom["id"]: custom_report_for(teaching_id, "class", classroom["id"])
+        for classroom in classrooms
+    } if custom_standard["class_enabled"] else {}
     return {"teaching": teaching, "results": results, "submitted_count": len(results),
-            "classrooms": classrooms, "class_reports": class_reports}
+            "classrooms": classrooms, "class_reports": class_reports,
+            "custom_analysis_standard": custom_standard, "custom_class_reports": custom_class_reports}
 
 
 @router.post("/precision-teachings/{teaching_id}/classrooms/{classroom_id}/class-report/generate")
@@ -687,7 +789,7 @@ def generate_student_report(session_id: str, background_tasks: BackgroundTasks) 
             (job_id, skill.key, skill.version, settings.ai_provider, input_json, created_at),
         )
     try:
-        result, report_text = run_student_diagnosis_report(skill, payload, settings.ai_provider)
+        result, report_text, student_feedback_text = run_student_diagnosis_report(skill, payload, settings.ai_provider)
         report_text = report_text.replace(payload["student"]["student_name"], context["student_name"])
         completed_at = utc_now()
         output_json = json.dumps(result, ensure_ascii=False)
@@ -700,8 +802,8 @@ def generate_student_report(session_id: str, background_tasks: BackgroundTasks) 
                 """
                 INSERT INTO student_diagnosis_reports
                 (session_id, teaching_id, skill_key, skill_version, provider, status,
-                 input_hash, generated_json, report_text, generated_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)
+                 input_hash, generated_json, report_text, student_feedback_text, generated_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(session_id) DO UPDATE SET
                     teaching_id = excluded.teaching_id,
                     skill_key = excluded.skill_key,
@@ -711,13 +813,14 @@ def generate_student_report(session_id: str, background_tasks: BackgroundTasks) 
                     input_hash = excluded.input_hash,
                     generated_json = excluded.generated_json,
                     report_text = excluded.report_text,
+                    student_feedback_text = excluded.student_feedback_text,
                     generated_at = excluded.generated_at,
                     reviewed_at = NULL,
                     pushed_at = NULL,
                     updated_at = excluded.updated_at
                 """,
                 (session_id, context["teaching_id"], skill.key, skill.version, settings.ai_provider,
-                 input_hash, output_json, report_text, completed_at, completed_at),
+                 input_hash, output_json, report_text, student_feedback_text, completed_at, completed_at),
             )
         write_audit("generate", "student_diagnosis_report", session_id, {"job_id": job_id, "skill": skill.key})
         classroom = fetch_one("SELECT classroom_id FROM students WHERE id = ?", (context["student_id"],))
@@ -750,10 +853,12 @@ def update_student_report(session_id: str, payload: StudentDiagnosisReportUpdate
         connection.execute(
             """
             UPDATE student_diagnosis_reports
-            SET report_text = ?, status = ?, reviewed_at = ?, pushed_at = ?, updated_at = ?
+            SET report_text = ?, student_feedback_text = ?, status = ?, reviewed_at = ?, pushed_at = ?, updated_at = ?
             WHERE session_id = ?
             """,
-            (payload.report_text.strip(), payload.status, reviewed_at, pushed_at, now, session_id),
+            (payload.report_text.strip(),
+             payload.student_feedback_text.strip() if payload.student_feedback_text is not None else report["student_feedback_text"],
+             payload.status, reviewed_at, pushed_at, now, session_id),
         )
     write_audit(payload.status, "student_diagnosis_report", session_id, {})
     return {"report": serialize_student_report(session_id)}

@@ -149,11 +149,10 @@ def main() -> None:
             assert_unique(ids, f"{scheme_name}/{group['group_id']}")
             scheme_members.extend(ids)
         assert_unique(scheme_members, scheme_name)
-        require(set(scheme_members).issubset(input_ids), f"unknown student in {scheme_name}")
-
-    ungrouped = student_ids(sample_output["grouping_recommendations"]["ungrouped_students"])
-    assert_unique(ungrouped, "ungrouped students")
-    require(set(ungrouped).issubset(input_ids), "unknown ungrouped student")
+        if scheme_name == "homogeneous_groups" or sample_output["grouping_recommendations"][scheme_name]:
+            require(set(scheme_members) == set(input_ids), f"{scheme_name} must cover every input student")
+        for group in sample_output["grouping_recommendations"][scheme_name]:
+            require(bool(group["group_name"].strip()), f"{scheme_name} group name is required")
     for item in sample_output["intervention_design_basis"]:
         targets = student_ids(item["target_students"])
         assert_unique(targets, f"intervention design basis {item['basis_id']}")

@@ -23,6 +23,8 @@ from .schemas import (
     DiagnosisTaskUpdate,
     InterventionPlanUpdate,
     PrecisionTeachingCreate,
+    PrecisionTeachingDraft,
+    PrecisionTeachingUpdate,
     TeacherProfileUpdate,
 )
 from .services.ai import run_skill, validate_task_rubric
@@ -32,6 +34,7 @@ from .goal_path_api import router as goal_path_router
 from .activity_formative_api import router as activity_formative_router
 from .intervention_integration_api import router as intervention_integration_router
 from .diagnostic_task_design_api import router as diagnostic_task_design_router
+from .custom_analysis_api import router as custom_analysis_router, standard_for
 from .teacher_auth import current_teacher, router as teacher_auth_router
 
 
@@ -49,6 +52,7 @@ app.include_router(goal_path_router)
 app.include_router(activity_formative_router)
 app.include_router(intervention_integration_router)
 app.include_router(diagnostic_task_design_router)
+app.include_router(custom_analysis_router)
 app.include_router(teacher_auth_router)
 
 
@@ -239,6 +243,7 @@ def workspace_for(teaching_id: str) -> dict:
         "teaching": teaching,
         "diagnosis": diagnosis,
         "rubric": serialized_rubric(teaching_id),
+        "custom_analysis_standard": standard_for(teaching_id),
         "feedback": feedback,
         "intervention": intervention,
         "stages": {
@@ -461,6 +466,50 @@ def create_precision_teaching(payload: PrecisionTeachingCreate, request: Request
     save_current_teaching_id(teaching_id, workspace_id)
     ensure_workspace(teaching_id)
     return next((item for item in ordered_teachings(workspace_id) if item["id"] == teaching_id), {})
+
+
+@app.post("/api/precision-teaching-drafts", status_code=201)
+def create_precision_teaching_draft(payload: PrecisionTeachingDraft, request: Request) -> dict:
+    return create_precision_teaching(payload, request)
+
+
+@app.put("/api/precision-teachings/{teaching_id}")
+def update_precision_teaching(teaching_id: str, payload: PrecisionTeachingUpdate, request: Request) -> dict:
+    workspace_id = request.state.teacher_workspace_id
+    existing = fetch_one("SELECT * FROM precision_teachings WHERE id = ? AND workspace_id = ?", (teaching_id, workspace_id))
+    if not existing:
+        raise HTTPException(status_code=404, detail="精准教学不存在")
+    data = payload.model_dump(exclude={"edit_intent"})
+    changed = any(existing[field] != value for field, value in data.items())
+    if not changed:
+        return next(item for item in ordered_teachings(workspace_id) if item["id"] == teaching_id)
+    if existing["status"] != "draft":
+        if not data["title"].strip() or not data["goal"].strip() or not data["content"].strip():
+            raise HTTPException(status_code=422, detail="已发布的精准教学须保留主题、目标和教学内容")
+        if payload.edit_intent != "wording":
+            raise HTTPException(status_code=409, detail="请先确认本次仅优化表述；若教学范围或诊断依据发生变化，请新建精准教学")
+    now = utc_now()
+    with database() as connection:
+        connection.execute(
+            """UPDATE precision_teachings
+               SET title = ?, goal = ?, content = ?, rationale = ?, subject = ?, grade = ?,
+                   textbook = ?, estimated_periods = ?, updated_at = ?
+               WHERE id = ? AND workspace_id = ?""",
+            (data["title"], data["goal"], data["content"], data["rationale"], data["subject"],
+             data["grade"], data["textbook"], data["estimated_periods"], now, teaching_id, workspace_id),
+        )
+        if existing["status"] == "draft" and data["goal"] != existing["goal"]:
+            connection.execute(
+                "UPDATE diagnosis_tasks SET goal = ?, updated_at = ? WHERE teaching_id = ? AND status = 'draft' AND goal = ?",
+                (data["goal"], now, teaching_id, existing["goal"]),
+            )
+        if existing["status"] == "draft":
+            connection.execute(
+                "UPDATE diagnosis_rubrics SET status = 'stale', confirmed_at = NULL, updated_at = ? WHERE teaching_id = ?",
+                (now, teaching_id),
+            )
+    write_audit("update", "precision_teaching", teaching_id, {"before": {field: existing[field] for field in data}, "after": data, "edit_intent": payload.edit_intent})
+    return next(item for item in ordered_teachings(workspace_id) if item["id"] == teaching_id)
 
 
 @app.put("/api/precision-teachings/{teaching_id}/diagnosis")

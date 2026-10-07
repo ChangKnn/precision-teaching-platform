@@ -32,6 +32,7 @@ EXPECTED_BEHAVIOR_CASES = {
     "CUSTOM-GOAL-GUARD",
     "TEACHER-PREFERENCE-CONFLICT",
     "PARALLEL-DURATION",
+    "ONE-GROUP-PER-45-MINUTES",
     "BOUNDARY-NO-DETAIL-OR-EVALUATION",
     "COMPOSITE-MODE-WHEN-SEQUENTIAL",
 }
@@ -187,8 +188,12 @@ def validate_path(sample_input, sample_output, roster, goal_map):
 
     unit_ids = set()
     for stage in stages:
+        if stage["stage_name"] in {"共同定向", "分层活动同时开展", "分层并行加工", "共同汇聚", "综合应用"}:
+            fail(f"Stage {stage['stage_id']} has a generic activity name.")
         for unit in stage["activity_units"]:
             uid = unit["unit_id"]
+            if len(unit["target_goal_ids"]) != 1:
+                fail(f"Activity unit {uid} must target exactly one primary cognitive level.")
             if uid in unit_ids:
                 fail(f"Duplicate activity unit ID: {uid}")
             unit_ids.add(uid)
@@ -196,7 +201,7 @@ def validate_path(sample_input, sample_output, roster, goal_map):
             if not uid.startswith(expected_prefix):
                 fail(f"Activity unit {uid} does not match its stage and organization code.")
             for goal_id in unit["target_goal_ids"]:
-                if goal_id not in goal_map:
+                if goal_id != "CG" and goal_id not in goal_map:
                     fail(f"Activity unit {uid} references unknown goal {goal_id}.")
             for student in unit["target_students"]:
                 sid = student["student_id"]
@@ -208,6 +213,8 @@ def validate_path(sample_input, sample_output, roster, goal_map):
                 fail(f"Single-student unit {uid} must use I rather than H.")
             if unit["activity_name"] in {"活动一", "活动二", "分层活动", "完成任务"}:
                 fail(f"Activity unit {uid} has a generic activity name.")
+            if len(stage["activity_units"]) == 1 and unit["activity_name"] != stage["stage_name"]:
+                fail(f"Single-unit stage {stage['stage_id']} must use its activity name for both names.")
 
     planned = sample_input["teacher_instructional_context"]["planned_duration_minutes"]
     stage_total = sum(stage["duration_minutes"] for stage in stages)
@@ -217,6 +224,10 @@ def validate_path(sample_input, sample_output, roster, goal_map):
     parallel_stages = [stage for stage in stages if len(stage["activity_units"]) > 1]
     if not parallel_stages:
         fail("Sample output must demonstrate simultaneous activity units within one stage.")
+    if planned == 45:
+        group_stages = [stage for stage in stages if any(unit["organization_code"] in {"H", "X", "S"} for unit in stage["activity_units"])]
+        if len(group_stages) > 1:
+            fail("45-minute sample should contain only one concentrated group-work stage.")
 
     alternative = path["alternative_path"]
     if alternative and alternative["path_types"] == path["primary_path_types"]:
@@ -243,10 +254,9 @@ def validate_boundaries(sample_output):
         "具体目标内容",
         "相关学生姓名",
         "可观察的达成表现",
-        "阶段",
         "活动名称",
         "组织形式",
-        "面向学生与目标",
+        "目标层级",
         "活动内容简介",
         "建议时长",
     ]

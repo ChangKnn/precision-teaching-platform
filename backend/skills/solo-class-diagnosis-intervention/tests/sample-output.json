@@ -63,6 +63,7 @@
       "count": 1,
       "students": [{"student_id": "S-01", "student_name": "陈晨"}],
       "main_performance": "以教师讲授结论代替对实验信息的识别。",
+      "teaching_suggestion": "先让学生从实验记录中指出一条与判断有关的观察，再说出它能支持什么。",
       "typical_evidence": [
         {
           "student_id": "S-01",
@@ -84,6 +85,7 @@
         {"student_id": "S-03", "student_name": "王芳"}
       ],
       "main_performance": "能够列举实验要素或比较现象，但没有把控制条件的作用纳入完整解释。",
+      "teaching_suggestion": "引导学生把改变条件、相同条件和观察结果连成一条可检验的解释链。",
       "typical_evidence": [
         {
           "student_id": "S-02",
@@ -112,6 +114,7 @@
       "count": 1,
       "students": [{"student_id": "S-04", "student_name": "赵宇"}],
       "main_performance": "能够利用控制变量关系解释观察差异如何支持结论。",
+      "teaching_suggestion": "提供变化后的实验情境，请学生说明原有推理何时仍然适用。",
       "typical_evidence": [
         {
           "student_id": "S-04",
@@ -140,6 +143,7 @@
     "homogeneous_groups": [
       {
         "group_id": "H1",
+        "group_name": "实验关系建构组",
         "students": [
           {"student_id": "S-02", "student_name": "李明"},
           {"student_id": "S-03", "student_name": "王芳"}
@@ -147,12 +151,25 @@
         "common_characteristics": "均处于 M（多点结构），能够处理多项实验信息但缺少完整控制变量关系。",
         "progression_direction": "从 M（多点结构）进阶到 R（关联结构），形成控制条件—现象—结论关系链。",
         "use_case": "共同完成实验关系表或关系图，并相互检查每条连接的理由。"
+      },
+      {
+        "group_id": "H2",
+        "group_name": "证据辨认与迁移组",
+        "students": [
+          {"student_id": "S-01", "student_name": "陈晨"},
+          {"student_id": "S-04", "student_name": "赵宇"}
+        ],
+        "common_characteristics": "两人在本轮都需要进一步说明证据怎样支持判断，但所需支持方式不同。",
+        "progression_direction": "分别从识别初始证据和检验解释适用条件出发，说明判断依据。",
+        "use_case": "教师分别给出任务入口和迁移追问，不把两个学生视为同一能力水平。"
       }
     ],
     "heterogeneous_groups": [
       {
         "group_id": "X1",
+        "group_name": "实验解释互补组",
         "students": [
+          {"student_id": "S-01", "student_name": "陈晨"},
           {"student_id": "S-02", "student_name": "李明"},
           {"student_id": "S-03", "student_name": "王芳"},
           {"student_id": "S-04", "student_name": "赵宇"}
@@ -163,8 +180,7 @@
       }
     ],
     "heterogeneous_not_recommended_reason": null,
-    "ungrouped_students": [{"student_id": "S-01", "student_name": "陈晨"}],
-    "usage_note": "同质组和异质组是两种备选安排；S-01先接受个体认知定向，不强制进入合作组。"
+    "usage_note": "同质组和异质组是两种全员覆盖的备选安排；学生先独立形成判断，再进行适合当前任务的合作。"
   },
   "intervention_design_basis": [
     {

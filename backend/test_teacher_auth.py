@@ -12,8 +12,8 @@ from fastapi import HTTPException, Request, Response
 from backend.app import database as database_module
 from backend.app import teacher_auth
 from backend.app import student_api
-from backend.app.main import bootstrap, create_classroom, create_precision_teaching, protect_teacher_api, update_classroom, update_diagnosis, update_teacher_profile, workspace_for
-from backend.app.schemas import ClassroomCreate, ClassroomUpdate, DiagnosisTaskUpdate, PrecisionTeachingCreate, TeacherProfileUpdate, StudentLogin
+from backend.app.main import bootstrap, create_classroom, create_precision_teaching, create_precision_teaching_draft, protect_teacher_api, update_classroom, update_diagnosis, update_precision_teaching, update_teacher_profile, workspace_for
+from backend.app.schemas import ClassroomCreate, ClassroomUpdate, DiagnosisTaskUpdate, PrecisionTeachingCreate, PrecisionTeachingDraft, PrecisionTeachingUpdate, TeacherProfileUpdate, StudentLogin
 
 
 def request(path: str, *, method: str = "GET", cookie: str = "", origin: str = "") -> Request:
@@ -50,6 +50,33 @@ class TeacherAuthTest(unittest.TestCase):
         return teacher_auth.TeacherIdentity(**{
             "school_name": "杭州市求知中学", "subject": "数学", "teacher_name": "林老师", **changes,
         })
+
+    def test_draft_update_reuses_project_and_rejects_other_teacher(self):
+        login_response = Response()
+        teacher_auth.login(self.identity(teacher_name="草稿老师"), request("/api/teacher-auth/login", method="POST"), login_response)
+        cookie = login_response.headers["set-cookie"].split(";", 1)[0]
+        workspace_id = teacher_auth.current_teacher(request("/api/bootstrap", cookie=cookie))["workspace_id"]
+        own_request = request("/api/precision-teachings", method="POST", cookie=cookie)
+        own_request.state.teacher_workspace_id = workspace_id
+        update_teacher_profile(TeacherProfileUpdate(display_name="草稿老师", subject="数学", years_experience=0), own_request)
+        create_classroom(ClassroomCreate(name="高一（9）班", student_count=30), own_request)
+        draft = create_precision_teaching_draft(PrecisionTeachingDraft(title="尚未写完"), own_request)
+        updated = update_precision_teaching(
+            draft["id"], PrecisionTeachingUpdate(title="同一个项目", goal="观察推理过程", content="函数关系"), own_request
+        )
+        self.assertEqual(updated["id"], draft["id"])
+        self.assertEqual(updated["title"], "同一个项目")
+        self.assertEqual(len(bootstrap(own_request)["precision_teachings"]), 1)
+
+        other_login = Response()
+        teacher_auth.login(self.identity(teacher_name="另一位老师"), request("/api/teacher-auth/login", method="POST"), other_login)
+        other_cookie = other_login.headers["set-cookie"].split(";", 1)[0]
+        other_id = teacher_auth.current_teacher(request("/api/bootstrap", cookie=other_cookie))["workspace_id"]
+        other_request = request("/api/precision-teachings", method="PUT", cookie=other_cookie)
+        other_request.state.teacher_workspace_id = other_id
+        with self.assertRaises(HTTPException) as denied:
+            update_precision_teaching(draft["id"], PrecisionTeachingUpdate(title="越权修改"), other_request)
+        self.assertEqual(denied.exception.status_code, 404)
 
     def test_database_starts_without_demo_data_by_default(self):
         empty_path = Path(self.folder.name) / "empty.db"

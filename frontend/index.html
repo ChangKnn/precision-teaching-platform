@@ -6,7 +6,7 @@
   <meta name="description" content="支持教师开展精准诊断、反馈与课堂干预设计的研究原型。">
   <title>思阶｜AI 精准教学工作台</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="styles.css?v=20260927-classroom-edit">
+<link rel="stylesheet" href="styles.css?v=20260928-compact-eval-5">
 </head>
 <body>
   <main class="teacher-auth-screen" id="teacherAuthScreen" aria-labelledby="teacherAuthTitle">
@@ -101,41 +101,42 @@
         </section>
 
         <section class="page" id="page-block-edit">
-          <div class="page-heading"><div><button class="back-link" data-page="blocks">← 返回我的精准教学</button><h1>开启新的精准教学</h1><p>先确定本轮要发展的思维点，后续诊断、反馈和干预都在这里持续完成。</p></div><span class="draft-state">草稿自动保存</span></div>
+          <div class="page-heading"><div><button class="back-link" data-page="blocks">← 返回我的精准教学</button><h1 id="teachingEditorHeading">开启新的精准教学</h1></div><span class="draft-state">返回列表时保存草稿</span></div>
+          <p class="profile-setup-notice" id="publishedTeachingNotice" hidden>此项目已有发布记录。可以完善表述；保存前请确认教学范围与诊断依据未改变。已发布任务、学生提交和已有报告不会自动更新。若需实质调整，请开启新的精准教学。</p>
           <div class="editor-layout">
             <form class="card form-card" id="blockForm">
-              <div class="form-section-title"><span>1</span><div><h2>基础信息</h2><p>建立本轮精准教学的共同背景。</p></div></div>
+              <div class="form-section-title"><span>1</span><div><h2>基础信息</h2></div></div>
               <div class="form-grid">
                 <label>学科<select id="blockSubject"></select></label>
-                <label>年级<select id="blockGrade"><option>高一</option><option>高二</option><option>高三</option></select></label>
+                <label>年级<select id="blockGrade"><optgroup label="小学"><option>小学一年级</option><option>小学二年级</option><option>小学三年级</option><option>小学四年级</option><option>小学五年级</option><option>小学六年级</option></optgroup><optgroup label="初中"><option>初一</option><option>初二</option><option>初三</option></optgroup><optgroup label="高中"><option selected>高一</option><option>高二</option><option>高三</option></optgroup></select></label>
                 <label>教材版本与章节<input id="blockTextbook" value="人教 A 版 必修一"></label>
                 <label>预计课时<div class="unit-input"><input id="blockPeriods" type="number" value="3" min="1" step="1" inputmode="numeric" aria-label="预计课时"><span>课时</span></div></label>
               </div>
 
               <div class="form-section-title divided"><span>2</span><div><h2>精准教学主题与目标</h2><p>聚焦一个需要识别和发展的思维点。</p></div></div>
               <div class="field-group major-field">
-                <div class="label-row"><label for="blockTheme">精准教学主题</label><button type="button" class="help-dot" data-help="themeHelp" aria-controls="themeHelp" aria-expanded="false" aria-label="查看精准教学主题说明">?</button><div class="help-popover" id="themeHelp" role="tooltip" hidden><strong>精准教学主题</strong><p>精准教学主题应立足于学科中的<strong>核心问题、关键内容或核心能力</strong>，也可以聚焦学生学习过程中<strong>差异较为明显、容易出现分化的关键思维或能力</strong>。选题时，应明确其所对应的课程标准与核心素养要求，分析学生可能存在的典型学习状态，并确定希望通过精准教学促进的能力发展与进阶方向。</p><p>主题选择不宜停留在零散知识点层面，也不应单纯以“适合使用AI”为依据，而应突出其<strong>学科价值、学生发展价值和教学改进价值</strong>。</p><p><strong>撰写方式：</strong><br>可以围绕“<strong>学科 + 核心教学内容/能力 + 精准教学</strong>”进行命名，主题应能够清晰体现本次精准教学所聚焦的核心问题、思维能力或学习任务。</p></div></div>
-                <p class="field-example">示例：初中历史论证写作精准教学；六年级科学“惯性”概念理解与应用的精准教学；高中数学基本不等式理解与问题解决的精准教学。</p>
+                <div class="label-row"><label for="blockTheme">精准教学主题</label><button type="button" class="help-dot" data-help="themeHelp" aria-controls="themeHelp" aria-expanded="false" aria-label="查看主题与选题说明填写提示">?</button><div class="help-popover" id="themeHelp" role="tooltip" hidden><strong>主题与说明怎么写</strong><p>主题：用一句话概括与课程要求相关的核心内容或能力，明确本次教学聚焦什么。避免只列零散知识点，也不要仅因适合使用 AI 而选题。</p><p>说明：写完主题后，再结合课程标准、学生的典型表现和教学实际，解释为什么值得开展精准诊断与干预。</p></div></div>
+                <p class="field-example">先用一句话写清主题，选题原因在下方补充。例如：初中历史论证写作的精准教学。</p>
                 <textarea id="blockTheme" rows="2">基本不等式中的模型与论证</textarea>
+                <div class="theme-explanation">
+                  <div class="label-row"><label for="blockRationale">选题说明</label></div>
+                  <p class="field-example">主题写好后，结合课标要求和课堂观察，说明选择它的原因及学生面临的学习困难。</p>
+                  <textarea id="blockRationale" rows="3">基本不等式的实际应用是发展数学建模和逻辑推理素养的重要内容。学生在提取数量关系、建立约束模型以及说明最值结论成立条件方面存在明显差异，需要通过精准诊断识别障碍并设计针对性教学。</textarea>
+                </div>
               </div>
               <div class="field-group major-field">
                 <div class="label-row"><label for="blockGoal">精准教学目标</label><button type="button" class="help-dot" data-help="goalHelp" aria-controls="goalHelp" aria-expanded="false" aria-label="查看精准教学目标说明">?</button><div class="help-popover" id="goalHelp" role="tooltip" hidden><strong>精准教学目标</strong><p>请明确本次教学要诊断的学生学习状态，以及经过针对性干预后，期望多少学生达到什么学习水平。</p></div></div>
-                <p class="field-example">示例：诊断班级学生历史论证写作的思维结构水平及主要障碍，通过针对性干预，使班级中不少于80%的学生达到能够整合观点、证据与推理关系的关联结构水平。</p>
+                <p class="field-example">说明重点诊断和改进的学生思维或能力（如论证写作、数学运算决策），以及期望达到的学习表现。</p>
                 <textarea id="blockGoal" rows="3">精准识别并提升学生从提取数量关系、建立约束模型到完整论证最值结论的思维结构。</textarea>
               </div>
               <div class="field-group major-field">
-                <div class="label-row"><label for="blockContent">精准教学内容</label><button type="button" class="help-dot" data-help="contentHelp" aria-controls="contentHelp" aria-expanded="false" aria-label="查看精准教学内容说明">?</button><div class="help-popover" id="contentHelp" role="tooltip" hidden><strong>精准教学内容</strong><p>列出本轮诊断和干预实际聚焦的概念、关系、方法或思维结构。每行可以填写一项，生成任务专用 SOLO 量规时将作为教学情境使用。</p></div></div>
-                <p class="field-example">示例：数量关系提取；约束模型建立；基本不等式的取等条件；最值结论的完整论证。</p>
+                <div class="label-row"><label for="blockContent">精准教学内容</label><button type="button" class="help-dot" data-help="contentHelp" aria-controls="contentHelp" aria-expanded="false" aria-label="查看精准教学内容说明">?</button><div class="help-popover" id="contentHelp" role="tooltip" hidden><strong>精准教学内容</strong><p>这里填写本次实际要教什么，而不是重复教学目标。请结合教材与章节，写清计划教学的知识、概念、方法或学习任务；内容较多时可以分行填写。</p></div></div>
+                <p class="field-example">请填写本次计划教学的具体内容，如教材中的知识、概念、方法和学习任务。</p>
                 <textarea id="blockContent" rows="3">基本不等式实际应用中的数量关系提取
 约束模型建立
 取等条件与最值结论的完整论证</textarea>
               </div>
-              <div class="field-group major-field">
-                <div class="label-row"><label for="blockRationale">选题说明</label><button type="button" class="help-dot" data-help="rationaleHelp" aria-controls="rationaleHelp" aria-expanded="false" aria-label="查看选题说明填写提示">?</button><div class="help-popover" id="rationaleHelp" role="tooltip" hidden><strong>选题说明</strong><p>说明为什么选择这一精准教学主题。可以从课程标准与学科核心素养的要求、学科关键内容、学生学习差异或普遍存在的学习障碍等方面阐释。</p></div></div>
-                <p class="field-example">示例：最值论证体现数学建模与逻辑推理要求；课前学习中学生能够得到数值结果，但在建立约束、说明取等条件和形成完整论证方面差异明显，因此需要开展精准诊断与分层干预。</p>
-                <textarea id="blockRationale" rows="3">基本不等式的实际应用是发展数学建模和逻辑推理素养的重要内容。学生在提取数量关系、建立约束模型以及说明最值结论成立条件方面存在明显差异，需要通过精准诊断识别障碍并设计针对性教学。</textarea>
-              </div>
-              <div class="form-footer"><button type="button" class="button">保存草稿</button><button type="button" class="button primary" id="createBlockButton">保存并进入诊断设计</button></div>
+              <div class="form-footer"><button type="button" class="button" id="saveBlockDraftButton">保存草稿</button><button type="button" class="button primary" id="createBlockButton">保存并进入诊断设计</button></div>
             </form>
           </div>
         </section>
@@ -150,9 +151,11 @@
               <div class="panel-heading"><span class="step-index">01</span><div><h2>诊断任务</h2><p>先参考 AI 推荐的三个备选方案，选择后可继续编辑任务内容、AI 角色和预计时长。</p></div></div>
 
               <section class="task-recommendation-panel" id="taskRecommendations">
-                <div class="recommendation-heading"><div><h3>AI 推荐的诊断任务</h3><p>依据当前精准教学的学科、年级、教材、主题、目标与内容生成；采用后可继续编辑。</p></div><div class="recommendation-heading-actions"><button type="button" class="button primary" id="regenerateTasks">AI 推荐 3 个方案</button></div></div>
-                <p class="recommendation-status" id="taskRecommendationStatus">尚未生成。点击“AI 推荐 3 个方案”获取推荐；不会覆盖当前草稿。</p>
-                <div class="proposal-grid" id="taskProposals"></div>
+                <div class="recommendation-heading"><div><h3>AI 推荐的诊断任务</h3><p>依据当前精准教学的学科、年级、教材、主题、目标与内容生成；采用后可继续编辑。</p></div><div class="recommendation-heading-actions"><button type="button" class="button small" id="toggleTaskRecommendations" aria-controls="taskRecommendationBody" aria-expanded="true">收起推荐</button><button type="button" class="button primary" id="regenerateTasks">AI 推荐 3 个方案</button></div></div>
+                <div id="taskRecommendationBody">
+                  <p class="recommendation-status" id="taskRecommendationStatus">尚未生成。点击“AI 推荐 3 个方案”获取推荐；不会覆盖当前草稿。</p>
+                  <div class="proposal-grid" id="taskProposals"></div>
+                </div>
               </section>
 
               <div class="field-group major-field">
@@ -176,7 +179,7 @@
           </div>
 
           <div class="workflow-panel" data-dpanel="3">
-            <div class="card panel-card"><div class="panel-heading"><span class="step-index">02</span><div><h2>分析标准</h2><p>先了解 SOLO 的通用分类框架，再确认针对本任务生成的分析标准。</p></div></div>
+            <div class="card panel-card"><div class="panel-heading"><span class="step-index">02</span><div><h2>分析标准</h2><p>确认本任务的 SOLO 标准，也可设置教师自定义标准，补充个人或班级反馈。</p></div></div>
               <section class="solo-framework-panel">
                 <div class="framework-intro"><div><span>通用框架</span><h3>SOLO 用于判断当前任务中呈现的思维结构</h3></div><p>它判断的是可观察的学习结果，不是学生的一般能力，也不是固定标签。</p></div>
                 <div class="solo-level-grid">
@@ -188,12 +191,23 @@
                 </div>
               </section>
               <div class="rubric-header"><div><h3>本任务的 SOLO 分析标准</h3><p>AI 根据教学情境、诊断任务和通用量规生成；可编辑后确认。</p><span class="rubric-runtime-status" id="rubricRuntimeStatus" hidden></span></div><button type="button" class="button small ai" id="regenerateRubric">AI 生成量规</button></div>
-              <div class="rubric-table-wrap"><table class="rubric-table"><thead><tr><th>层级</th><th>可观察表现</th><th>本任务判断依据</th><th>边界与追溯</th></tr></thead><tbody id="rubricTableBody">
+              <div class="rubric-table-wrap"><table class="rubric-table"><thead><tr><th>层级</th><th>可观察表现</th><th>本任务判断依据</th><th>层级边界与示例</th></tr></thead><tbody id="rubricTableBody">
                 <tr class="rubric-placeholder"><td colspan="4">进入本步骤后生成任务专用量规</td></tr>
               </tbody></table></div>
               <details class="rubric-analysis-details" id="rubricAnalysisDetails" hidden><summary>查看任务结构分析（E／R／A）</summary><div id="rubricAnalysisContent"></div></details>
               <label class="confirm-row"><input type="checkbox" id="rubricConfirmed" disabled>我已检查并确认本任务的 SOLO 分析标准</label>
-              <div class="panel-actions spread"><button class="button" data-dnext="2">上一步</button><button class="button primary" id="rubricNextButton" data-dnext="4" disabled>下一步：预览并发布</button></div>
+              <section class="custom-analysis-settings" aria-labelledby="customAnalysisHeading">
+                <h3 id="customAnalysisHeading">教师自定义分析标准（可选）</h3>
+                <p>保留上方 SOLO 分析；还可以写下你希望重点观察的表现，生成独立的补充反馈。当前只分析学生对话和最终文字成果，不读取图片附件；补充反馈先供教师核对，不会自动推送学生。</p>
+                <label for="customAnalysisCriteria">分析标准</label>
+                <textarea id="customAnalysisCriteria" rows="5" maxlength="5000" placeholder="例如：学生是否说明方法选择的理由，并能检查结果是否符合题目条件。"></textarea>
+                <div class="custom-analysis-options" role="group" aria-label="自定义反馈范围">
+                  <label><input type="checkbox" id="customAnalysisIndividual">生成个人反馈</label>
+                  <label><input type="checkbox" id="customAnalysisClass">生成班级反馈</label>
+                </div>
+                <div class="custom-analysis-actions"><span id="customAnalysisSaveStatus" role="status">未启用自定义分析</span><button type="button" class="button" id="saveCustomAnalysisStandard">保存自定义标准</button></div>
+              </section>
+              <div class="panel-actions spread"><button class="button" data-dnext="2">上一步</button><button class="button primary" id="rubricNextButton" data-dnext="4" disabled>下一步：任务发布</button></div>
             </div>
           </div>
 
@@ -201,7 +215,6 @@
             <div class="publish-layout">
               <div class="card panel-card"><div class="panel-heading"><span class="step-index">03</span><div><h2>发布诊断任务</h2><p>选择班级，确认学生看到的任务和成果要求。</p></div></div>
                 <label>发布班级</label><div class="class-options" id="publishClassOptions"></div>
-                <div class="publish-summary"><div><span>诊断类型</span><b id="publishDiagnosisType">课前诊断</b></div><div><span>预计时间</span><b id="publishDuration">15 分钟</b></div><div><span>提交内容</span><b>生机会话＋论证文本</b></div></div>
                 <div class="publish-notice"><b>发布说明</b><p>学生提交后可查看任务完成状态；诊断反馈须经教师确认后再推送。</p></div>
                 <div class="panel-actions spread"><button class="button" data-dnext="3">上一步</button><button class="button primary" id="publishTaskButton">确认发布</button></div>
               </div>
@@ -289,14 +302,14 @@
         </section>
 
         <section class="page" id="page-intervention">
-          <div class="page-heading"><div><h1>精准干预设计</h1><p id="interventionDurationSummary">基于诊断结果设计共45分钟的课堂方案。</p></div><div><span class="autosave-state">草稿自动保存</span><button class="button primary" id="previewInterventionPlan">预览教学报告</button></div></div>
+          <div class="page-heading"><div><h1>精准干预设计</h1></div><div><span class="autosave-state">草稿自动保存</span><button class="button primary" id="previewInterventionPlan">预览教学方案</button></div></div>
           <div class="filter-bar intervention-filter-bar card">
             <label>班级<select id="interventionClassSelect"><option>高一（3）班</option><option>高一（5）班</option></select></label>
             <label>精准教学<select id="interventionTeachingName" disabled><option>基本不等式中的模型与论证</option></select></label>
             <label>诊断依据任务<select id="interventionTaskName" disabled><option>课前 · 围绳面积最大方案论证</option></select></label>
             <span class="status success" id="interventionEvidenceStatus">诊断结果已确认</span>
           </div>
-          <div class="workflow-tabs intervention-tabs four" id="interventionSteps"><button class="active" data-istep="1"><i>1</i>设计依据</button><button data-istep="2"><i>2</i>目标设计与活动路径</button><button data-istep="3"><i>3</i>学习活动设计</button><button data-istep="4"><i>4</i>报告预览与导出</button></div>
+          <div class="workflow-tabs intervention-tabs four" id="interventionSteps"><button class="active" data-istep="1"><i>1</i>设计依据</button><button data-istep="2"><i>2</i>目标设计与活动路径</button><button data-istep="3"><i>3</i>学习活动设计</button><button data-istep="4"><i>4</i>方案总览与导出</button></div>
 
           <div class="intervention-panel active" data-ipanel="1">
             <article class="card intervention-section-card">
@@ -319,7 +332,8 @@
               <div class="intervention-section-heading"><div><h2>目标设计与活动路径</h2></div><span class="status neutral" id="goalPathStatus">等待班级报告</span></div>
               <div id="goalPathPrerequisite"></div>
               <div id="goalPathGeneratedContent"></div>
-              <div class="panel-actions spread"><button class="button" data-istep-target="1">上一步</button><div><button class="button ai" id="generateGoalPath">AI重新生成目标与路径</button><button class="button" id="saveGoalPathDraft" hidden>保存修改</button><button class="button primary" id="confirmGoalPath" hidden>确认目标与路径</button><button class="button primary" id="nextFromGoalPath" data-istep-target="3" disabled>下一步：学习活动设计</button></div></div>
+              <div class="goal-path-ai-dialogue" id="goalPathAiDialogue" hidden><label for="goalPathRevisionRequest">告诉 AI 你希望怎样调整目标与活动路径</label><p id="goalPathPreviousRequest" hidden></p><textarea id="goalPathRevisionRequest" rows="3" maxlength="2000" placeholder="例如：保留分层目标，但让小组活动更贴合我前面填写的课堂构想；共同活动只对应共同核心目标。"></textarea><div><button class="button ai" id="generateGoalPath">发送要求并重新生成</button></div></div>
+              <div class="panel-actions spread"><button class="button" data-istep-target="1">上一步</button><div><span class="goal-path-autosave-state" id="goalPathAutosaveState" aria-live="polite"></span><button class="button primary" id="nextFromGoalPath" disabled>下一步：学习活动设计</button></div></div>
             </article>
             <div id="legacyGoalPathEditor" hidden>
             <article class="card intervention-section-card">
@@ -383,7 +397,7 @@
               <div id="activityFormativePrerequisite" class="goal-path-notice">请先确认“目标设计与活动路径”。</div>
               <p id="activityFormativeError" class="activity-formative-error" role="alert" hidden></p>
               <div id="activityFormativeGeneratedContent"></div>
-              <div class="panel-actions spread"><button class="button" data-istep-target="2">上一步</button><div><button class="button ai" id="generateActivityFormative" hidden>AI重新生成学习活动</button><button class="button" id="saveActivityFormativeDraft" hidden>保存修改</button><button class="button primary" id="confirmActivityFormative" hidden>确认活动与评价</button><button class="button primary" id="nextFromActivityFormative" disabled>下一步：报告预览与导出</button></div></div>
+              <div class="panel-actions spread"><button class="button" data-istep-target="2">上一步</button><div><button class="button ai" id="generateActivityFormative" hidden>AI重新生成学习活动</button><button class="button" id="saveActivityFormativeDraft" hidden>保存修改</button><button class="button primary" id="confirmActivityFormative" hidden>确认活动与评价</button><button class="button primary" id="nextFromActivityFormative" disabled>下一步：方案总览与导出</button></div></div>
             </article>
             <div id="legacyActivityEditor" hidden>
             <article class="card intervention-section-card activity-design-card">
@@ -398,16 +412,16 @@
               <div class="activity-sequence-footer"><button class="button" id="addInterventionActivity">＋添加学习活动</button><span id="activityOrderStatus">活动序列已自动保存</span></div>
 
             </article>
-            <div class="panel-actions spread"><button class="button" data-istep-target="2">上一步</button><button class="button primary" data-istep-target="4">下一步：报告预览与导出</button></div>
+            <div class="panel-actions spread"><button class="button" data-istep-target="2">上一步</button><button class="button primary" data-istep-target="4">下一步：方案总览与导出</button></div>
             </div>
           </div>
 
           <div class="intervention-panel" data-ipanel="4">
             <article class="card intervention-report-shell" id="interventionPlanPreview">
-              <div class="intervention-section-heading"><div><h2>教学报告与方案审核</h2></div><button class="button ai" id="refreshInterventionReport" hidden>AI重新生成教学报告</button></div>
-              <p id="integrationReportStatus" class="integration-report-status" role="status">正在读取报告状态…</p>
-              <div id="interventionReportContent" class="intervention-report-content"><p class="report-empty">正在读取报告…</p></div>
-              <footer class="plan-preview-actions" id="integrationReportActions" hidden><button class="button" id="downloadInterventionPdf">下载 PDF</button><button class="button primary" id="downloadInterventionReport">导出 HTML 报告</button></footer>
+              <div class="intervention-section-heading"><div><h2>教学方案总览与审核</h2></div><button class="button ai" id="refreshInterventionReport" hidden>AI重新生成教学方案</button></div>
+              <p id="integrationReportStatus" class="integration-report-status" role="status">正在读取方案状态…</p>
+              <div id="interventionReportContent" class="intervention-report-content"><p class="report-empty">正在读取方案…</p></div>
+              <footer class="plan-preview-actions" id="integrationReportActions" hidden><button class="button" id="downloadInterventionPdf">下载 PDF</button><button class="button" id="downloadInterventionDocx">导出可编辑 Word</button><button class="button primary" id="downloadInterventionReport">导出 HTML 方案</button></footer>
             </article>
             <div class="panel-actions spread"><button class="button" data-istep-target="3">上一步</button><button class="button primary" id="finishInterventionDesign">完成本节课设计</button></div>
           </div>
@@ -505,8 +519,8 @@
     <div class="llm-debug-header"><div><h2 id="llmDebugTitle">LLM 请求入参</h2><p>仅本机开发环境可见。内容可能包含学生对话、作答和教师报告；不包含 API Key。</p></div><button class="button" type="button" id="llmDebugClose">关闭</button></div>
     <div class="llm-debug-layout"><div id="llmDebugList" class="llm-debug-list"></div><div class="llm-debug-detail"><p id="llmDebugMeta">选择一条请求查看实际发送的 JSON。</p><textarea id="llmDebugBody" readonly spellcheck="false" aria-label="实际发送给 LLM 的请求 JSON"></textarea></div></div>
   </dialog>
-  <script src="api-client.js?v=20260927-classroom-edit"></script>
+  <script src="api-client.js?v=20260928-word-export"></script>
   <script src="llm-debug.js?v=20260925-llm2"></script>
-  <script src="app.js?v=20260927-classroom-edit"></script>
+<script src="app.js?v=20260928-word-export"></script>
 </body>
 </html>

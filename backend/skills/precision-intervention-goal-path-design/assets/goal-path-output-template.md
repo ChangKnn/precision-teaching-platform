@@ -23,11 +23,12 @@
 
 ## 4. 课堂活动路径
 
-| 阶段 | 活动名称 | 组织形式 | 活动内容简介 | 面向学生与目标 | 建议时长 |
-|---|---|---|---|---|---:|
-| {{stage_id}} | {{activity_name}} | {{organization_name_and_code}} | {{activity_summary}} | {{target_students_and_goals}} | {{stage_duration_minutes}}分钟 |
+| 活动名称 | 组织形式 | 活动内容简介 | 目标层级 | 建议时长 |
+|---|---|---|---|---:|
+| {{stage_name}} | {{organization_name_and_code}} | {{group_name_if_parallel}} {{activity_summary}} | {{target_level_names}} | {{stage_duration_minutes}}分钟 |
 
 同一阶段出现多行表示这些活动同时开展；其建议时长按该阶段计算一次，不重复相加。
+每行“活动内容简介”应让教师看到具体学习对象、学生动作与简要产出；并行组各写本组的不同做法，不以“探究/交流/建构”等抽象词代替。
 
 ## 5. 请教师确认
 

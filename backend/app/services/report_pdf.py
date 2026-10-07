@@ -30,19 +30,30 @@ def render_report_pdf(result: dict) -> bytes:
     except ImportError as error:
         raise RuntimeError("PDF 导出依赖未安装，请安装项目 requirements.txt 中的 reportlab") from error
 
+    windows_fonts = Path(os.getenv("WINDIR", "C:/Windows")) / "Fonts"
     font_paths = [
         os.getenv("PDF_CJK_FONT_PATH", ""),
+        windows_fonts / "simsun.ttc",
+        windows_fonts / "simhei.ttf",
         "/System/Library/Fonts/STHeiti Medium.ttc",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
     ]
-    font_file = next((path for path in font_paths if path and Path(path).is_file()), None)
-    if font_file:
-        font = "TeachingReportCJK"
-        if font not in pdfmetrics.getRegisteredFontNames():
-            pdfmetrics.registerFont(TTFont(font, font_file, subfontIndex=0))
-    else:
-        font = "STSong-Light"
+    font = "STSong-Light"
+    for path in font_paths:
+        if not path or not Path(path).is_file():
+            continue
+        try:
+            candidate = "TeachingReportCJK"
+            if candidate not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(TTFont(candidate, str(path), subfontIndex=0))
+            font = candidate
+            break
+        except Exception:
+            # Some Noto TTC files use CFF outlines unsupported by ReportLab.
+            # Try the next installed font rather than failing the export.
+            continue
+    if font == "STSong-Light":
         pdfmetrics.registerFont(UnicodeCIDFont(font))
     ink = colors.HexColor("#1D302E")
     teal = colors.HexColor("#16574E")
@@ -99,7 +110,7 @@ def render_report_pdf(result: dict) -> bytes:
         report_table.setStyle(TableStyle(commands))
         flow.extend([report_table, Spacer(1, 5)])
 
-    flow.append(paragraph("精准干预教学报告", "subheading"))
+    flow.append(paragraph("精准干预教学方案", "subheading"))
     flow.append(paragraph(basic["plan_title"], "title"))
     flow.append(paragraph(f'{basic["class_name"]} · {basic["subject"]} · {basic["total_duration_minutes"]} 分钟', "subtitle"))
     field("审核结论", audit["overall_conclusion"])

@@ -80,7 +80,6 @@
         "homogeneous_groups",
         "heterogeneous_groups",
         "heterogeneous_not_recommended_reason",
-        "ungrouped_students",
         "usage_note"
       ],
       "properties": {
@@ -93,10 +92,6 @@
           "items": {"$ref": "#/$defs/heterogeneousGroup"}
         },
         "heterogeneous_not_recommended_reason": {"type": ["string", "null"]},
-        "ungrouped_students": {
-          "type": "array",
-          "items": {"$ref": "#/$defs/studentRef"}
-        },
         "usage_note": {"type": "string", "minLength": 1}
       }
     },
@@ -223,6 +218,7 @@
         "count",
         "students",
         "main_performance",
+        "teaching_suggestion",
         "typical_evidence",
         "main_obstacles"
       ],
@@ -237,6 +233,7 @@
           "items": {"$ref": "#/$defs/studentRef"}
         },
         "main_performance": {"type": "string", "minLength": 1},
+        "teaching_suggestion": {"type": "string", "minLength": 1},
         "typical_evidence": {
           "type": "array",
           "minItems": 1,
@@ -270,12 +267,13 @@
     "homogeneousGroup": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["group_id", "students", "common_characteristics", "progression_direction", "use_case"],
+      "required": ["group_id", "group_name", "students", "common_characteristics", "progression_direction", "use_case"],
       "properties": {
         "group_id": {"type": "string", "pattern": "^H[1-9][0-9]*$"},
+        "group_name": {"type": "string", "minLength": 2, "maxLength": 30},
         "students": {
           "type": "array",
-          "minItems": 2,
+          "minItems": 1,
           "items": {"$ref": "#/$defs/studentRef"}
         },
         "common_characteristics": {"type": "string", "minLength": 1},
@@ -286,9 +284,10 @@
     "heterogeneousGroup": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["group_id", "students", "grouping_rationale", "collaboration_direction", "shared_product"],
+      "required": ["group_id", "group_name", "students", "grouping_rationale", "collaboration_direction", "shared_product"],
       "properties": {
         "group_id": {"type": "string", "pattern": "^X[1-9][0-9]*$"},
+        "group_name": {"type": "string", "minLength": 2, "maxLength": 30},
         "students": {
           "type": "array",
           "minItems": 2,

@@ -143,6 +143,27 @@ def initialize_database() -> None:
         updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS teacher_analysis_standards (
+        teaching_id TEXT PRIMARY KEY REFERENCES precision_teachings(id) ON DELETE CASCADE,
+        criteria TEXT NOT NULL DEFAULT '',
+        individual_enabled INTEGER NOT NULL DEFAULT 0,
+        class_enabled INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS teacher_analysis_reports (
+        teaching_id TEXT NOT NULL REFERENCES precision_teachings(id) ON DELETE CASCADE,
+        scope TEXT NOT NULL CHECK (scope IN ('individual', 'class')),
+        subject_id TEXT NOT NULL,
+        skill_key TEXT NOT NULL,
+        skill_version TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        input_hash TEXT NOT NULL,
+        result_json TEXT NOT NULL,
+        generated_at TEXT NOT NULL,
+        PRIMARY KEY (teaching_id, scope, subject_id)
+    );
+
     CREATE TABLE IF NOT EXISTS feedback_summaries (
         teaching_id TEXT PRIMARY KEY REFERENCES precision_teachings(id) ON DELETE CASCADE,
         status TEXT NOT NULL DEFAULT 'pending',
@@ -297,6 +318,7 @@ def initialize_database() -> None:
         input_hash TEXT NOT NULL,
         generated_json TEXT NOT NULL,
         report_text TEXT NOT NULL,
+        student_feedback_text TEXT NOT NULL DEFAULT '',
         generated_at TEXT NOT NULL,
         reviewed_at TEXT,
         pushed_at TEXT,
@@ -329,6 +351,7 @@ def initialize_database() -> None:
         class_source_hash TEXT NOT NULL,
         input_hash TEXT NOT NULL,
         teacher_context_json TEXT NOT NULL,
+        regeneration_request TEXT NOT NULL DEFAULT '',
         generated_json TEXT NOT NULL,
         report_text TEXT NOT NULL,
         generated_at TEXT NOT NULL,
@@ -438,11 +461,19 @@ def initialize_database() -> None:
         }
         if "execution_json" not in message_columns:
             connection.execute("ALTER TABLE student_messages ADD COLUMN execution_json TEXT")
+        report_columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(student_diagnosis_reports)").fetchall()
+        }
+        if "student_feedback_text" not in report_columns:
+            connection.execute("ALTER TABLE student_diagnosis_reports ADD COLUMN student_feedback_text TEXT NOT NULL DEFAULT ''")
         activity_columns = {
             row["name"] for row in connection.execute("PRAGMA table_info(activity_formative_designs)").fetchall()
         }
         if "presentation_overrides_json" not in activity_columns:
             connection.execute("ALTER TABLE activity_formative_designs ADD COLUMN presentation_overrides_json TEXT NOT NULL DEFAULT '{}'")
+        goal_path_columns = {row["name"] for row in connection.execute("PRAGMA table_info(goal_path_designs)").fetchall()}
+        if "regeneration_request" not in goal_path_columns:
+            connection.execute("ALTER TABLE goal_path_designs ADD COLUMN regeneration_request TEXT NOT NULL DEFAULT ''")
         if settings.seed_demo_data:
             connection.execute(
                 """

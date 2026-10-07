@@ -12,15 +12,25 @@ class TeacherProfileUpdate(BaseModel):
     teaching_style: str = Field(default="", max_length=2000)
 
 
-class PrecisionTeachingCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=200)
-    goal: str = Field(min_length=1, max_length=2000)
-    content: str = Field(min_length=1, max_length=4000)
+class PrecisionTeachingDraft(BaseModel):
+    title: str = Field(default="", max_length=200)
+    goal: str = Field(default="", max_length=2000)
+    content: str = Field(default="", max_length=4000)
     rationale: str = Field(default="", max_length=3000)
     subject: str = Field(default="数学", max_length=50)
     grade: str = Field(default="高一", max_length=50)
     textbook: str = Field(default="", max_length=200)
     estimated_periods: int = Field(default=1, ge=1, le=100)
+
+
+class PrecisionTeachingCreate(PrecisionTeachingDraft):
+    title: str = Field(min_length=1, max_length=200)
+    goal: str = Field(min_length=1, max_length=2000)
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class PrecisionTeachingUpdate(PrecisionTeachingDraft):
+    edit_intent: Literal["wording"] | None = None
 
 
 class CurrentTeachingUpdate(BaseModel):
@@ -65,6 +75,12 @@ class DiagnosisRubricUpdate(BaseModel):
     confirmed: bool = False
 
 
+class TeacherAnalysisStandardUpdate(BaseModel):
+    criteria: str = Field(default="", max_length=5000)
+    individual_enabled: bool = False
+    class_enabled: bool = False
+
+
 class AIJobResponse(BaseModel):
     id: str
     skill_key: str
@@ -91,4 +107,5 @@ class StudentTaskSubmit(BaseModel):
 
 class StudentDiagnosisReportUpdate(BaseModel):
     report_text: str = Field(min_length=1, max_length=20000)
+    student_feedback_text: str | None = Field(default=None, min_length=1, max_length=5000)
     status: Literal["draft", "confirmed", "pushed"] = "draft"

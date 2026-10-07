@@ -9,3 +9,13 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 data/
+venv/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+*.log
+*.pem
+*.key

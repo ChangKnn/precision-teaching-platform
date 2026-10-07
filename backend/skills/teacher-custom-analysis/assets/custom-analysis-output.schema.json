@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mode", "analyzed_student_count", "summary", "findings", "suggestions", "limitations"],
+  "properties": {
+    "mode": {"type": "string", "enum": ["individual", "class"]},
+    "analyzed_student_count": {"type": "integer", "minimum": 1},
+    "summary": {"type": "string", "minLength": 1},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["criterion", "finding", "evidence"],
+        "properties": {
+          "criterion": {"type": "string", "minLength": 1},
+          "finding": {"type": "string", "minLength": 1},
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["source_id", "quote"],
+              "properties": {
+                "source_id": {"type": "string", "minLength": 1},
+                "quote": {"type": "string", "minLength": 1}
+              }
+            }
+          }
+        }
+      }
+    },
+    "suggestions": {"type": "array", "items": {"type": "string"}},
+    "limitations": {"type": "array", "items": {"type": "string"}}
+  }
+}

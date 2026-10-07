@@ -173,8 +173,9 @@
         "target_goal_ids": {
           "type": "array",
           "minItems": 1,
+          "maxItems": 1,
           "uniqueItems": true,
-          "items": {"type": "string", "pattern": "^PG[1-9][0-9]*$"}
+          "items": {"type": "string", "pattern": "^(CG|PG[1-9][0-9]*)$"}
         },
         "target_students": {
           "type": "array",

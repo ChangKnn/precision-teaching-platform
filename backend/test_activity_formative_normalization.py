@@ -12,6 +12,19 @@ SAMPLES = Path(__file__).parent / "skills/precision-intervention-activity-format
 
 
 class ActivityFormativeNormalizationTest(unittest.TestCase):
+    def test_common_core_goal_is_valid_as_source_activity_target(self):
+        source = json.loads((SAMPLES / "sample-input.json").read_text(encoding="utf-8"))
+        result = json.loads((SAMPLES / "sample-output.json").read_text(encoding="utf-8"))
+        goal = source["goal_path_design"]
+        goal["intervention_path"] = goal["intervention_path"]["primary"]
+        for stage, summary in zip(goal["intervention_path"]["stages"], result["activity_sequence_summary"]["stages"]):
+            stage["stage_name"] = summary["stage_name"]
+            for unit in stage["activity_units"]:
+                unit["target_students"] = [{"student_id": student_id} for student_id in unit["target_student_ids"]]
+        goal["intervention_path"]["stages"][0]["activity_units"][0]["target_goal_ids"] = ["CG"]
+        result["activities"][0]["target_goal_ids"] = ["CG"]
+        _validate(result, goal)
+
     def test_common_goal_is_kept_for_evaluation_but_not_unit_mapping(self):
         source = json.loads((SAMPLES / "sample-input.json").read_text(encoding="utf-8"))
         result = json.loads((SAMPLES / "sample-output.json").read_text(encoding="utf-8"))

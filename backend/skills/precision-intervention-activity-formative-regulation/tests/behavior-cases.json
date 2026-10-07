@@ -9,6 +9,7 @@
   {"id": "DIALOGUE_ACTOR_SEQUENCE", "must": "机器结果保留会话圈和主体行动顺序；教师端将关键行动归入教师活动、学生活动和AI辅助三栏且不写逐字稿"},
   {"id": "AI_OPTIONAL_CONDITIONAL", "must": "AI仅在有明确功能且学生先思考的条件下使用"},
   {"id": "FORMATIVE_KEY_NODE_ONLY", "must": "形成性评价只放在需要教学决策的位置，单节课通常1—2次"},
+  {"id": "FORMATIVE_COMPACT_CELLS", "must": "形成性评价每格简短；每个目标的达到与未达到标准各写一条可观察表现，三类处理各写一个动作，不重复目标全文和活动背景"},
   {"id": "EVIDENCE_GOAL_ALIGNMENT", "must": "学习证据与目标中的可观察表现对应"},
   {"id": "REGULATION_THREE_BRANCHES", "must": "形成性评价包含达到、尚未达到和证据不能反映个人理解三类结果处理"},
   {"id": "NO_RECLASSIFICATION", "must": "Skill 2不重新判断或修改学生SOLO层级"},

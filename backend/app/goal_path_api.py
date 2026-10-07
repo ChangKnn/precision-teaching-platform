@@ -27,6 +27,7 @@ class TeacherInstructionalContext(BaseModel):
 
 class GoalPathGenerateRequest(BaseModel):
     teacher_instructional_context: TeacherInstructionalContext
+    regeneration_request: str | None = Field(default=None, max_length=2000)
 
 
 class GoalPathSaveRequest(BaseModel):
@@ -155,6 +156,10 @@ def _validate_design(result: dict, class_result: dict, planned_minutes: int) -> 
     if len(goal_members) != len(levels) or set(goal_members) != set(levels):
         raise ValueError("进阶目标的学生名单有重复或遗漏")
     for goal in goals.values():
+        if set(goal["source_levels"]) != {student["current_level"] for student in goal["target_students"]}:
+            raise ValueError("进阶目标面向层级与学生当前层级不一致")
+        if goal["target_level_code"] == "CUSTOM" and not goal["custom_goal_note"]:
+            raise ValueError("自定义进阶目标需要填写层级名称")
         for student in goal["target_students"]:
             check_student(student)
             if student["current_level"] != levels[student["student_id"]]:
@@ -172,8 +177,8 @@ def _validate_design(result: dict, class_result: dict, planned_minutes: int) -> 
             unit_ids.append(unit["unit_id"])
             if not unit["unit_id"].startswith(f"{stage['stage_id']}-"):
                 raise ValueError("并行活动单元必须共享所属阶段编号")
-            if not set(unit["target_goal_ids"]) <= set(goals):
-                raise ValueError("课堂活动引用了不存在的进阶目标")
+            if not set(unit["target_goal_ids"]) <= (set(goals) | {"CG"}):
+                raise ValueError("课堂活动引用了不存在的目标")
             if not {student["student_id"] for student in unit["target_students"]} <= set(levels):
                 raise ValueError("课堂活动引用了不存在的学生")
             for student in unit["target_students"]:
@@ -210,15 +215,18 @@ def _markdown(result: dict) -> str:
         lines.append(f"- **备选组织模式：** {alternative['path_label']}；适用条件：{alternative['suitable_when']}；代价：{alternative['tradeoff']}")
     lines += [
         "", "## 4. 课堂活动路径", "",
-        "| 阶段 | 活动名称 | 组织形式 | 活动内容简介 | 面向学生与目标 | 建议时长 |",
-        "|---|---|---|---|---|---:|",
+        "| 活动名称 | 组织形式 | 活动内容简介 | 目标层级 | 建议时长 |",
+        "|---|---|---|---|---:|",
     ]
+    goal_levels = {goal["goal_id"]: goal["target_level_name"] for goal in result["progression_goals"]}
+    goal_levels["CG"] = common["target_cognitive_structure"]["level_name"]
     for stage in path["stages"]:
         for unit in stage["activity_units"]:
+            group_name = f"{unit['activity_name']}：" if len(stage["activity_units"]) > 1 else ""
+            levels = "、".join(dict.fromkeys(goal_levels[goal_id] for goal_id in unit["target_goal_ids"]))
             lines.append(
-                f"| {stage['stage_id']} {stage['stage_name']} | {unit['activity_name']} | "
-                f"{unit['organization_name']}（{unit['organization_code']}） | {unit['activity_summary']} | "
-                f"{student_names(unit['target_students'])}；{', '.join(unit['target_goal_ids'])} | {stage['duration_minutes']} 分钟 |"
+                f"| {stage['stage_name']} | {unit['organization_name']} | "
+                f"{group_name}{unit['activity_summary']} | {levels} | {stage['duration_minutes']} 分钟 |"
             )
     lines += ["", "同一阶段的并行活动共享阶段时长，不重复相加。", "", "## 5. 请教师确认", ""]
     lines += [f"- {item}" for item in result["teacher_confirmation"]["items_to_confirm"]]
@@ -254,6 +262,7 @@ def _serialized_row(teaching_id: str, classroom_id: str) -> dict | None:
         "provider": row["provider"], "status": "stale" if stale else row["status"],
         "result": json.loads(row["generated_json"]),
         "report_text": row["report_text"],
+        "regeneration_request": row["regeneration_request"],
         "teacher_instructional_context": json.loads(row["teacher_context_json"]),
         "generated_at": row["generated_at"], "confirmed_at": row["confirmed_at"],
         "updated_at": row["updated_at"],
@@ -269,12 +278,15 @@ def _analysis_draft(teaching_id: str, classroom_id: str) -> dict | None:
         "SELECT source_hash, status FROM class_diagnosis_reports WHERE teaching_id = ? AND classroom_id = ?",
         (teaching_id, classroom_id),
     )
-    if not row or not report or report["status"] != "ready" or row["class_source_hash"] != report["source_hash"]:
+    if not row or not report or report["status"] != "ready":
         return None
+    stale = row["class_source_hash"] != report["source_hash"]
     return {
         "content_analysis": row["content_analysis"], "focus_analysis": row["focus_analysis"],
-        "source_note": row["source_note"], "content_confirmed": bool(row["content_confirmed"]),
-        "focus_confirmed": bool(row["focus_confirmed"]), "provider": row["provider"],
+        "source_note": "班级报告已更新。原有教学分析已保留，请核对后重新保存。" if stale else row["source_note"],
+        "content_confirmed": bool(row["content_confirmed"]) and not stale,
+        "focus_confirmed": bool(row["focus_confirmed"]) and not stale,
+        "stale": stale, "provider": row["provider"],
         "updated_at": row["updated_at"],
     }
 
@@ -355,7 +367,7 @@ def save_teacher_analysis(teaching_id: str, classroom_id: str, request: TeacherA
                 content_confirmed = 1, focus_confirmed = 1, updated_at = excluded.updated_at
             """,
             (teaching_id, classroom_id, report["source_hash"], request.content_analysis,
-             request.focus_analysis, existing["source_note"] if existing else "教师填写",
+             request.focus_analysis, existing["source_note"] if existing and not existing["stale"] else "教师核对并保存",
              existing["provider"] if existing else "manual", now),
         )
     write_audit("save", "goal_path_teacher_analysis", f"{teaching_id}:{classroom_id}", {})
@@ -366,16 +378,23 @@ def save_teacher_analysis(teaching_id: str, classroom_id: str, request: TeacherA
 def generate_goal_path(teaching_id: str, classroom_id: str, request: GoalPathGenerateRequest) -> dict:
     analysis = _analysis_draft(teaching_id, classroom_id)
     context = request.teacher_instructional_context
-    if not analysis or (
+    if not analysis or not analysis["content_confirmed"] or not analysis["focus_confirmed"] or (
         analysis["content_analysis"] != context.teaching_content_and_curriculum_analysis or
         analysis["focus_analysis"] != context.teaching_focus_and_difficulty_analysis
     ):
         raise HTTPException(status_code=409, detail="请先保存当前班级的两项教学分析")
     skill = load_skill("precision_intervention_goal_path_design")
     teacher_context = request.teacher_instructional_context.model_dump()
+    revision_request = (request.regeneration_request or "").strip()
+    previous = _serialized_row(teaching_id, classroom_id)
+    if previous and not revision_request:
+        raise HTTPException(status_code=422, detail="请先写下希望 AI 调整的要求，再重新生成")
     try:
         import jsonschema
         payload, class_result, class_report = _build_input(teaching_id, classroom_id, teacher_context)
+        if previous:
+            payload["teacher_revision_request"] = revision_request
+            payload["previous_goal_path_design"] = _replace_names(previous["result"], _aliases(class_result))
         schema = json.loads((skill.path.parent / "assets/goal-path-input.schema.json").read_text(encoding="utf-8"))
         jsonschema.validate(payload, schema)
     except HTTPException:
@@ -409,20 +428,21 @@ def generate_goal_path(teaching_id: str, classroom_id: str, request: GoalPathGen
                 """
                 INSERT INTO goal_path_designs
                 (teaching_id, classroom_id, skill_key, skill_version, provider, status,
-                 class_source_hash, input_hash, teacher_context_json, generated_json, report_text,
+                 class_source_hash, input_hash, teacher_context_json, regeneration_request, generated_json, report_text,
                  generated_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, 'pending_teacher_confirmation', ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, 'pending_teacher_confirmation', ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(teaching_id, classroom_id) DO UPDATE SET
                     skill_key = excluded.skill_key, skill_version = excluded.skill_version,
                     provider = excluded.provider, status = excluded.status,
                     class_source_hash = excluded.class_source_hash, input_hash = excluded.input_hash,
-                    teacher_context_json = excluded.teacher_context_json, generated_json = excluded.generated_json,
+                    teacher_context_json = excluded.teacher_context_json, regeneration_request = excluded.regeneration_request,
+                    generated_json = excluded.generated_json,
                     report_text = excluded.report_text, generated_at = excluded.generated_at,
                     confirmed_at = NULL, updated_at = excluded.updated_at
                 """,
                 (teaching_id, classroom_id, skill.key, skill.version, settings.ai_provider,
                  class_report["source_hash"], input_hash, json.dumps(teacher_context, ensure_ascii=False),
-                 output_json, report_text, now, now),
+                 revision_request, output_json, report_text, now, now),
             )
         write_audit("generate", "goal_path_design", f"{teaching_id}:{classroom_id}", {"job_id": job_id})
         return {"design": _serialized_row(teaching_id, classroom_id)}

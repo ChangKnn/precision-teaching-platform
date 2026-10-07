@@ -79,28 +79,28 @@
     "stages": [
       {
         "stage_id": "ST1",
-        "stage_name": "共同定向",
+        "stage_name": "辨析实验条件，明确解释所需证据",
         "duration_minutes": 5,
         "activity_units": [
           {
             "unit_id": "ST1-C1",
             "organization_code": "C",
             "organization_name": "全班共同活动（C）",
-            "activity_name": "明确实验解释的证据要求",
-            "target_goal_ids": ["PG1", "PG2", "PG3"],
+            "activity_name": "辨析实验条件，明确解释所需证据",
+            "target_goal_ids": ["CG"],
             "target_students": [
               {"student_id": "S-01", "student_name": "陈晨"},
               {"student_id": "S-02", "student_name": "李明"},
               {"student_id": "S-03", "student_name": "王芳"},
               {"student_id": "S-04", "student_name": "赵宇"}
             ],
-            "activity_summary": "共同明确完整实验解释需要条件、观察和结论之间的证据关系。"
+            "activity_summary": "对照本课实验记录，指出改变了什么、保持了什么、观察到什么，并说出哪项结果能支持结论。"
           }
         ]
       },
       {
         "stage_id": "ST2",
-        "stage_name": "分层活动同时开展",
+        "stage_name": "围绕实验记录建构证据解释",
         "duration_minutes": 20,
         "activity_units": [
           {
@@ -112,7 +112,7 @@
             "target_students": [
               {"student_id": "S-01", "student_name": "陈晨"}
             ],
-            "activity_summary": "从实验材料中形成一个可以用于判断结论的自主证据点。"
+            "activity_summary": "在实验记录中圈出一条与问题有关的条件或结果，写一句话说明它为什么可作证据。"
           },
           {
             "unit_id": "ST2-H1",
@@ -124,7 +124,7 @@
               {"student_id": "S-02", "student_name": "李明"},
               {"student_id": "S-03", "student_name": "王芳"}
             ],
-            "activity_summary": "把改变条件、控制条件、观察结果和结论组织成完整证据关系。"
+            "activity_summary": "把改变条件、保持不变的条件、观察结果和结论连成关系图，并用图解释结果差异。"
           },
           {
             "unit_id": "ST2-I2",
@@ -135,49 +135,49 @@
             "target_students": [
               {"student_id": "S-04", "student_name": "赵宇"}
             ],
-            "activity_summary": "将已有证据解释迁移到改变关键条件的新实验情境。"
+            "activity_summary": "对照改变容器或湿度的新实验记录，指出哪些条件变了，预测原结论是否仍成立并写出理由。"
           }
         ]
       },
       {
         "stage_id": "ST3",
-        "stage_name": "共同汇聚",
+        "stage_name": "汇集不同证据，形成实验解释框架",
         "duration_minutes": 10,
         "activity_units": [
           {
             "unit_id": "ST3-C1",
             "organization_code": "C",
             "organization_name": "全班共同活动（C）",
-            "activity_name": "共建实验解释框架",
-            "target_goal_ids": ["PG1", "PG2", "PG3"],
+            "activity_name": "汇集不同证据，形成实验解释框架",
+            "target_goal_ids": ["CG"],
             "target_students": [
               {"student_id": "S-01", "student_name": "陈晨"},
               {"student_id": "S-02", "student_name": "李明"},
               {"student_id": "S-03", "student_name": "王芳"},
               {"student_id": "S-04", "student_name": "赵宇"}
             ],
-            "activity_summary": "汇集不同学习成果，形成全班共享的证据解释框架。"
+            "activity_summary": "对比各组的证据句、关系图和迁移判断，找出解释结论时不可缺少的条件与结果，合成一条证据链。"
           }
         ]
       },
       {
         "stage_id": "ST4",
-        "stage_name": "综合应用",
+        "stage_name": "运用证据框架解释新实验",
         "duration_minutes": 10,
         "activity_units": [
           {
             "unit_id": "ST4-A1",
             "organization_code": "A",
             "organization_name": "综合应用（A）",
-            "activity_name": "运用框架解释新实验",
-            "target_goal_ids": ["PG1", "PG2", "PG3"],
+            "activity_name": "运用证据框架解释新实验",
+            "target_goal_ids": ["CG"],
             "target_students": [
               {"student_id": "S-01", "student_name": "陈晨"},
               {"student_id": "S-02", "student_name": "李明"},
               {"student_id": "S-03", "student_name": "王芳"},
               {"student_id": "S-04", "student_name": "赵宇"}
             ],
-            "activity_summary": "在新的综合情境中运用证据解释框架，并按各自进阶目标形成不同深度的表达。"
+            "activity_summary": "阅读另一份控制变量实验记录，指出关键条件和结果，用刚形成的证据链写出结论及依据。"
           }
         ]
       }

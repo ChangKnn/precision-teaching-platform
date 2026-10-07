@@ -34,6 +34,23 @@ class ReportPdfTest(unittest.TestCase):
         context["teaching_content_and_curriculum_analysis"] *= 100
         self.assertTrue(render_report_pdf(result).startswith(b"%PDF-"))
 
+    @patch("reportlab.pdfbase.pdfmetrics.getRegisteredFontNames", return_value=[])
+    @patch("reportlab.pdfbase.ttfonts.TTFont", side_effect=ValueError("unsupported font"))
+    @patch("backend.app.services.report_pdf.Path.is_file", return_value=True)
+    def test_unsupported_installed_fonts_fall_back(self, _exists, font_loader, _registered):
+        self.assertTrue(render_report_pdf(self.result).startswith(b"%PDF-"))
+        self.assertGreater(font_loader.call_count, 0)
+
+    @patch("reportlab.pdfbase.pdfmetrics.getRegisteredFontNames", return_value=[])
+    @patch("reportlab.pdfbase.ttfonts.TTFont", side_effect=ValueError("test fallback"))
+    @patch("backend.app.services.report_pdf.Path.is_file", return_value=True)
+    @patch.dict("os.environ", {"WINDIR": "D:/Windows", "PDF_CJK_FONT_PATH": ""})
+    def test_tries_windows_chinese_fonts(self, _exists, font_loader, _registered):
+        render_report_pdf(self.result)
+        paths = [call.args[1].replace("\\", "/") for call in font_loader.call_args_list]
+        self.assertIn("D:/Windows/Fonts/simsun.ttc", paths)
+        self.assertIn("D:/Windows/Fonts/simhei.ttf", paths)
+
     @patch("backend.app.intervention_integration_api._source", return_value=({}, "new-hash", "1.0"))
     @patch("backend.app.intervention_integration_api._saved")
     def test_rejects_stale_report(self, saved, _source):

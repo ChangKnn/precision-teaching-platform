@@ -124,7 +124,8 @@ def _deepseek_reply(
 ) -> tuple[str, str | None]:
     del student_id  # 学生标识不发送给外部模型。
     if not settings.student_ai_api_key or not settings.student_ai_model:
-        raise RuntimeError("DeepSeek 尚未配置 STUDENT_AI_API_KEY 或 STUDENT_AI_MODEL")
+        key_name = "OPENROUTER_API_KEY" if settings.student_ai_provider == "openrouter" else "STUDENT_AI_API_KEY"
+        raise RuntimeError(f"模型尚未配置 {key_name} 或 STUDENT_AI_MODEL")
     teacher_rules = diagnosis.get("ai_role", "").strip() or "只进行中性追问，不提供答案。"
     system_prompt = (
         f"{HARD_GUARDRAILS}\n\n老师为本任务设置的角色与对话规则：\n{teacher_rules}\n\n"
@@ -139,19 +140,16 @@ def _deepseek_reply(
         }
         for item in messages[-20:]
     )
-    body = json.dumps(
-        {
-            "model": settings.student_ai_model,
-            "messages": api_messages,
-            # 学生端只需要一个简短追问；关闭思考模式可避免输出额度全部
-            # 消耗在 reasoning_content，导致最终 content 为空。
-            "thinking": {"type": "disabled"},
-            "max_tokens": 256,
-            "temperature": 0.3,
-            "stream": False,
-        },
-        ensure_ascii=False,
-    ).encode("utf-8")
+    request_body = {
+        "model": settings.student_ai_model,
+        "messages": api_messages,
+        "max_tokens": 1024 if settings.student_ai_provider == "openrouter" else 256,
+        "stream": False,
+    }
+    if settings.student_ai_provider == "deepseek":
+        # 学生端只需要一个简短追问；关闭 DeepSeek 思考模式。
+        request_body.update({"thinking": {"type": "disabled"}, "temperature": 0.3})
+    body = json.dumps(request_body, ensure_ascii=False).encode("utf-8")
     request = Request(
         f"{settings.student_ai_base_url}/chat/completions",
         data=body,
@@ -167,12 +165,12 @@ def _deepseek_reply(
             payload = json.loads(response.read().decode("utf-8"))
     except HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")[:500]
-        raise RuntimeError(f"DeepSeek 请求失败（{error.code}）：{detail}") from error
+        raise RuntimeError(f"模型请求失败（{error.code}）：{detail}") from error
     except URLError as error:
-        raise RuntimeError(f"无法连接 DeepSeek 服务：{error.reason}") from error
+        raise RuntimeError(f"无法连接模型服务：{error.reason}") from error
     choices = payload.get("choices") or []
     if not choices or not str(choices[0].get("message", {}).get("content", "")).strip():
-        raise RuntimeError("DeepSeek 没有返回可用文本")
+        raise RuntimeError("模型没有返回可用文本")
     return str(choices[0]["message"]["content"]).strip(), payload.get("id")
 
 
@@ -188,7 +186,7 @@ def generate_student_reply(
     if provider in {"openai", "openai_compatible"}:
         text, response_id = _openai_reply(diagnosis, messages, student_id, pushed_report_text)
         return text, provider, response_id
-    if provider == "deepseek":
+    if provider in {"deepseek", "openrouter"}:
         text, response_id = _deepseek_reply(diagnosis, messages, student_id, pushed_report_text)
         return text, provider, response_id
     raise RuntimeError(f"不支持的学生对话 Provider：{provider}")

@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
-import re
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
@@ -319,7 +318,7 @@ def _validate(result: dict, goal: dict) -> None:
             allowed_students = set().union(*(set(student["student_id"] for student in unit["target_students"]) for unit in source_units))
             if set(activity["target_goal_ids"]) != allowed_goals or set(activity["target_student_ids"]) != allowed_students:
                 raise ValueError("活动的目标或学生范围与上游单元不一致")
-            if not set(activity["target_goal_ids"]) <= goal_ids or not set(activity["target_student_ids"]) <= all_students:
+            if not set(activity["target_goal_ids"]) <= evaluation_goal_ids or not set(activity["target_student_ids"]) <= all_students:
                 raise ValueError("活动引用了不存在的目标或学生")
             if not set(activity["organization_forms"]) <= ORGANIZATIONS:
                 raise ValueError("活动出现非法组织形式")
@@ -357,10 +356,6 @@ def _markdown(result: dict, presentation_overrides: dict | None = None) -> str:
     def cell(value: str) -> str:
         return str(value).replace("|", "\\|").replace("\n", "<br>")
 
-    def numbered(value: str) -> str:
-        lines = [re.sub(r"^\s*\d+[.、)]\s*", "", line).strip() for line in value.splitlines()]
-        return "\n".join(f"{index}. {line}" for index, line in enumerate((line for line in lines if line), 1))
-
     presentation_overrides = presentation_overrides or {}
     lines = ["# 学习活动与形成性评价设计", "", "## 一、学习活动设计", ""]
     for index, activity in enumerate(result["activities"], 1):
@@ -373,10 +368,10 @@ def _markdown(result: dict, presentation_overrides: dict | None = None) -> str:
             f"### 活动{index}：{activity['activity_name']}（{activity['duration_minutes']}分钟；{'、'.join(activity['organization_forms'])}）", "",
             "| 项目 | 教师活动 | 学生活动 | AI辅助 |",
             "| --- | --- | --- | --- |",
-            f"| 活动目标 | {cell(override.get('objective', activity['activity_objective']))} |  |  |",
-            f"| 活动过程 | {cell('；'.join(actions['教师']))} | {cell(numbered(override['student']) if override.get('student') else '；'.join(student_actions + supports + group_tasks))} | {cell('；'.join(actions['AI']))} |",
+            f"| 活动目标 | {cell(override.get('objective_full') or override.get('objective', activity['activity_objective']))} |  |  |",
+            f"| 活动过程 | {cell('；'.join(actions['教师']))} | {cell(override.get('student_full') or override.get('student') or '；'.join(student_actions + supports + group_tasks))} | {cell('；'.join(actions['AI']))} |",
             f"| 学习材料与资源 | {cell('、'.join(activity['learning_materials']))} |  |  |",
-            f"| 学习产出 | {cell(override.get('product', activity['learning_product']))} |  |  |", "",
+            f"| 学习产出 | {cell(override.get('product_full') or override.get('product', activity['learning_product']))} |  |  |", "",
         ]
     lines += ["## 二、形成性评价", "", "| 评价时机 | 对象与目标 | 评价任务与证据 | 达成标准 | 评价结果处理 | 判断主体 |", "| --- | --- | --- | --- | --- | --- |"]
     for evaluation in result["formative_evaluation_nodes"]:
@@ -503,7 +498,7 @@ def save_activity_formative(teaching_id: str, classroom_id: str, request: Activi
         raise HTTPException(status_code=422, detail=f"活动方案校验失败：{error}") from error
     activity_ids = {activity["activity_id"] for activity in result["activities"]}
     overrides = {
-        activity_id: {key: value.strip() for key, value in fields.items() if key in {"objective", "student", "product"} and value.strip()}
+        activity_id: {key: value.strip() for key, value in fields.items() if key in {"objective", "student", "product", "objective_full", "student_full", "product_full"} and value.strip()}
         for activity_id, fields in request.presentation_overrides.items() if activity_id in activity_ids
     }
     overrides = {activity_id: fields for activity_id, fields in overrides.items() if fields}

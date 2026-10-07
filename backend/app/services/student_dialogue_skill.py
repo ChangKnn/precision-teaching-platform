@@ -176,11 +176,12 @@ def _runtime_instructions(skill, schema: dict) -> str:
 
 def _model_result(payload: dict) -> tuple[dict, str | None]:
     if not settings.student_ai_api_key or not settings.student_ai_model:
-        raise RuntimeError("学生对话模型尚未配置")
+        key_name = "OPENROUTER_API_KEY" if settings.student_ai_provider == "openrouter" else "STUDENT_AI_API_KEY"
+        raise RuntimeError(f"学生对话模型尚未配置 {key_name} 或 STUDENT_AI_MODEL")
     skill, _ = _validator()
     schema = json.loads((skill.path.parent / "assets/dialogue-turn-output.schema.json").read_text(encoding="utf-8"))
     system = _runtime_instructions(skill, schema)
-    if settings.student_ai_provider == "deepseek":
+    if settings.student_ai_provider in {"deepseek", "openrouter"}:
         endpoint = f"{settings.student_ai_base_url}/chat/completions"
         body = {
             "model": settings.student_ai_model,
@@ -189,11 +190,11 @@ def _model_result(payload: dict) -> tuple[dict, str | None]:
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
             ],
             "response_format": {"type": "json_object"},
-            "thinking": {"type": "disabled"},
-            "max_tokens": 1400,
-            "temperature": 0.1,
+            "max_tokens": 4000 if settings.student_ai_provider == "openrouter" else 1400,
             "stream": False,
         }
+        if settings.student_ai_provider == "deepseek":
+            body.update({"thinking": {"type": "disabled"}, "temperature": 0.1})
     elif settings.student_ai_provider in {"openai", "openai_compatible"}:
         endpoint = f"{settings.student_ai_base_url}/responses"
         body = {
@@ -220,7 +221,7 @@ def _model_result(payload: dict) -> tuple[dict, str | None]:
         raise RuntimeError(f"学生对话模型请求失败（{error.code}）：{error.read().decode('utf-8', errors='replace')[:500]}") from error
     except URLError as error:
         raise RuntimeError(f"无法连接学生对话模型：{error.reason}") from error
-    if settings.student_ai_provider == "deepseek":
+    if settings.student_ai_provider in {"deepseek", "openrouter"}:
         choices = response_data.get("choices") or []
         text = choices[0].get("message", {}).get("content") if choices else None
     else:

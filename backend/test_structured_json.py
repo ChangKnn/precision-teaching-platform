@@ -38,6 +38,18 @@ class StructuredJsonTest(unittest.TestCase):
         self.assertEqual(result, {"plan": "可用方案"})
         self.assertEqual(post.call_count, 2)
 
+    def test_openrouter_uses_schema_without_deepseek_parameters(self):
+        settings = SimpleNamespace(ai_model="openai/gpt-6-luna-pro", ai_base_url="https://openrouter.ai/api/v1", ai_api_key="test-key")
+        response = {"choices": [{"message": {"content": '{"plan":"可用方案"}'}}]}
+        with patch.object(ai, "settings", settings), patch.object(ai, "_skill_runtime_instructions", return_value="instructions"), patch.object(ai, "_post_json", return_value=response) as post:
+            result = ai._run_deepseek_structured_skill(SimpleNamespace(key="test_skill"), {}, SCHEMA, "plan", provider="openrouter")
+        self.assertEqual(result, {"plan": "可用方案"})
+        self.assertEqual(post.call_args.args[0], "https://openrouter.ai/api/v1/chat/completions")
+        body = post.call_args.args[1]
+        self.assertEqual(body["response_format"]["json_schema"]["schema"], SCHEMA)
+        self.assertNotIn("thinking", body)
+        self.assertNotIn("temperature", body)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -74,6 +74,19 @@ class StudentDialogueSkillTest(unittest.TestCase):
         self.assertNotIn("private-student-id", json.dumps(sent, ensure_ascii=False))
         self.assertNotIn("secret-key", json.dumps(sent, ensure_ascii=False))
 
+    def test_openrouter_student_turn_uses_chat_completions(self):
+        payload = dialogue._payload(self.config, "ses-1", "private-student-id", [], "这是原话")
+        response = io.BytesIO(json.dumps({"choices": [{"message": {"content": json.dumps(dialogue._mock_result(payload), ensure_ascii=False)}}]}).encode("utf-8"))
+        settings = SimpleNamespace(
+            student_ai_provider="openrouter", student_ai_api_key="secret-key",
+            student_ai_model="openai/gpt-6-luna-pro", student_ai_base_url="https://openrouter.ai/api/v1",
+        )
+        with patch.object(dialogue, "settings", settings), patch.object(dialogue, "urlopen", return_value=response), patch.object(dialogue, "record_llm_request") as record:
+            result, _ = dialogue._model_result(payload)
+        self.assertEqual(result["record_append"][0]["content"], "这是原话")
+        self.assertEqual(record.call_args.args[3], "https://openrouter.ai/api/v1/chat/completions")
+        self.assertNotIn("thinking", record.call_args.args[4])
+
 
 if __name__ == "__main__":
     unittest.main()

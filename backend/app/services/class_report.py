@@ -154,10 +154,22 @@ def validate_class_result(result: dict, payload: dict) -> None:
     assignments = {item["student_id"]: item["original_level"] for item in trace["level_assignments"]}
     if assignments != {item["student_id"]: item["original_level"] for item in expected["level_assignments"]}:
         raise ValueError("班级报告重新判定了学生层级")
+    grouping = result["grouping_recommendations"]
+    if not grouping["homogeneous_groups"]:
+        raise ValueError("同质分组必须覆盖所有参与诊断的学生")
     for key in ("homogeneous_groups", "heterogeneous_groups"):
-        members = [student["student_id"] for group in result["grouping_recommendations"][key] for student in group["students"]]
+        groups = grouping[key]
+        members = [student["student_id"] for group in groups for student in group["students"]]
         if len(members) != len(set(members)) or not set(members) <= source_ids:
             raise ValueError(f"{key} 中有重复或未知学生")
+        if groups and set(members) != source_ids:
+            raise ValueError(f"{key} 未覆盖所有参与诊断的学生")
+        if len(source_ids) > 1 and any(len(group["students"]) < 2 for group in groups):
+            raise ValueError(f"{key} 中存在非必要的单人小组")
+    if grouping["heterogeneous_groups"] and grouping["heterogeneous_not_recommended_reason"]:
+        raise ValueError("已有异质分组时不应同时写不建议的理由")
+    if not grouping["heterogeneous_groups"] and not grouping["heterogeneous_not_recommended_reason"]:
+        raise ValueError("不建议异质分组时必须说明原因")
     result["traceability"]["level_assignments"] = expected["level_assignments"]
     result["traceability"]["input_student_count"] = expected["total_students"]
 
@@ -199,6 +211,7 @@ def render_class_markdown(result: dict) -> str:
             f"- 人数：{item['count']}",
             f"- 学生：{names(item['students'])}",
             f"- 主要表现：{item['main_performance']}",
+            f"- 教学建议：{item['teaching_suggestion']}",
             f"- 典型依据：{evidence}",
             f"- 主要进阶障碍：{'；'.join(item['main_obstacles'])}", "",
         ]
@@ -213,7 +226,7 @@ def render_class_markdown(result: dict) -> str:
     if grouping["homogeneous_groups"]:
         for group in grouping["homogeneous_groups"]:
             lines += [
-                f"- {group['group_id']}（{names(group['students'])}）：{group['common_characteristics']}；"
+                f"- {group['group_name']}（{group['group_id']}；{names(group['students'])}）：{group['common_characteristics']}；"
                 f"进阶方向：{group['progression_direction']}；适用情境：{group['use_case']}"
             ]
     else:
@@ -223,13 +236,13 @@ def render_class_markdown(result: dict) -> str:
         lines += ["| 小组 | 学生 | 组内互补依据 | 合作方向与共同产出 |", "|---|---|---|---|"]
         for group in grouping["heterogeneous_groups"]:
             lines.append(
-                f"| {group['group_id']} | {names(group['students'])} | "
+                f"| {group['group_name']}（{group['group_id']}） | {names(group['students'])} | "
                 f"{group['grouping_rationale']} | {group['collaboration_direction']}；{group['shared_product']} |"
             )
     else:
         lines.append(grouping["heterogeneous_not_recommended_reason"] or "当前不建议异质分组。")
     lines += [
-        "", f"未分组学生：{names(grouping['ungrouped_students'])}", "",
+        "",
         "## 6. 后续干预设计依据", "",
         "| 面向学生 | 诊断发现 | 需要促进的认知变化 | 后续设计需要满足的条件 |",
         "|---|---|---|---|",
@@ -274,6 +287,36 @@ def queue_class_report(
     skill = load_skill("solo_class_diagnosis_intervention")
     row = report_row(teaching_id, classroom_id)
     same_source = bool(row and row["source_hash"] == source_hash and row["skill_version"] == skill.version)
+    if not force and row and not same_source and row["generated_at"] and row["result"] and row["skill_version"] == skill.version:
+        # A teacher may polish published teaching text without changing any student evidence.
+        # The old validated report remains the source for intervention design in that case.
+        source_job = fetch_one(
+            """SELECT input_json FROM ai_jobs
+               WHERE skill_key = ? AND status = 'completed' AND completed_at = ?
+               ORDER BY created_at DESC LIMIT 1""",
+            (skill.key, row["generated_at"]),
+        )
+        if source_job:
+            previous_input = json.loads(source_job["input_json"])
+            previous_evidence = {key: value for key, value in previous_input.items() if key != "precision_teaching_context"}
+            current_evidence = {key: value for key, value in payload.items() if key != "precision_teaching_context"}
+            if previous_evidence == current_evidence:
+                now = utc_now()
+                with database() as connection:
+                    updated = connection.execute(
+                        """UPDATE class_diagnosis_reports
+                           SET status = 'ready', source_hash = ?, error = NULL, updated_at = ?
+                           WHERE teaching_id = ? AND classroom_id = ? AND source_hash = ? AND generated_at = ?""",
+                        (source_hash, now, teaching_id, classroom_id, row["source_hash"], row["generated_at"]),
+                    )
+                    if updated.rowcount:
+                        for table in ("goal_path_designs", "goal_path_analysis_drafts"):
+                            connection.execute(
+                                f"UPDATE {table} SET class_source_hash = ? WHERE teaching_id = ? AND classroom_id = ? AND class_source_hash = ?",
+                                (source_hash, teaching_id, classroom_id, row["source_hash"]),
+                            )
+                if updated.rowcount:
+                    return report_row(teaching_id, classroom_id)
     if same_source and not force:
         if row["status"] != "queued":
             return row

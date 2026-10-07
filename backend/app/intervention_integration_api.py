@@ -15,6 +15,7 @@ from .database import database, fetch_one, utc_now, write_audit
 from .goal_path_api import _aliases, _replace_names, _serialized_row as goal_serialized
 from .services.ai import run_intervention_plan_integration
 from .services.report_pdf import render_report_pdf
+from .services.report_docx import render_report_docx
 from .services.skills import load_skill
 
 
@@ -45,14 +46,14 @@ def _apply_teacher_overrides(result: dict, overrides: dict) -> dict:
     merged = copy.deepcopy(result)
     for activity in merged["activities"]:
         fields = overrides.get(activity["activity_id"], {})
-        if fields.get("objective"):
-            activity["activity_objective"] = fields["objective"]
-        if fields.get("product"):
-            activity["learning_product"] = fields["product"]
-        if fields.get("student"):
+        if fields.get("objective_full") or fields.get("objective"):
+            activity["activity_objective"] = fields.get("objective_full") or fields["objective"]
+        if fields.get("product_full") or fields.get("product"):
+            activity["learning_product"] = fields.get("product_full") or fields["product"]
+        if fields.get("student_full") or fields.get("student"):
             student_actions = [item for item in activity["participant_actions"] if item["actor"] in {"学生", "同伴"}]
             if student_actions:
-                student_actions[0]["action"] = fields["student"]
+                student_actions[0]["action"] = fields.get("student_full") or fields["student"]
                 activity["participant_actions"] = [
                     item for item in activity["participant_actions"]
                     if item is student_actions[0] or item["actor"] not in {"学生", "同伴"}
@@ -257,20 +258,44 @@ def download_integration_report_pdf(teaching_id: str, classroom_id: str) -> Resp
     _, source_hash, _ = _source(teaching_id, classroom_id)
     report = _saved(teaching_id, classroom_id, source_hash)
     if report is None:
-        raise HTTPException(status_code=404, detail="尚未生成教学报告")
+        raise HTTPException(status_code=404, detail="尚未生成教学方案")
     if report["status"] != "current":
-        raise HTTPException(status_code=409, detail="上游资料已变化，请重新生成教学报告后再导出")
+        raise HTTPException(status_code=409, detail="上游资料已变化，请重新生成教学方案后再导出")
     try:
         pdf = render_report_pdf(report["result"])
     except RuntimeError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
     title = report["result"]["integrated_plan"]["basic_information"]["plan_title"]
-    filename = quote(f"{title}-教学报告.pdf", safe="")
+    filename = quote(f"{title}-教学方案.pdf", safe="")
     return Response(
         content=pdf,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f"attachment; filename=\"teaching-report.pdf\"; filename*=UTF-8''{filename}",
+            "Content-Disposition": f"attachment; filename=\"teaching-plan.pdf\"; filename*=UTF-8''{filename}",
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.get("/precision-teachings/{teaching_id}/classrooms/{classroom_id}/integration-report.docx")
+def download_integration_report_docx(teaching_id: str, classroom_id: str) -> Response:
+    _, source_hash, _ = _source(teaching_id, classroom_id)
+    report = _saved(teaching_id, classroom_id, source_hash)
+    if report is None:
+        raise HTTPException(status_code=404, detail="尚未生成教学方案")
+    if report["status"] != "current":
+        raise HTTPException(status_code=409, detail="上游资料已变化，请重新生成教学方案后再导出")
+    try:
+        docx = render_report_docx(report["result"])
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    title = report["result"]["integrated_plan"]["basic_information"]["plan_title"]
+    filename = quote(f"{title}-教学方案.docx", safe="")
+    return Response(
+        content=docx,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "Content-Disposition": f"attachment; filename=\"teaching-plan.docx\"; filename*=UTF-8''{filename}",
             "Cache-Control": "no-store",
         },
     )
@@ -285,7 +310,7 @@ def generate_integration_report(teaching_id: str, classroom_id: str) -> dict:
         schema = json.loads((skill.path.parent / "assets/plan-integration-input.schema.json").read_text(encoding="utf-8"))
         jsonschema.validate(payload, schema)
     except Exception as error:
-        raise HTTPException(status_code=422, detail=f"教学报告输入校验失败：{error}") from error
+        raise HTTPException(status_code=422, detail=f"教学方案输入校验失败：{error}") from error
     job_id = f"job-{uuid4().hex}"
     with database() as connection:
         connection.execute(
@@ -323,4 +348,4 @@ def generate_integration_report(teaching_id: str, classroom_id: str) -> dict:
                 "UPDATE ai_jobs SET status = 'failed', output_json = ?, error = ?, completed_at = ? WHERE id = ?",
                 (json.dumps(result, ensure_ascii=False) if isinstance(result, dict) else None, str(error), utc_now(), job_id),
             )
-        raise HTTPException(status_code=502, detail=f"教学报告生成失败：{error}") from error
+        raise HTTPException(status_code=502, detail=f"教学方案生成失败：{error}") from error

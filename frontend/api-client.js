@@ -94,6 +94,18 @@ window.PlatformAPI = {
     });
   },
 
+  createTeachingDraft(teaching) {
+    return this.request("/api/precision-teaching-drafts", {
+      method: "POST", body: JSON.stringify(teaching)
+    });
+  },
+
+  updateTeaching(teachingId, teaching, editIntent = null) {
+    return this.request(`/api/precision-teachings/${encodeURIComponent(teachingId)}`, {
+      method: "PUT", body: JSON.stringify(editIntent ? { ...teaching, edit_intent: editIntent } : teaching)
+    });
+  },
+
   selectTeaching(teachingId) {
     return this.request("/api/current-teaching", {
       method: "PUT",
@@ -190,6 +202,22 @@ window.PlatformAPI = {
     return response.blob();
   },
 
+  async downloadIntegrationReportDocx(teachingId, classroomId) {
+    const response = await fetch(`/api/precision-teachings/${encodeURIComponent(teachingId)}/classrooms/${encodeURIComponent(classroomId)}/integration-report.docx`);
+    if (!response.ok) {
+      let message = `Word 导出失败（${response.status}）`;
+      try {
+        const data = await response.json();
+        message = readableApiDetail(data.detail, message);
+      } catch (_) {
+        // Keep the status-based message for non-JSON failures.
+      }
+      if (response.status === 401) window.dispatchEvent(new Event("teacher-session-expired"));
+      throw new Error(message);
+    }
+    return response.blob();
+  },
+
   generateIntegrationReport(teachingId, classroomId) {
     return this.request(`/api/precision-teachings/${encodeURIComponent(teachingId)}/classrooms/${encodeURIComponent(classroomId)}/integration-report/generate`, {
       method: "POST"
@@ -202,10 +230,11 @@ window.PlatformAPI = {
     });
   },
 
-  saveStudentReport(sessionId, reportText, status = "draft") {
+  saveStudentReport(sessionId, reportText, status = "draft", studentFeedbackText = null) {
     return this.request(`/api/student-results/${encodeURIComponent(sessionId)}/report`, {
       method: "PUT",
-      body: JSON.stringify({ report_text: reportText, status })
+      body: JSON.stringify({ report_text: reportText, status,
+        ...(studentFeedbackText === null ? {} : { student_feedback_text: studentFeedbackText }) })
     });
   },
 
@@ -234,6 +263,18 @@ window.PlatformAPI = {
     return this.request(`/api/precision-teachings/${encodeURIComponent(teachingId)}/rubric`, {
       method: "PUT",
       body: JSON.stringify({ rubric, confirmed })
+    });
+  },
+
+  saveCustomAnalysisStandard(teachingId, standard) {
+    return this.request(`/api/precision-teachings/${encodeURIComponent(teachingId)}/custom-analysis/standard`, {
+      method: "PUT", body: JSON.stringify(standard)
+    });
+  },
+
+  generateCustomAnalysis(teachingId, mode, subjectId) {
+    return this.request(`/api/precision-teachings/${encodeURIComponent(teachingId)}/custom-analysis/${encodeURIComponent(mode)}/${encodeURIComponent(subjectId)}/generate`, {
+      method: "POST"
     });
   },
 
