@@ -4,6 +4,14 @@
 
 ## 本地运行
 
+### 一键启动
+
+安装 Python 3.11+ 后，Windows 双击 `start-windows.bat`，macOS 双击 `start-macos.command`。首次运行自动创建 `.venv`、安装依赖，并在缺少 `.env` 时从示例创建配置；已有 `.env` 和教学数据不会被覆盖。启动成功后自动打开浏览器，保持启动窗口打开，按 Ctrl+C 停止服务。正式 AI 功能仍需自行在 `.env` 配置模型与密钥。
+
+首次启动需要联网。macOS 下载 ZIP 后若提示脚本没有执行权限，在项目目录运行 `chmod +x start-macos.command`；操作系统安全提示需由你确认允许打开。也可在终端使用 `python3 start.py`（Windows 用 `py -3 start.py`）。端口占用时不会停止已有服务，可通过 `--port 8001` 指定其他端口，`--no-browser` 可关闭自动打开浏览器。
+
+### 手动启动
+
 要求 Python 3.11 或更新版本（代码使用 `datetime.UTC`），建议 Python 3.13。Windows、macOS 和 Linux 使用同一套 Python 后端与前端，无需复制 macOS 的 `.venv`。
 
 macOS / Linux：
