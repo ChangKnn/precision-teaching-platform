@@ -58,7 +58,6 @@ small { color: var(--muted); }
 .teacher-auth-card .button { min-height: 44px; margin-top: 5px; }
 .teacher-auth-card .teacher-auth-error { color: #a7372e; }
 .teacher-auth-loading { color: var(--teal-dark); font-size: 14px; }
-.teacher-admin-link { justify-self: center; color: var(--muted); font-size: 12px; }
 .add-classroom-form { display: grid; gap: 12px; margin-top: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: #f7faf9; }
 .add-classroom-form label { display: grid; gap: 5px; font-size: 12px; font-weight: 700; }
 .add-classroom-form input, .add-classroom-form textarea { width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 7px; font: inherit; }

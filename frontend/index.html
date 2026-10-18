@@ -15,12 +15,10 @@
     <form class="teacher-auth-card" id="teacherAuthForm" hidden>
       <span class="teacher-auth-kicker">教师工作台</span>
       <h1 id="teacherAuthTitle">教师登录</h1>
-      <p id="teacherAuthDescription">请使用管理员为你开通的账号登录。没有账号或忘记密码，请联系管理员。</p>
       <label>教师账号<input id="teacherAuthUsername" name="username" autocomplete="username" maxlength="64" autocapitalize="none" spellcheck="false" required></label>
       <label>密码<input id="teacherAuthPassword" name="password" type="password" autocomplete="current-password" maxlength="128" required></label>
       <p class="teacher-auth-error" id="teacherAuthError" role="alert" hidden></p>
       <button class="button primary" id="teacherAuthSubmit" type="submit">登录</button>
-      <a class="teacher-admin-link" href="/admin/">管理员入口</a>
     </form>
     <form class="teacher-auth-card" id="teacherPasswordForm" hidden>
       <span class="teacher-auth-kicker">账号安全</span>
