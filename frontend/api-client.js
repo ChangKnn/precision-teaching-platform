@@ -60,9 +60,15 @@ window.PlatformAPI = {
     return this.request("/api/teacher-auth/login-options");
   },
 
-  loginTeacher(schoolName, subject, teacherName) {
+  loginTeacher(username, password) {
     return this.request("/api/teacher-auth/login", {
-      method: "POST", body: JSON.stringify({ school_name: schoolName, subject, teacher_name: teacherName })
+      method: "POST", body: JSON.stringify({ username, password })
+    });
+  },
+
+  changePassword(currentPassword, newPassword) {
+    return this.request("/api/teacher-auth/password", {
+      method: "POST", body: JSON.stringify({current_password: currentPassword, new_password: newPassword})
     });
   },
 

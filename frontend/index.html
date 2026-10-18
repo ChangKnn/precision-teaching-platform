@@ -6,7 +6,7 @@
   <meta name="description" content="支持教师开展精准诊断、反馈与课堂干预设计的研究原型。">
   <title>思阶｜AI 精准教学工作台</title>
   <link rel="icon" href="data:,">
-<link rel="stylesheet" href="styles.css?v=20260928-compact-eval-5">
+<link rel="stylesheet" href="styles.css?v=20261018-accounts">
   <link rel="stylesheet" href="/filing.css?v=20261018">
 </head>
 <body>
@@ -15,14 +15,23 @@
     <form class="teacher-auth-card" id="teacherAuthForm" hidden>
       <span class="teacher-auth-kicker">教师工作台</span>
       <h1 id="teacherAuthTitle">教师登录</h1>
-      <p id="teacherAuthDescription">学校、学科和姓名共同确定一个教学空间。首次填写的新组合会自动创建。</p>
-      <label>学校<input id="teacherAuthSchool" name="school" list="teacherSchoolOptions" autocomplete="organization" maxlength="120" required></label>
-      <datalist id="teacherSchoolOptions"></datalist>
-      <label>学科<input id="teacherAuthSubject" name="subject" list="teacherSubjectOptions" maxlength="50" required></label>
-      <datalist id="teacherSubjectOptions"></datalist>
-      <label>教师姓名<input id="teacherAuthName" name="teacherName" autocomplete="name" maxlength="50" required></label>
+      <p id="teacherAuthDescription">请使用管理员为你开通的账号登录。没有账号或忘记密码，请联系管理员。</p>
+      <label>教师账号<input id="teacherAuthUsername" name="username" autocomplete="username" maxlength="64" autocapitalize="none" spellcheck="false" required></label>
+      <label>密码<input id="teacherAuthPassword" name="password" type="password" autocomplete="current-password" maxlength="128" required></label>
       <p class="teacher-auth-error" id="teacherAuthError" role="alert" hidden></p>
       <button class="button primary" id="teacherAuthSubmit" type="submit">登录</button>
+      <a class="teacher-admin-link" href="/admin/">管理员入口</a>
+    </form>
+    <form class="teacher-auth-card" id="teacherPasswordForm" hidden>
+      <span class="teacher-auth-kicker">账号安全</span>
+      <h2>修改登录密码</h2>
+      <p id="teacherPasswordHelp">首次登录或重置密码后，请先设置个人密码。</p>
+      <label>当前密码<input id="teacherCurrentPassword" type="password" autocomplete="current-password" maxlength="128" required></label>
+      <label>新密码<input id="teacherNewPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128" required></label>
+      <label>确认新密码<input id="teacherRepeatPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128" required></label>
+      <p class="teacher-auth-error" id="teacherPasswordError" role="alert" hidden></p>
+      <button class="button primary" type="submit">保存新密码</button>
+      <button class="button" type="button" id="teacherPasswordCancel">退出账号</button>
     </form>
     <p class="teacher-auth-loading" id="teacherAuthLoading" role="status">正在检查登录状态…</p>
   </main>
@@ -64,6 +73,7 @@
           <span class="demo-badge backend-status connecting" id="backendStatus">正在连接本地服务</span>
           <button class="button small" type="button" id="llmDebugButton" hidden>LLM 请求</button>
           <button class="teacher-profile" data-page="profile" id="teacherProfileButton"><span class="avatar">林</span><span id="teacherDisplayName">林老师</span></button>
+          <button class="button small" type="button" id="teacherChangePasswordButton">修改密码</button>
           <button class="button small" type="button" id="teacherLogoutButton">退出登录</button>
         </div>
       </header>
@@ -524,8 +534,8 @@
     <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">京ICP备2026068374号-1</a>
     <a href="https://beian.mps.gov.cn/#/query/webSearch?code=11010802050729" target="_blank" rel="noopener noreferrer"><img src="/assets/beian.png" alt="公安备案图标" width="20" height="20">京公网安备11010802050729号</a>
   </footer>
-  <script src="api-client.js?v=20260928-word-export"></script>
+  <script src="api-client.js?v=20261018-accounts"></script>
   <script src="llm-debug.js?v=20260925-llm2"></script>
-<script src="app.js?v=20261007-connection-status"></script>
+<script src="app.js?v=20261018-accounts"></script>
 </body>
 </html>

@@ -35,7 +35,8 @@ from .activity_formative_api import router as activity_formative_router
 from .intervention_integration_api import router as intervention_integration_router
 from .diagnostic_task_design_api import router as diagnostic_task_design_router
 from .custom_analysis_api import router as custom_analysis_router, standard_for
-from .teacher_auth import current_teacher, router as teacher_auth_router
+from .teacher_auth import current_teacher, current_account, router as teacher_auth_router, admin_auth_router
+from .admin_api import router as admin_router
 
 
 @asynccontextmanager
@@ -54,6 +55,8 @@ app.include_router(intervention_integration_router)
 app.include_router(diagnostic_task_design_router)
 app.include_router(custom_analysis_router)
 app.include_router(teacher_auth_router)
+app.include_router(admin_auth_router)
+app.include_router(admin_router)
 
 
 @app.middleware("http")
@@ -63,10 +66,19 @@ async def protect_teacher_api(request: Request, call_next):
         return await call_next(request)
     public = path in {
         "/api/health", "/api/teacher-auth/status", "/api/teacher-auth/login", "/api/teacher-auth/login-options",
+        "/api/admin-auth/status", "/api/admin-auth/login",
     } or path.startswith("/api/student/")
-    if not public and current_teacher(request) is None:
+    account = current_account(request)
+    if not public and account is None:
         return JSONResponse({"detail": "教师登录状态已失效，请重新登录"}, status_code=401, headers={"Cache-Control": "no-store"})
-    teacher = current_teacher(request) if not public else None
+    if not public:
+        account_tools = path in {"/api/teacher-auth/password", "/api/teacher-auth/logout"}
+        if account["must_change_password"] and not account_tools:
+            return JSONResponse({"detail": "请先修改初始密码"}, status_code=403, headers={"Cache-Control": "no-store"})
+        expected_role = "admin" if path.startswith("/api/admin/") else "teacher"
+        if not account_tools and account["role"] != expected_role:
+            return JSONResponse({"detail": "无权访问此功能"}, status_code=403, headers={"Cache-Control": "no-store"})
+    teacher = account if not public and account["role"] == "teacher" else None
     if teacher:
         request.state.teacher_workspace_id = teacher["workspace_id"]
         teaching_match = re.match(r"^/api/precision-teachings/([^/]+)", path)

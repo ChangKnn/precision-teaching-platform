@@ -83,6 +83,35 @@ def initialize_database() -> None:
         updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS user_accounts (
+        id TEXT PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        role TEXT NOT NULL CHECK(role IN ('admin', 'teacher')),
+        workspace_id TEXT UNIQUE REFERENCES teacher_workspaces(id),
+        password_hash TEXT NOT NULL,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        must_change_password INTEGER NOT NULL DEFAULT 1,
+        session_version INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        last_login_at TEXT,
+        CHECK ((role = 'teacher' AND workspace_id IS NOT NULL) OR (role = 'admin' AND workspace_id IS NULL))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_single_administrator ON user_accounts(role) WHERE role = 'admin';
+    CREATE TABLE IF NOT EXISTS account_sessions (
+        token_hash TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES user_accounts(id) ON DELETE CASCADE,
+        session_version INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_account_sessions_owner ON account_sessions(account_id);
+    CREATE TABLE IF NOT EXISTS account_login_attempts (
+        bucket TEXT PRIMARY KEY,
+        attempts INTEGER NOT NULL,
+        expires_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS classrooms (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,

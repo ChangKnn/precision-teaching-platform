@@ -47,9 +47,15 @@ class TeacherAuthTest(unittest.TestCase):
             )
 
     def identity(self, **changes):
-        return teacher_auth.TeacherIdentity(**{
+        identity = {
             "school_name": "杭州市求知中学", "subject": "数学", "teacher_name": "林老师", **changes,
-        })
+        }
+        import hashlib
+        username = 'test-' + hashlib.sha256(database_module.teacher_identity_key(**identity).encode()).hexdigest()[:20]
+        password = 'test-Password-12345'
+        if not database_module.fetch_one("SELECT id FROM user_accounts WHERE username = ?", (username,)):
+            teacher_auth.provision_teacher(username, password, **identity, must_change_password=False)
+        return teacher_auth.Credentials(username=username, password=password)
 
     def test_draft_update_reuses_project_and_rejects_other_teacher(self):
         login_response = Response()
@@ -87,8 +93,8 @@ class TeacherAuthTest(unittest.TestCase):
 
     def test_login_options_login_logout_and_session_cookie(self):
         options = teacher_auth.get_login_options(Response())
-        self.assertIn("杭州市求知中学", options["schools"])
-        self.assertIn("数学", options["subjects"])
+        self.assertEqual(options["schools"], [])
+        self.assertEqual(options["subjects"], [])
         self.assertFalse(teacher_auth.status(request("/api/teacher-auth/status"), Response())["authenticated"])
         login_response = Response()
         teacher_auth.login(self.identity(), request("/api/teacher-auth/login", method="POST"), login_response)

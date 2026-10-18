@@ -28,7 +28,7 @@ class FilingParser(HTMLParser):
 
 class SiteFilingTest(unittest.TestCase):
     def test_filing_visible_on_both_original_platform_entry_pages(self):
-        for page in ('index.html', 'student/index.html'):
+        for page in ('index.html', 'student/index.html', 'admin/index.html'):
             with self.subTest(page=page):
                 html = (FRONTEND / page).read_text(encoding='utf-8')
                 self.assertIn('京ICP备2026068374号-1', html)

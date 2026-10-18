@@ -1969,44 +1969,41 @@ function showTeacherAuth({ message = "" } = {}) {
   screen.hidden = false;
   document.getElementById("teacherAuthLoading").hidden = true;
   document.getElementById("teacherAuthForm").hidden = false;
+  document.getElementById("teacherPasswordForm").hidden = true;
+  document.getElementById("teacherAuthPassword").value = "";
   document.getElementById("teacherAuthSubmit").textContent = "进入工作台";
   const error = document.getElementById("teacherAuthError");
   error.textContent = message;
   error.hidden = !message;
-  document.getElementById("teacherAuthSchool").focus();
+  document.getElementById("teacherAuthUsername").focus();
 }
 
-async function loadTeacherLoginOptions() {
-  const options = await window.PlatformAPI.getTeacherLoginOptions();
-  for (const [listId, values] of [
-    ["teacherSchoolOptions", options.schools || []],
-    ["teacherSubjectOptions", options.subjects || []]
-  ]) {
-    const list = document.getElementById(listId);
-    list.replaceChildren(...values.map(value => {
-      const option = document.createElement("option");
-      option.value = value;
-      return option;
-    }));
-  }
+let teacherPasswordRequired = true;
+function showTeacherPasswordChange(required = true) {
+  teacherPasswordRequired = required;
+  document.querySelector(".app-shell").inert = true;
+  document.getElementById("teacherAuthScreen").hidden = false;
+  document.getElementById("teacherAuthLoading").hidden = true;
+  document.getElementById("teacherAuthForm").hidden = true;
+  document.getElementById("teacherPasswordForm").hidden = false;
+  document.getElementById("teacherPasswordForm").reset();
+  document.getElementById("teacherPasswordError").hidden = true;
+  document.getElementById("teacherPasswordHelp").textContent = required ? "首次登录或重置密码后，请先设置个人密码（至少10位）。" : "设置新的个人密码（至少10位），其他设备上的登录将失效。";
+  document.getElementById("teacherPasswordCancel").textContent = required ? "退出账号" : "返回工作台";
+  document.getElementById("teacherCurrentPassword").focus();
 }
 
 async function initializeTeacherAuth() {
   try {
     const status = await window.PlatformAPI.getTeacherAuthStatus();
+    if (status.role === "admin") { window.location.assign("/admin/"); return; }
     if (status.authenticated) {
+      if (status.must_change_password) { showTeacherPasswordChange(); return; }
       document.getElementById("teacherAuthScreen").hidden = true;
       document.querySelector(".app-shell").inert = false;
       await hydrateFromServer();
     } else {
       showTeacherAuth();
-      try {
-        await loadTeacherLoginOptions();
-      } catch (error) {
-        const warning = document.getElementById("teacherAuthError");
-        warning.textContent = `无法加载学校和学科选项：${error.message}`;
-        warning.hidden = false;
-      }
     }
   } catch (error) {
     document.getElementById("teacherAuthLoading").textContent = `无法检查登录状态：${error.message}`;
@@ -2015,15 +2012,16 @@ async function initializeTeacherAuth() {
 
 document.getElementById("teacherAuthForm").addEventListener("submit", async event => {
   event.preventDefault();
-  const school = document.getElementById("teacherAuthSchool").value.trim();
-  const subject = document.getElementById("teacherAuthSubject").value.trim();
-  const name = document.getElementById("teacherAuthName").value.trim();
+  const username = document.getElementById("teacherAuthUsername").value.trim();
+  const password = document.getElementById("teacherAuthPassword").value;
   const error = document.getElementById("teacherAuthError");
   const button = document.getElementById("teacherAuthSubmit");
   button.disabled = true;
   error.hidden = true;
   try {
-    await window.PlatformAPI.loginTeacher(school, subject, name);
+    const result = await window.PlatformAPI.loginTeacher(username, password);
+    document.getElementById("teacherAuthPassword").value = "";
+    if (result.must_change_password) { showTeacherPasswordChange(); return; }
     document.getElementById("teacherAuthScreen").hidden = true;
     document.querySelector(".app-shell").inert = false;
     await hydrateFromServer();
@@ -2035,6 +2033,27 @@ document.getElementById("teacherAuthForm").addEventListener("submit", async even
   }
 });
 
+document.getElementById("teacherChangePasswordButton").addEventListener("click", () => showTeacherPasswordChange(false));
+document.getElementById("teacherPasswordCancel").addEventListener("click", async () => {
+  if (teacherPasswordRequired) await window.PlatformAPI.logoutTeacher();
+  window.location.reload();
+});
+document.getElementById("teacherPasswordForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  const error = document.getElementById("teacherPasswordError");
+  const button = event.currentTarget.querySelector('[type="submit"]');
+  error.hidden = true;
+  button.disabled = true;
+  try {
+    const password = document.getElementById("teacherNewPassword").value;
+    if (password !== document.getElementById("teacherRepeatPassword").value) throw new Error("两次输入的新密码不一致");
+    await window.PlatformAPI.changePassword(document.getElementById("teacherCurrentPassword").value, password);
+    event.target.reset();
+    await initializeTeacherAuth();
+  } catch (problem) { error.textContent = problem.message; error.hidden = false; }
+  finally { button.disabled = false; }
+});
+
 document.getElementById("teacherLogoutButton").addEventListener("click", async () => {
   try { await window.PlatformAPI.logoutTeacher(); }
   finally { window.location.reload(); }
@@ -2042,7 +2061,6 @@ document.getElementById("teacherLogoutButton").addEventListener("click", async (
 
 window.addEventListener("teacher-session-expired", () => {
   showTeacherAuth({ message: "登录已过期，请重新登录。" });
-  loadTeacherLoginOptions().catch(() => {});
 });
 
 function showPage(pageName) {
@@ -3085,7 +3103,7 @@ function showInterventionPlanPreview() {
 
 document.addEventListener("click", async event => {
   // These controls have their own listeners; do not report them as placeholders.
-  if (event.target.closest("#teacherAuthScreen, #teacherLogoutButton, #addClassroomButton, .add-classroom-form, .edit-classroom-form")) return;
+  if (event.target.closest("#teacherAuthScreen, #teacherLogoutButton, #teacherChangePasswordButton, #addClassroomButton, .add-classroom-form, .edit-classroom-form")) return;
   const editClassroomButton = event.target.closest("[data-edit-classroom]");
   if (editClassroomButton) {
     const classroom = serverState.classrooms.find(item => item.id === editClassroomButton.dataset.editClassroom);

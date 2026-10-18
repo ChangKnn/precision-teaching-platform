@@ -19,3 +19,4 @@ venv/
 *.log
 *.pem
 *.key
+initial-admin*.txt
