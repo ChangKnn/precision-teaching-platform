@@ -1,0 +1,32 @@
+/* Shared footer remains outside login/application containers and never hides with them. */
+:root { --site-filing-height: 52px; }
+.site-filing {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  width: 100%;
+  min-height: var(--site-filing-height);
+  margin: 0;
+  padding: 12px 16px;
+  border-top: 1px solid #dde4e2;
+  background: #f5f7f6;
+  color: #65747a;
+  font: 12px/1.6 "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+.site-filing a { display: inline-flex; align-items: center; gap: 6px; color: inherit; text-decoration: none; }
+.site-filing a:hover { color: #176b65; text-decoration: underline; }
+.site-filing a:focus-visible { outline: 2px solid #176b65; outline-offset: 4px; }
+.site-filing img { display: block; width: 20px; height: 20px; object-fit: contain; flex: none; }
+.teacher-auth-screen, .app-shell { min-height: calc(100vh - var(--site-filing-height)); }
+.student-app { height: calc(100% - var(--site-filing-height)); }
+.login-view { min-height: calc(100% - var(--site-filing-height)); }
+.login-panel { min-height: calc(100vh - 56px - var(--site-filing-height)); }
+@media (max-width: 600px) {
+  :root { --site-filing-height: 80px; }
+  .site-filing { flex-direction: column; gap: 8px; }
+  .login-panel { min-height: calc(100vh - var(--site-filing-height)); }
+}
+@media print { .site-filing { display: none; } }

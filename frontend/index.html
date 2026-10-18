@@ -7,6 +7,7 @@
   <title>思阶｜AI 精准教学工作台</title>
   <link rel="icon" href="data:,">
 <link rel="stylesheet" href="styles.css?v=20260928-compact-eval-5">
+  <link rel="stylesheet" href="/filing.css?v=20261018">
 </head>
 <body>
   <main class="teacher-auth-screen" id="teacherAuthScreen" aria-labelledby="teacherAuthTitle">
@@ -519,6 +520,10 @@
     <div class="llm-debug-header"><div><h2 id="llmDebugTitle">LLM 请求入参</h2><p>仅本机开发环境可见。内容可能包含学生对话、作答和教师报告；不包含 API Key。</p></div><button class="button" type="button" id="llmDebugClose">关闭</button></div>
     <div class="llm-debug-layout"><div id="llmDebugList" class="llm-debug-list"></div><div class="llm-debug-detail"><p id="llmDebugMeta">选择一条请求查看实际发送的 JSON。</p><textarea id="llmDebugBody" readonly spellcheck="false" aria-label="实际发送给 LLM 的请求 JSON"></textarea></div></div>
   </dialog>
+  <footer class="site-filing" aria-label="网站备案信息">
+    <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">京ICP备2026068374号-1</a>
+    <a href="https://beian.mps.gov.cn/#/query/webSearch?code=11010802050729" target="_blank" rel="noopener noreferrer"><img src="/assets/beian.png" alt="公安备案图标" width="20" height="20">京公网安备11010802050729号</a>
+  </footer>
   <script src="api-client.js?v=20260928-word-export"></script>
   <script src="llm-debug.js?v=20260925-llm2"></script>
 <script src="app.js?v=20261007-connection-status"></script>
