@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -77,10 +78,17 @@ def _mock_task_rubric(payload: dict[str, Any]) -> dict[str, Any]:
     ]
     level_data = {
         "P": ("没有形成与当前任务相关的有效回应。", "回应偏离任务，或未自主处理任何核心信息单元。", ["G-P"]),
-        "U": ("能够围绕一个相关信息单元形成有效回应。", "自主识别并处理 E1、E2 或 E3 中的一个要素，但尚未扩展到其他要素。", ["G-U", "E1"]),
-        "M": ("能够处理多个相关信息单元，但主要是并列或累加。", "涉及两个或更多 E，但尚未建立 R1、R2 所要求的关键组织关系。", ["G-M", "E1", "E2", "E3"]),
-        "R": ("能够建立关键关系并形成完整的任务内解释。", "通过 R1、R2 组织多个 E，使条件、依据和结论共同完成当前任务。", ["G-R", "E1", "E2", "E3", "R1", "R2"]),
+        "U": ("能够围绕一个相关信息单元形成有效回应。", "能够依据一项任务条件或相关依据作出局部说明，但尚未兼顾其他相关方面。", ["G-U", "E1"]),
+        "M": ("能够处理多个相关信息单元，但主要是并列或累加。", "能够分别说明条件、目标或推理依据，但尚未解释它们怎样共同支持结论。", ["G-M", "E1", "E2", "E3"]),
+        "R": ("能够建立关键关系并形成完整的任务内解释。", "能解释任务条件如何限定判断，并用相关依据支持结论，形成连贯的整体解释。", ["G-R", "E1", "E2", "E3", "R1", "R2"]),
         "EA": ("能够在完整解释基础上进行概括、迁移或边界检验。", "先形成 R 层整体结构，再把该关系迁移到新情境或讨论其适用条件。", ["G-EA", "R2", "A1"]),
+    }
+    example_expressions = {
+        "P": "我还没弄清这道题要解决什么，只是照着题目猜了一个答案。",
+        "U": "我注意到了题目中的这个条件，我先根据它作一个判断。",
+        "M": "我找到了这几个条件和方法，但还没想清楚它们怎样联系起来。",
+        "R": "这些条件通过这个关系支持我的结论；换一种方法也需要说明它为什么适用。",
+        "EA": "我可以把这里的关系概括为一个判断原则，用它分析新情境，并说明什么条件变化时需要调整。",
     }
     levels: dict[str, Any] = {}
     for level, (performance, evidence, trace) in level_data.items():
@@ -89,7 +97,7 @@ def _mock_task_rubric(payload: dict[str, Any]) -> dict[str, Any]:
             "core_performance": [performance],
             "decision_evidence": [evidence],
             "adjacent_boundaries": [f"依据任务特定结构判断 {level} 与相邻层级的差异，不按字数或关键词数量定级。"],
-            "typical_expressions": ["示例仅用于理解结构，不能作为关键词匹配表。"],
+            "typical_expressions": [example_expressions[level]],
             "trace_to": trace,
         }
     return {
@@ -100,6 +108,7 @@ def _mock_task_rubric(payload: dict[str, Any]) -> dict[str, Any]:
             "general_rubric_anchors": GENERAL_SOLO_ANCHORS,
             "teacher_context_used": ["subject", "grade", "textbook_version_and_chapter", "precision_teaching_topic", "precision_teaching_goals", "precision_teaching_content"],
             "student_responses_role": "not_provided",
+            "teacher_design_intent_used": bool(payload.get('diagnostic_task_design_intent', '').strip()),
             "source_uncertainties": ["当前使用 Mock AI；结构用于验证产品流程，配置真实模型后请重新生成并由教师复核。"],
         },
         "task_analysis": {
@@ -177,7 +186,7 @@ def student_diagnosis_report_text(result: dict[str, Any]) -> str:
     diagnosis = result["diagnosis"]
     progression = result["progression"]
     evidence = "\n".join(
-        f"- {item['ref']}：\u201c{item['quote']}\u201d\n  {item['interpretation']}"
+        f"- 学生说：\u201c{item['quote']}\u201d——{item['interpretation']}"
         for item in diagnosis["evidence"]
     )
     strategies = "\n".join(
@@ -186,16 +195,16 @@ def student_diagnosis_report_text(result: dict[str, Any]) -> str:
     )
     target_names = {"U": "单点结构", "M": "多点结构", "R": "关联结构", "EA": "拓展抽象结构", "higher_EA": "更高质量的拓展抽象结构"}
     return (
-        f"一、当前诊断\n{diagnosis['level']}（{diagnosis['level_name']}）：{diagnosis['rationale']}\n\n"
-        f"二、学生证据\n{evidence}\n\n"
-        f"三、当前思维结构\n{result['thinking_structure_summary']}\n\n"
-        f"四、尚未达到下一层级的原因\n{diagnosis['next_level_gap']}\n\n"
-        f"五、Plus One 进阶目标\n{progression['target_level']}（{target_names[progression['target_level']]}）：{progression['concrete_goal']}\n\n"
-        f"六、后续学习策略\n{strategies}"
+        f"## 当前情况\n\n### SOLO 水平\n{diagnosis['level']}（{diagnosis['level_name']}）：{diagnosis['rationale']}\n\n"
+        f"### 判断依据\n{evidence}\n\n"
+        f"### 当前障碍\n{diagnosis['next_level_gap']}\n\n{progression['main_obstacle']}\n\n"
+        f"## 进阶目标\n\n{progression['target_level']}（{target_names[progression['target_level']]}）：{progression['concrete_goal']}\n\n"
+        f"## 学习建议\n\n{strategies}"
     )
 
 
 def _skill_runtime_instructions(skill: SkillDefinition) -> str:
+    from .education_context import education_runtime_rules
     if skill.key == "precision_diagnostic_task_design":
         resource_paths = [
             "references/thinking-externalization-strategies.md",
@@ -206,6 +215,8 @@ def _skill_runtime_instructions(skill: SkillDefinition) -> str:
         resource_paths = ["references/diagnosis-and-ai-evidence-rules.md", "references/progression-support-rules.md"]
     elif skill.key == "solo_class_diagnosis_intervention":
         resource_paths = ["references/solo-progression-support-rules.md", "references/grouping-rules.md"]
+    elif skill.key == "class_teaching_suggestions":
+        resource_paths = ["references/thesis-progression-rules.md"]
     elif skill.key == "teacher_custom_analysis":
         resource_paths = []
     elif skill.key == "precision_intervention_goal_path_design":
@@ -224,7 +235,7 @@ def _skill_runtime_instructions(skill: SkillDefinition) -> str:
             "references/analysis-and-boundary-rules.md",
             "references/machine-readable-contract.md",
         ]
-    sections = [skill.instructions]
+    sections = [skill.instructions, education_runtime_rules()]
     for relative_path in resource_paths:
         path = skill.path.parent / relative_path
         if path.is_file():
@@ -233,6 +244,7 @@ def _skill_runtime_instructions(skill: SkillDefinition) -> str:
         "precision_diagnostic_task_design": "diagnostic_task_design",
         "solo_student_diagnosis_feedback": "solo_student_diagnosis",
         "solo_class_diagnosis_intervention": "solo_class_diagnosis",
+        "class_teaching_suggestions": "class_teaching_suggestions",
         "teacher_custom_analysis": "teacher_custom_analysis",
         "precision_intervention_goal_path_design": "precision_intervention_goal_path",
         "precision_intervention_activity_formative_regulation": "activity_formative_design",
@@ -243,13 +255,15 @@ def _skill_runtime_instructions(skill: SkillDefinition) -> str:
 
 
 def run_diagnostic_task_design(skill: SkillDefinition, payload: dict[str, Any], provider: str) -> dict[str, Any]:
+    import jsonschema
+    input_schema = json.loads((skill.path.parent / 'assets/diagnostic-task-input.schema.json').read_text(encoding='utf-8'))
+    jsonschema.validate(payload, input_schema)
     if provider == "mock":
         raise RuntimeError("诊断任务设计需要配置真实模型，当前仍为 Mock AI")
     result = _run_structured_skill(
         skill, payload, "diagnostic-task-output.schema.json", "diagnostic_task_design", provider,
-        instruction_suffix="三个候选方案必须有实质差异；预计时长仅表示任务规模，不控制会话结束。",
+        instruction_suffix="三个候选方案必须有实质差异，各有非空 design_intent；teacher_ideas 有值时据此设计，空白时直接依据教学情境。预计时长仅表示任务规模，不控制会话结束。",
     )
-    import jsonschema
     from importlib.util import module_from_spec, spec_from_file_location
 
     schema = json.loads((skill.path.parent / "assets/diagnostic-task-output.schema.json").read_text(encoding="utf-8"))
@@ -438,6 +452,11 @@ def validate_task_rubric(skill: SkillDefinition, rubric: dict[str, Any]) -> None
         raise RuntimeError("缺少 jsonschema 依赖，无法校验任务量规") from error
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     jsonschema.validate(rubric, schema)
+    internal_code = re.compile(r'(?<![A-Za-z0-9_])(?:[ERA][1-9]\d*|PATH[-_ ]?[1-9]\d*|G-(?:EA|P|U|M|R))(?![A-Za-z0-9_])', re.IGNORECASE)
+    teacher_fields = ('core_performance', 'decision_evidence', 'adjacent_boundaries', 'typical_expressions', 'limitations')
+    for level, row in rubric['levels'].items():
+        if any(internal_code.search(text) for field in teacher_fields for text in row.get(field, [])):
+            raise ValueError(f'{level} 层级的教师说明含内部编号，请改为具体内容与关系的自然语言表述；追溯编号仅可留在机器字段。')
 
 
 def run_teacher_custom_analysis(skill: SkillDefinition, payload: dict[str, Any], provider: str) -> dict[str, Any]:
@@ -490,44 +509,31 @@ def run_student_diagnosis_report(
         envelope_schema = {
             "type": "object",
             "additionalProperties": False,
-            "required": ["solo_student_diagnosis", "teacher_report_markdown", "student_feedback_markdown"],
+            "required": ["solo_student_diagnosis", "student_feedback_markdown"],
             "properties": {
                 "solo_student_diagnosis": schema,
-                "teacher_report_markdown": {"type": "string", "minLength": 200},
                 "student_feedback_markdown": {"type": "string", "minLength": 500, "maxLength": 4000},
             },
         }
-        template = (skill.path.parent / "assets/diagnosis-output-template.md").read_text(encoding="utf-8")
         instructions = (
-            "\n\n此平台以一个 JSON 对象接收 Skill 的两份同步输出："
-            "solo_student_diagnosis 是原始机器可读结果，teacher_report_markdown 是教师可读 Markdown，"
-            "student_feedback_markdown 是将由教师核对后推送给学生的完整学生版诊断报告。三者必须基于同一证据，保持判断一致。"
-            "teacher_report_markdown 严格按下面模板的六个部分填写，包含文字思维结构图和四维分析；"
-            "不要在该字符串末尾附加机器可读 JSON 代码块。"
-            "student_feedback_markdown 面向初高中学生，是教师报告的等信息量学生版，不是摘要或固定模板。"
-            "通常约800—1500个汉字，按清楚的小标题逐项覆盖：本次表现及判断原因、2—4条本人原话及逐条解释、"
-            "已经形成的思路与尚未连上的关系、具体问题和进阶障碍、下一步目标、2—4条与本次学科任务紧密相关的练习策略及检查方法。"
-            "所有主要判断、证据和策略都要与教师报告及机器结果对应，不要换成泛泛的鼓励、通用学习建议或只引用一条原话。"
-            "可以重组教师报告的结构图和四维分析为学生能读懂的文字，但不照抄专业术语。"
+            "\n\n此平台只接收两个字段：solo_student_diagnosis（符合Schema的诊断JSON）和"
+            "student_feedback_markdown（教师核对后可推送给学生的反馈）。"
+            "不要输出teacher_report_markdown，不生成六部分教师报告，不要求思维结构图或图例符号。"
+            "平台根据诊断JSON直接呈现当前情况（SOLO水平、判断依据、当前障碍）、进阶目标、学习建议。"
+            "诊断理由和证据解释使用教师可读的语言，E/R/A编号仅用于traceability等机器定位。"
+            "student_feedback_markdown 面向输入学段的学生：中小学用相应年龄可理解的表达，高等教育用大学课程的必要专业表达；围绕当前情况、下一步目标、学习建议组织，"
+            "涵盖学生原话及解释、当前障碍、2—4条具体练习建议和检查方法；信息须与诊断JSON一致。"
+            "通常约800—1500个汉字，不为凑字数重复内容。"
             "语言清楚、亲切、有行动感，不过度夸奖，也不显得幼稚；"
             "不出现 P/U/M/R/EA、前结构等层级标签、量规术语或未观察到的能力断言，不直接给诊断题答案。"
-            f"\n\n{template}"
         )
         envelope = _run_structured_skill(
             skill, payload, "diagnosis-output.schema.json", "solo_student_diagnosis_report",
             provider, schema_override=envelope_schema, instruction_suffix=instructions,
         )
         result = envelope["solo_student_diagnosis"]
-        report_text = envelope["teacher_report_markdown"].strip()
+        report_text = student_diagnosis_report_text(result)
         student_feedback_text = envelope["student_feedback_markdown"].strip()
-        required_sections = (
-            "学生信息", "SOLO 诊断结果与依据", "当前思维结构特征",
-            "主要问题与进阶障碍", "进阶目标", "后续学习策略",
-        )
-        if not all(section in report_text for section in required_sections) or not all(
-            symbol in report_text for symbol in ("●", "◐", "○")
-        ):
-            raise RuntimeError("教师报告缺少新版 Skill 要求的六部分或思维结构图")
     try:
         import jsonschema
     except ImportError as error:
@@ -600,7 +606,7 @@ def run_goal_path_design(
         "stage_name 必须是结合本课内容的共同活动名称，不是组织阶段标签；并行单元共享该名称，组别名称放活动内容简介。"
         "每个 activity_summary 要让教师看懂学生具体做什么：写明本课已有对象或材料、可观察动作和简要产出；并行组分别写出不同做法。不要只写抽象目标，也不要虚构题目或写成完整教学步骤。"
         "每个活动单元必须只选择一个主要目标层级，依据该活动实际认知加工判断；全班参与不等于面向全部进阶目标，也不自动等于 CG。"
-        "45分钟单课时默认只安排一个连续的小组活动时段；多个并行小组同属这一时段，其他时段用全班或个体活动承接。除非教师明确要求且说明教学必要性，不要生成第二轮小组活动。"
+        "中小学45分钟单课时默认只安排一个连续的小组活动时段；多个并行小组同属这一时段，其他时段用全班或个体活动承接。高等教育根据教师填写的实际总时长与课程活动需要安排，不套用45分钟或一次小组活动限制。"
         "若教师课堂构想非空，须把可实施的关键设想落实在具体活动中；冲突或舍弃的重要设想列入教师待确认。"
         "若输入含 teacher_revision_request 和 previous_goal_path_design，按教师本轮要求修订上一版，保留未涉及的合理编辑；不能违反诊断、名单和课时约束。"
         "teacher_report_markdown 不附加 JSON 代码块。"
@@ -632,7 +638,7 @@ def run_goal_path_teacher_analysis(payload: dict[str, Any], provider: str) -> di
         "输出严格的 JSON 对象，且仅有 content_analysis、focus_analysis、source_note 三个非空字符串字段。"
         "content_analysis 分析教学内容及与课程要求的关系；focus_analysis 分析本课教学重点和难点。"
         "不可把班级诊断改写为学生重新定级，不写任何学生姓名，不设计目标、活动或支架。"
-        "输入未提供课程标准原文时，不得编造课标条款、教材章节或精确出处；"
+        "中小学依据课程标准，高等教育依据课程大纲与课程目标。输入未提供原文时，不得编造课标或课程大纲条款、专业认证指标、教材章节或精确出处；"
         "在 source_note 明确说明哪些课程依据尚需教师核对。若教学主题、学科、年级或内容互相矛盾，也在 source_note 标明。"
     )
     body = {
@@ -756,8 +762,19 @@ def run_skill(skill: SkillDefinition, payload: dict[str, Any], provider: str) ->
             raise RuntimeError(f"当前干预设计尚未配置 Provider：{provider}")
         return _design_intervention(payload)
     if skill.key == "solo_task_rubric_builder":
+        intent = payload.get('diagnostic_task_design_intent')
+        if not isinstance(intent, str) or not intent.strip():
+            raise ValueError('生成 SOLO 分析标准前请补充诊断任务设计意图。')
         result = _mock_task_rubric(payload) if provider == "mock" else _run_structured_skill(
-            skill, payload, "task-specific-solo-rubric.schema.json", "solo_task_rubric", provider
+            skill, payload, "task-specific-solo-rubric.schema.json", "solo_task_rubric", provider,
+            instruction_suffix=(
+                "\n教师界面将 core_performance 显示为主要认知特征，decision_evidence 显示为学生表现，"
+                "typical_expressions 显示为示例。typical_expressions 中只写符合当前具体任务的假想学生表达，"
+                "先依据内置通用SOLO标准确定边界，任务分析只保留必要内容与关系，不强制枚举要素和路径。"
+                "全部 levels 自然语言字段禁止内部要素、关系、路径或锚点编号；编号仅可出现在 task_analysis 定位字段和 trace_to。"
+                "使用学生第一人称的实际句子，不写层级定义、判定提醒、边界说明或真实学生诊断；"
+                "层级边界和限制仍分别保留在 adjacent_boundaries、limitations 字段。"
+            ),
         )
         validate_task_rubric(skill, result)
         return result

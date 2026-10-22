@@ -17,6 +17,8 @@ from ..database import fetch_one
 from .http import verified_ssl_context
 from .llm_debug import record_llm_request
 from .skills import load_skill
+from .education_context import higher_education_fields, education_runtime_rules
+from ..task_materials import canonical_task_text, require_confirmed_materials
 
 
 BASE_PROHIBITIONS = [
@@ -60,8 +62,9 @@ def _teacher_contract(raw: str, status: str, version_seed: str) -> dict[str, Any
 
 
 def freeze_dialogue_config(teaching_id: str) -> dict[str, Any]:
+    require_confirmed_materials(teaching_id)
     row = fetch_one(
-        """SELECT p.id, p.title, p.subject, p.grade, p.textbook, p.goal, p.content,
+        """SELECT p.id, p.title, p.subject, p.grade, p.textbook, p.goal, p.content, p.education_stage, p.course_name, p.major,
                   d.task_text, d.ai_role, d.duration_minutes, d.status, d.updated_at
            FROM precision_teachings p JOIN diagnosis_tasks d ON d.teaching_id = p.id
            WHERE p.id = ?""",
@@ -70,6 +73,7 @@ def freeze_dialogue_config(teaching_id: str) -> dict[str, Any]:
     if not row or not row["task_text"].strip():
         raise ValueError("教师尚未发布完整诊断任务")
     context = {
+        **higher_education_fields(row),
         "subject": row["subject"] or "未提供",
         "grade": row["grade"] or "未提供",
         "textbook_version_and_chapter": row["textbook"] or "未提供",
@@ -77,7 +81,7 @@ def freeze_dialogue_config(teaching_id: str) -> dict[str, Any]:
         "precision_teaching_goals": [row["goal"] or "未提供"],
         "precision_teaching_content": [line.strip() for line in (row["content"] or "").splitlines() if line.strip()] or ["未提供"],
     }
-    task = {"task_id": row["id"], "name": row["title"], "task_content": row["task_text"]}
+    task = {"task_id": row["id"], "name": row["title"], "task_content": canonical_task_text(teaching_id)}
     if 10 <= int(row["duration_minutes"]) <= 30:
         task["estimated_duration_minutes"] = int(row["duration_minutes"])
     return {
@@ -158,7 +162,7 @@ def initial_skill_message(config: dict, session_id: str, student_id: str) -> tup
 
 
 def _runtime_instructions(skill, schema: dict) -> str:
-    sections = [skill.instructions]
+    sections = [skill.instructions, education_runtime_rules()]
     for relative in (
         "references/dialogue-turn-decision-rules.md",
         "references/role-lock-and-answer-boundary.md",

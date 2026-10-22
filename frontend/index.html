@@ -6,8 +6,11 @@
   <meta name="description" content="支持教师开展精准诊断、反馈与课堂干预设计的研究原型。">
   <title>思阶｜AI 精准教学工作台</title>
   <link rel="icon" href="data:,">
-<link rel="stylesheet" href="styles.css?v=20261018-accounts">
+  <link rel="stylesheet" href="styles.css?v=20261022-merged-accounts-runtime-v1">
   <link rel="stylesheet" href="/filing.css?v=20261018">
+  <link rel="stylesheet" href="notifications.css?v=20261018-persistent">
+  <link rel="stylesheet" href="vendor/mathlive/mathlive-fonts.css">
+  <link rel="stylesheet" href="math-text.css?v=20261018">
 </head>
 <body>
   <main class="teacher-auth-screen" id="teacherAuthScreen" aria-labelledby="teacherAuthTitle">
@@ -32,8 +35,9 @@
       <button class="button" type="button" id="teacherPasswordCancel">退出账号</button>
     </form>
     <p class="teacher-auth-loading" id="teacherAuthLoading" role="status">正在检查登录状态…</p>
+    <button class="button" type="button" id="teacherAuthRetry" hidden>重新加载工作台</button>
   </main>
-  <div class="app-shell" inert>
+  <div class="app-shell" inert hidden>
     <aside class="sidebar" id="sidebar">
       <button class="brand" data-page="blocks" aria-label="返回我的精准教学">
         <span class="brand-mark">思</span>
@@ -44,11 +48,11 @@
         <p class="nav-label">我的工作</p>
         <button class="nav-item active" data-page="blocks"><span>▦</span>我的精准教学</button>
 
-        <div class="current-teaching-context">
+        <button type="button" class="current-teaching-context" id="currentTeachingInfoButton" data-page="block-edit" title="查看当前精准教学的基本信息" disabled>
           <span>当前精准教学</span>
           <strong>基本不等式中的模型与论证</strong>
           <small>高一数学 · 进行中</small>
-        </div>
+        </button>
 
         <p class="nav-label">工作阶段</p>
         <button class="nav-item" data-page="diagnosis"><span>1</span>精准诊断任务设计与发布</button>
@@ -77,6 +81,20 @@
       </header>
 
       <div class="page-container">
+        <dialog class="teaching-principles-dialog" id="teachingPrinciplesDialog" aria-labelledby="teachingPrinciplesTitle">
+          <header class="teaching-principles-header"><h2 id="teachingPrinciplesTitle">AI赋能精准教学的设计原则</h2><form method="dialog"><button class="button small" type="submit" aria-label="关闭设计原则">关闭</button></form></header>
+          <div class="teaching-principles-content">
+            <p class="teaching-principles-intro">AI赋能精准教学旨在围绕特定教学目标，基于学生的真实学习证据，识别其当前思维结构与进一步发展的需要，为教师和学生提供有针对性的诊断反馈，并支持教师据此开展精准的教学干预与学习评价。</p>
+            <figure class="teaching-principles-figure"><img src="principles-diagram.svg?v=20261020" width="800" height="640" alt="六项原则共同支持AI赋能精准教学：目标引领、证据驱动、认知发展、差异适配、人机协同与人在回路、动态迭代。"><figcaption>六项原则共同支持教学设计</figcaption></figure>
+            <h3>六项基本原则</h3>
+            <article class="teaching-principle"><h4><span>G1</span>目标引领原则</h4><p>AI赋能精准教学应坚持教学目标导向，而非技术或数据导向。其起点应该是“要培养学生什么能力、促进学生何种思维发展”，并以此为依据设计相匹配的诊断方式与教学干预策略。AI技术为精准教学提供了新的可能，但技术应用本身并不必然带来教学的精准。如果缺乏明确的目标指引，容易陷入重数据分析、轻教学应用的误区。因此，AI赋能精准教学应坚持目标先行，从学生的发展目标出发，明确需要收集哪些学习证据、如何开展精准诊断，以及如何利用AI支持有针对性的教学反馈与干预，真正促进学生学习与发展。</p></article>
+            <article class="teaching-principle"><h4><span>G2</span>证据驱动原则</h4><p>AI赋能精准教学应坚持学习证据驱动。对学生的判断必须有充分证据，教学干预又必须建立在诊断证据之上。AI赋能精准教学的价值在于支持生成、分析处理更加丰富的学习证据，包括学生的作答过程、语言解释、修改记录以及与AI互动过程中的表达，尤其可以通过人机对话引导学生表达和解释自己的思考过程，促进学生思维外显，从而获取超越作答结果的深层学习证据，帮助教师更加全面、深入地理解学生的思维结构与发展需求。在此基础上，为师生提供有依据的诊断反馈，支持教师制定更具针对性的教学干预策略。</p></article>
+            <article class="teaching-principle"><h4><span>G3</span>认知发展导向原则</h4><p>学生的学习过程是不断形成、调整和完善认知结构的过程，促进认识从单一的具体的理解，迈向更加抽象和可迁移。这也正是精准教学的基本逻辑。精准教学的目标并非只关注知识掌握情况，而是了解学生当前的认知结构，并促进学生认知发展。“促进认知进阶”的基本原则强调精准教学的基本逻辑是理解学生当前思维结构并促进其向更复杂、更整合和更具迁移性的状态发展。</p></article>
+            <article class="teaching-principle"><h4><span>G4</span>差异适配原则</h4><p>AI赋能精准教学应坚持差异适配原则，精准教学并不意味着对每位学生进行无限个性化的教学，而是基于学生的真实学习需求，识别具有教学意义的差异，并作出适切的教学响应。在班级授课背景下，应充分考虑集体学习、小组学习与个体学习等不同组织形式的教学价值，依据学生的思维水平与发展需求，确定差异化的学习目标，并有针对性地调整学习内容、学习任务与学习支架等教学要素，灵活选择全班、小组或个体层面的干预方式，实现教学目标、学生需求与教学支持之间的有效匹配。</p></article>
+            <article class="teaching-principle"><h4><span>G5</span>人机协同与人在回路原则</h4><p>AI赋能精准教学的核心不是替代教师，而是增强教师发现问题、分析问题和解决问题的能力。AI可以帮助教师处理大量学习信息，发现学生学习特点，生成可能的教学建议，但真实教学决策仍然需要教师结合学科特点、课堂情境和学生实际进行判断。因此，AI应成为教师专业决策的支持工具，而不是自动决策者。AI生成的诊断结果、反馈内容和教学方案，需要经过教师理解、审核和调整后，才能真正进入教学实践。</p></article>
+            <article class="teaching-principle"><h4><span>G6</span>动态迭代原则</h4><p>精准教学不是一次性的诊断和干预过程，而是伴随学生学习变化不断调整优化的循环过程。学生的认知状态会随着学习活动和教学支持发生变化，因此任何一次诊断都只是对当前状态的阶段性判断，而不是固定标签。AI可以支持持续收集和分析学习证据，帮助教师不断更新学生认知画像，调整教学策略，形成“诊断—干预——再诊断”的动态闭环。</p></article>
+          </div>
+        </dialog>
         <section class="page active" id="page-blocks">
           <div class="page-heading">
             <div><h1>我的精准教学</h1><p>每项精准教学围绕一个思维发展目标，集中开展诊断、反馈和干预设计。</p></div>
@@ -116,30 +134,33 @@
             <form class="card form-card" id="blockForm">
               <div class="form-section-title"><span>1</span><div><h2>基础信息</h2></div></div>
               <div class="form-grid">
-                <label>学科<select id="blockSubject"></select></label>
-                <label>年级<select id="blockGrade"><optgroup label="小学"><option>小学一年级</option><option>小学二年级</option><option>小学三年级</option><option>小学四年级</option><option>小学五年级</option><option>小学六年级</option></optgroup><optgroup label="初中"><option>初一</option><option>初二</option><option>初三</option></optgroup><optgroup label="高中"><option selected>高一</option><option>高二</option><option>高三</option></optgroup></select></label>
-                <label>教材版本与章节<input id="blockTextbook" value="人教 A 版 必修一"></label>
+                <label>学段<select id="blockEducationStage"><option>小学</option><option>初中</option><option selected>高中</option><option value="高等教育">大学</option></select></label>
+                <label><span id="blockGradeLabel">年级</span><select id="blockGrade"><option>高一</option><option>高二</option><option>高三</option></select></label>
+                <label id="blockSubjectField">学科<select id="blockSubject"></select></label>
+                <label data-higher-education-field hidden>专业<input id="blockMajor" maxlength="120" placeholder="例如：机械工程、学前教育"></label>
+                <label data-higher-education-field hidden>课程名称<input id="blockCourseName" maxlength="120" placeholder="例如：高等数学、教育心理学"></label>
+                <label><span id="blockTextbookLabel">教材版本与章节</span><input id="blockTextbook" value="人教 A 版 必修一"></label>
                 <label>预计课时<div class="unit-input"><input id="blockPeriods" type="number" value="3" min="1" step="1" inputmode="numeric" aria-label="预计课时"><span>课时</span></div></label>
               </div>
 
-              <div class="form-section-title divided"><span>2</span><div><h2>精准教学主题与目标</h2><p>聚焦一个需要识别和发展的思维点。</p></div></div>
+              <div class="form-section-title divided teaching-theme-heading"><span>2</span><div><h2>精准教学主题与目标</h2><p>以下信息将作为 AI 辅助设计诊断任务与教学干预的依据。</p></div><button type="button" class="task-guide-button principles" id="teachingPrinciplesButton" aria-haspopup="dialog" aria-controls="teachingPrinciplesDialog">了解AI+精准教学</button></div>
               <div class="field-group major-field">
-                <div class="label-row"><label for="blockTheme">精准教学主题</label><button type="button" class="help-dot" data-help="themeHelp" aria-controls="themeHelp" aria-expanded="false" aria-label="查看主题与选题说明填写提示">?</button><div class="help-popover" id="themeHelp" role="tooltip" hidden><strong>主题与说明怎么写</strong><p>主题：用一句话概括与课程要求相关的核心内容或能力，明确本次教学聚焦什么。避免只列零散知识点，也不要仅因适合使用 AI 而选题。</p><p>说明：写完主题后，再结合课程标准、学生的典型表现和教学实际，解释为什么值得开展精准诊断与干预。</p></div></div>
-                <p class="field-example">先用一句话写清主题，选题原因在下方补充。例如：初中历史论证写作的精准教学。</p>
+                <div class="label-row"><label for="blockTheme">精准教学主题</label><button type="button" class="help-dot" data-help="themeHelp" aria-controls="themeHelp" aria-expanded="false" aria-label="查看主题与选题说明填写提示">?</button><div class="help-popover" id="themeHelp" role="tooltip" hidden><strong>如何确定精准教学主题？</strong><p>精准教学应指向学生思维发展，围绕具体教学内容，聚焦一项需要发展的思维或能力。</p><p><b>自上而下：</b>从课程标准、学科核心素养、教材内容和单元目标中，明确学生需要发展的关键能力及具体思维表现。</p><p><b>自下而上：</b>从课堂观察、作业表现和学生交流中，发现影响后续学习的典型困难，确定需要诊断的问题。</p><p>将课程要求与真实困难结合，确定本次主题；再在“选题说明”中写出您的选择理由和教学考虑。</p></div></div>
+                <p class="field-example">请您为本次精准教学拟定主题，体现学段、学科、关注的学生思维或能力及教学内容。例如：初中历史论证思维的精准教学。</p>
                 <textarea id="blockTheme" rows="2">基本不等式中的模型与论证</textarea>
                 <div class="theme-explanation">
                   <div class="label-row"><label for="blockRationale">选题说明</label></div>
-                  <p class="field-example">主题写好后，结合课标要求和课堂观察，说明选择它的原因及学生面临的学习困难。</p>
+                  <p class="field-example">请您结合课程要求和教学观察，说明选择该主题的原因与教学考虑。</p>
                   <textarea id="blockRationale" rows="3">基本不等式的实际应用是发展数学建模和逻辑推理素养的重要内容。学生在提取数量关系、建立约束模型以及说明最值结论成立条件方面存在明显差异，需要通过精准诊断识别障碍并设计针对性教学。</textarea>
                 </div>
               </div>
               <div class="field-group major-field">
-                <div class="label-row"><label for="blockGoal">精准教学目标</label><button type="button" class="help-dot" data-help="goalHelp" aria-controls="goalHelp" aria-expanded="false" aria-label="查看精准教学目标说明">?</button><div class="help-popover" id="goalHelp" role="tooltip" hidden><strong>精准教学目标</strong><p>请明确本次教学要诊断的学生学习状态，以及经过针对性干预后，期望多少学生达到什么学习水平。</p></div></div>
-                <p class="field-example">说明重点诊断和改进的学生思维或能力（如论证写作、数学运算决策），以及期望达到的学习表现。</p>
+                <div class="label-row"><label for="blockGoal">精准教学目标</label></div>
+                <p class="field-example">请您说明本次精准教学希望重点诊断和改进的学生思维或能力（如论证写作、数学运算决策），以及期望达到的学习表现。</p>
                 <textarea id="blockGoal" rows="3">精准识别并提升学生从提取数量关系、建立约束模型到完整论证最值结论的思维结构。</textarea>
               </div>
               <div class="field-group major-field">
-                <div class="label-row"><label for="blockContent">精准教学内容</label><button type="button" class="help-dot" data-help="contentHelp" aria-controls="contentHelp" aria-expanded="false" aria-label="查看精准教学内容说明">?</button><div class="help-popover" id="contentHelp" role="tooltip" hidden><strong>精准教学内容</strong><p>这里填写本次实际要教什么，而不是重复教学目标。请结合教材与章节，写清计划教学的知识、概念、方法或学习任务；内容较多时可以分行填写。</p></div></div>
+                <div class="label-row"><label for="blockContent">精准教学内容</label></div>
                 <p class="field-example">请填写本次计划教学的具体内容，如教材中的知识、概念、方法和学习任务。</p>
                 <textarea id="blockContent" rows="3">基本不等式实际应用中的数量关系提取
 约束模型建立
@@ -152,16 +173,28 @@
 
         <section class="page" id="page-diagnosis">
           <div class="page-heading"><div><h1>精准诊断任务设计与发布</h1><p>设计一项能够促进学生思维外显、为后续教学提供依据的诊断任务。</p></div><button class="button" id="saveDiagnosisDraftButton">保存草稿</button></div>
-          <div class="workflow-tabs three" id="diagnosisSteps">
-            <button class="active" data-dstep="2"><i>1</i>诊断任务</button><button data-dstep="3"><i>2</i>分析标准</button><button data-dstep="4"><i>3</i>发布</button>
+          <div class="workflow-tabs four" id="diagnosisSteps">
+            <button class="active" data-dstep="1"><i>1</i>诊断时间</button><button data-dstep="2"><i>2</i>诊断任务</button><button data-dstep="3"><i>3</i>分析标准</button><button data-dstep="4"><i>4</i>发布</button>
           </div>
-          <div class="workflow-panel active" data-dpanel="2">
+          <div class="workflow-panel active" data-dpanel="1">
+            <div class="card panel-card">
+              <div class="panel-heading"><span class="step-index">01</span><div><h2>诊断时间</h2><p>根据本次教学需要，选择诊断发生的时间和用途。</p></div></div>
+              <fieldset class="diagnosis-timing" id="diagnosisTiming"><legend>选择诊断时间</legend><div class="diagnosis-timing-options">
+                <label><input type="radio" name="diagnosisTiming" value="pre" checked><span><strong>课前诊断</strong><span>了解学情，为课堂教学设计提供依据。</span></span></label>
+                <label><input type="radio" name="diagnosisTiming" value="during"><span><strong>课中诊断</strong><span>检验关键活动效果，及时调整教学。</span></span></label>
+                <label><input type="radio" name="diagnosisTiming" value="post"><span><strong>课后诊断</strong><span>检验精准干预效果，了解学生变化。</span></span></label>
+              </div></fieldset>
+              <div class="panel-actions right"><button class="button primary" data-dnext="2">下一步：诊断任务</button></div>
+            </div>
+          </div>
+          <div class="workflow-panel" data-dpanel="2">
             <div class="card panel-card diagnosis-task-form">
-              <div class="panel-heading"><span class="step-index">01</span><div><h2>诊断任务</h2><p>先参考 AI 推荐的三个备选方案，选择后可继续编辑任务内容、AI 角色和预计时长。</p></div></div>
+              <div class="panel-heading"><span class="step-index">02</span><div><h2>诊断任务</h2><p>先参考 AI 推荐的三个备选方案，选择后可继续编辑任务内容、AI 角色和预计时长。</p></div></div>
 
               <section class="task-recommendation-panel" id="taskRecommendations">
-                <div class="recommendation-heading"><div><h3>AI 推荐的诊断任务</h3><p>依据当前精准教学的学科、年级、教材、主题、目标与内容生成；采用后可继续编辑。</p></div><div class="recommendation-heading-actions"><button type="button" class="button small" id="toggleTaskRecommendations" aria-controls="taskRecommendationBody" aria-expanded="true">收起推荐</button><button type="button" class="button primary" id="regenerateTasks">AI 推荐 3 个方案</button></div></div>
+                <div class="recommendation-heading"><div><h3>AI 推荐的诊断任务</h3><p>依据前文设定的精准教学信息以及教师的诊断任务设计想法生成，生成后教师可编辑</p></div><div class="recommendation-heading-actions"><button type="button" class="button small" id="toggleTaskRecommendations" aria-controls="taskRecommendationBody" aria-expanded="true">收起推荐</button></div></div>
                 <div id="taskRecommendationBody">
+                  <div class="task-generation-preferences"><label for="taskGenerationIdeas">设计想法与要求 <span>可选</span></label><textarea id="taskGenerationIdeas" rows="3" maxlength="4000" aria-label="设计想法与要求"></textarea><div class="task-generation-actions"><span id="taskGenerationSaveState" role="status" aria-live="polite"></span><button type="button" class="button primary" id="regenerateTasks">AI 推荐 3 个方案</button></div></div>
                   <p class="recommendation-status" id="taskRecommendationStatus">尚未生成。点击“AI 推荐 3 个方案”获取推荐；不会覆盖当前草稿。</p>
                   <div class="proposal-grid" id="taskProposals"></div>
                 </div>
@@ -169,7 +202,22 @@
 
               <div class="field-group major-field">
                 <div class="label-row task-field-label-row"><label for="diagnosisTaskText">诊断任务</label><div class="task-guide-entry"><button type="button" class="task-guide-button principles" data-open-task-guide="principles">设计原则</button><button type="button" class="task-guide-button strategies" data-open-task-guide="strategies">策略卡片</button></div><button type="button" class="help-dot" data-help="diagnosisTaskHelp" aria-controls="diagnosisTaskHelp" aria-expanded="false" aria-label="查看诊断任务设计说明">?</button><div class="help-popover help-popover-wide" id="diagnosisTaskHelp" role="tooltip" hidden><strong>诊断任务撰写提示</strong><p>请依次写明：①学生需要完成的任务内容；②生机会话规则，包括采用自我解释、同伴解释、以教为学或辩论等方式，以及 AI 不提供公式、步骤和答案提示；③任务成果要求，如完整文本、作品或方案。任务应与精准教学目标一致、具有开放性，并同时形成过程性和结果性数据。</p></div></div>
+                <p class="task-authoring-hint" id="taskAuthoringHint">请说明学生要做什么、如何与 AI 对话，以及最后提交什么成果。</p>
                 <textarea id="diagnosisTaskText" rows="6">学校准备使用 20 米围栏围成一个长方形劳动实践区。请确定怎样设计长和宽能够使面积最大。先与 AI 充分对话，说明你提取了哪些信息、建立了什么关系以及为什么这样判断；AI 只用中性追问帮助你把已有思路说完整，不提供公式、步骤或答案。对话结束后，请提交一份完整论证文本，说明模型、求解过程、取等条件和结论。</textarea>
+                <div id="diagnosisTaskEditor" class="task-rich-editor math-text" contenteditable="true" role="textbox" aria-label="诊断任务" aria-describedby="taskAuthoringHint" aria-multiline="true" data-placeholder="请说明学生需要做什么、如何与 AI 对话，以及最后提交什么成果。"></div>
+                <div class="task-input-toolbar"><button type="button" class="button" id="taskInsertFormula">ƒ 插入公式</button><button type="button" class="button" id="taskImageUploadButton" title="最多 4 张，每张 5 MB" aria-describedby="taskAttachmentLimits">＋ 添加图片附件</button><span id="taskAttachmentLimits" hidden>最多 4 张，每张 5 MB</span><input type="file" id="taskImageInput" accept="image/png,image/jpeg,image/webp" multiple hidden><span id="taskMaterialStatus" class="task-material-status" role="status" aria-live="polite"></span></div>
+                <div class="task-image-gallery" id="taskImageGallery" aria-label="诊断任务图片附件"></div>
+                <section id="taskReadingPanel" class="task-reading-panel" hidden aria-label="附件识别状态">
+                  <div class="task-reading-heading"><span id="taskReadingStatus" role="status" aria-live="polite"></span><button type="button" class="button small" id="retryTaskReading">重新识别</button></div>
+                  <p id="taskReadingMessage" class="task-authoring-hint"></p>
+                  <details id="taskReadingDetails"><summary>查看识别内容</summary>
+                    <p class="task-authoring-hint">内容供 AI 理解附件，不会覆盖上方任务描述。有疑点时请对照原图补全后保存。</p>
+                    <ul id="taskReadingUncertainties"></ul>
+                    <label for="taskReadingText">附件识别内容</label><textarea id="taskReadingText" rows="6" maxlength="16000" placeholder="AI 识别的文字、公式及图中信息将在这里显示，可直接修改后保存。"></textarea>
+                    <div class="panel-actions right"><button type="button" class="button" id="saveTaskReading">保存识别内容</button></div>
+                  </details>
+                </section>
+                <div class="task-design-intent"><label for="diagnosisDesignIntent">诊断任务设计意图</label><p class="task-authoring-hint">为什么选择这个任务？希望观察学生哪些思考过程，发现哪些学习困难？</p><textarea id="diagnosisDesignIntent" rows="3" maxlength="4000"></textarea></div>
               </div>
 
               <div class="task-settings-grid">
@@ -183,14 +231,15 @@
                 </div>
               </div>
 
-              <div class="panel-actions right"><button class="button primary" data-dnext="3">下一步：确认分析标准</button></div>
+              <div class="panel-actions spread"><button class="button" data-dnext="1">上一步</button><button class="button primary" data-dnext="3">下一步：确认分析标准</button></div>
             </div>
           </div>
 
           <div class="workflow-panel" data-dpanel="3">
-            <div class="card panel-card"><div class="panel-heading"><span class="step-index">02</span><div><h2>分析标准</h2><p>确认本任务的 SOLO 标准，也可设置教师自定义标准，补充个人或班级反馈。</p></div></div>
-              <section class="solo-framework-panel">
-                <div class="framework-intro"><div><span>通用框架</span><h3>SOLO 用于判断当前任务中呈现的思维结构</h3></div><p>它判断的是可观察的学习结果，不是学生的一般能力，也不是固定标签。</p></div>
+            <div class="card panel-card"><div class="panel-heading"><span class="step-index">03</span><div><h2>分析标准</h2></div></div>
+              <details class="solo-framework-panel" id="soloFrameworkDetails">
+                <summary><span>什么是SOLO？</span><span class="solo-framework-summary-note">点击了解五级分类及其教学用途</span></summary>
+                <div class="framework-intro"><p>SOLO（Structure of the Observed Learning Outcome，学习结果的结构）是 Biggs 和 Collis 于 1982 年提出的一种学习结果分类框架，其理论基础与人的一般认知发展密切相关。它关注的不是学生“会不会”，而是学生对一个知识或问题的认识是如何逐步发展的：从关注单一要素，到认识多个要素，再到建立要素之间的联系、形成整体理解，并进一步抽象、迁移和生成新的认识。<a class="solo-source-link" href="https://www.sciencedirect.com/book/monograph/9780120975525/evaluating-the-quality-of-learning" target="_blank" rel="noopener noreferrer">参考原著：Biggs &amp; Collis（1982）</a></p></div>
                 <div class="solo-level-grid">
                   <article><b>P 前结构</b><p>尚未形成与任务相关的有效理解。</p></article>
                   <article><b>U 单点结构</b><p>识别或使用一个相关要素。</p></article>
@@ -198,16 +247,20 @@
                   <article><b>R 关联结构</b><p>把多个要素整合为连贯、完整的关系。</p></article>
                   <article><b>EA 拓展抽象</b><p>能够迁移、概括、检验或重构已有关系。</p></article>
                 </div>
-              </section>
-              <div class="rubric-header"><div><h3>本任务的 SOLO 分析标准</h3><p>AI 根据教学情境、诊断任务和通用量规生成；可编辑后确认。</p><span class="rubric-runtime-status" id="rubricRuntimeStatus" hidden></span></div><button type="button" class="button small ai" id="regenerateRubric">AI 生成量规</button></div>
-              <div class="rubric-table-wrap"><table class="rubric-table"><thead><tr><th>层级</th><th>可观察表现</th><th>本任务判断依据</th><th>层级边界与示例</th></tr></thead><tbody id="rubricTableBody">
-                <tr class="rubric-placeholder"><td colspan="4">进入本步骤后生成任务专用量规</td></tr>
+                <div class="solo-teaching-support"><h4>如何支持精准教学？</h4><p>SOLO为精准教学提供了一种“看见学生”的视角。通过分析学生的回答、解题过程和表达，可以定位学生当前的理解层次，识别其已经形成的认识与尚未建立的联系，进而明确“学生现在在哪里、下一步可以走向哪里”，为精准诊断、分层指导和教学干预提供依据。</p></div>
+              </details>
+              <div class="rubric-header"><div><h3>本任务的 SOLO 分析标准</h3><span class="rubric-runtime-status" id="rubricRuntimeStatus" hidden></span></div><button type="button" class="button small ai" id="regenerateRubric">AI 生成标准</button></div>
+              <div class="rubric-table-wrap"><table class="rubric-table"><colgroup><col class="rubric-level-column"><col data-rubric-column="core_performance"><col data-rubric-column="decision_evidence"><col data-rubric-column="typical_expressions"></colgroup><thead><tr><th>层级</th><th>主要认知特征</th><th>学生表现</th><th>示例</th></tr></thead><tbody id="rubricTableBody">
+                <tr><th scope="row">P 前结构</th><td></td><td></td><td></td></tr>
+                <tr><th scope="row">U 单点结构</th><td></td><td></td><td></td></tr>
+                <tr><th scope="row">M 多点结构</th><td></td><td></td><td></td></tr>
+                <tr><th scope="row">R 关联结构</th><td></td><td></td><td></td></tr>
+                <tr><th scope="row">EA 拓展抽象</th><td></td><td></td><td></td></tr>
               </tbody></table></div>
-              <details class="rubric-analysis-details" id="rubricAnalysisDetails" hidden><summary>查看任务结构分析（E／R／A）</summary><div id="rubricAnalysisContent"></div></details>
               <label class="confirm-row"><input type="checkbox" id="rubricConfirmed" disabled>我已检查并确认本任务的 SOLO 分析标准</label>
-              <section class="custom-analysis-settings" aria-labelledby="customAnalysisHeading">
-                <h3 id="customAnalysisHeading">教师自定义分析标准（可选）</h3>
-                <p>保留上方 SOLO 分析；还可以写下你希望重点观察的表现，生成独立的补充反馈。当前只分析学生对话和最终文字成果，不读取图片附件；补充反馈先供教师核对，不会自动推送学生。</p>
+              <details class="custom-analysis-settings" aria-labelledby="customAnalysisHeading">
+                <summary id="customAnalysisHeading">教师自定义分析标准（可选）</summary>
+                <p>你也可以根据教学需要，自行设定分析标准。</p>
                 <label for="customAnalysisCriteria">分析标准</label>
                 <textarea id="customAnalysisCriteria" rows="5" maxlength="5000" placeholder="例如：学生是否说明方法选择的理由，并能检查结果是否符合题目条件。"></textarea>
                 <div class="custom-analysis-options" role="group" aria-label="自定义反馈范围">
@@ -215,16 +268,20 @@
                   <label><input type="checkbox" id="customAnalysisClass">生成班级反馈</label>
                 </div>
                 <div class="custom-analysis-actions"><span id="customAnalysisSaveStatus" role="status">未启用自定义分析</span><button type="button" class="button" id="saveCustomAnalysisStandard">保存自定义标准</button></div>
-              </section>
+              </details>
               <div class="panel-actions spread"><button class="button" data-dnext="2">上一步</button><button class="button primary" id="rubricNextButton" data-dnext="4" disabled>下一步：任务发布</button></div>
             </div>
           </div>
 
           <div class="workflow-panel" data-dpanel="4">
             <div class="publish-layout">
-              <div class="card panel-card"><div class="panel-heading"><span class="step-index">03</span><div><h2>发布诊断任务</h2><p>选择班级，确认学生看到的任务和成果要求。</p></div></div>
+              <div class="card panel-card"><div class="panel-heading"><span class="step-index">04</span><div><h2>发布诊断任务</h2><p>选择班级，确认学生看到的任务和成果要求。</p></div></div>
                 <label>发布班级</label><div class="class-options" id="publishClassOptions"></div>
-                <div class="publish-notice"><b>发布说明</b><p>学生提交后可查看任务完成状态；诊断反馈须经教师确认后再推送。</p></div>
+                <section class="publish-task-preview" aria-labelledby="publishTaskPreviewHeading">
+                  <h3 id="publishTaskPreviewHeading">发布前确认</h3>
+                  <dl class="publish-task-meta"><div><dt>诊断时间</dt><dd id="publishDiagnosisTiming"></dd></div><div><dt>任务时长</dt><dd id="publishDiagnosisDuration"></dd></div><div class="publish-role-summary"><dt>AI 角色</dt><dd id="publishDiagnosisRole"></dd></div></dl>
+                  <h4>任务内容</h4><div id="publishTaskPreviewText"></div><div class="task-image-gallery" id="publishTaskImages"></div>
+                </section>
                 <div class="panel-actions spread"><button class="button" data-dnext="3">上一步</button><button class="button primary" id="publishTaskButton">确认发布</button></div>
               </div>
             </div>
@@ -232,14 +289,15 @@
         </section>
 
         <section class="page" id="page-feedback">
-          <div class="page-heading"><div><h1>诊断结果反馈</h1><p>查看班级与学生的思维结构，核对诊断结果并向学生推送反馈。</p></div><button class="button primary" id="completeFeedbackButton">确认反馈并进入干预设计</button></div>
-          <article class="card stage-empty-state" id="feedbackEmptyState" hidden><span>等待学生作答</span><h2>当前精准教学还没有诊断结果</h2><p>诊断任务已经发布，但尚未收到学生提交。获得作答、会话与作品证据后，才能进行反馈确认并开放精准干预设计。</p><button class="button" data-page="diagnosis">返回诊断任务</button></article>
+          <div class="page-heading"><div><h1>诊断结果反馈</h1><p>查看班级与学生的思维结构，核对诊断结果并向学生推送反馈。</p></div><button class="button primary" id="completeFeedbackButton">确认反馈阶段并进入干预设计</button></div>
+          <article class="card stage-empty-state" id="feedbackEmptyState" hidden><span>等待学生作答</span><h2>当前精准教学还没有诊断结果</h2><p>诊断任务已经发布，但尚未收到学生提交。获得作答、会话与作品证据后，才能确认反馈阶段并开放精准干预设计。</p><button class="button" data-page="diagnosis">返回诊断任务</button></article>
           <div id="feedbackWorkspaceContent">
           <div class="filter-bar card"><label>班级<select id="feedbackClassSelect"></select></label><label>精准教学<select id="feedbackTeachingName" disabled><option>基本不等式中的模型与论证</option></select></label><label>诊断任务<select id="feedbackTaskName" disabled><option>课前 · 围绳面积最大方案论证</option></select></label><span class="status success" id="feedbackSubmissionStatus">40/40 已提交</span></div>
 
-          <div class="analysis-process card"><div class="done"><i>1</i><span>证据整理<small>对话＋文字成果</small></span></div><div id="analysisRubricStep"><i>2</i><span>AI 分析<small id="analysisRubricStatus">等待量规确认</small></span></div><div class="current"><i>3</i><span>教师审核<small id="analysisReviewStatus">等待学生报告</small></span></div><div><i>4</i><span>确认反馈<small id="feedbackProgressStatus">等待教师确认</small></span></div></div>
+          <div class="analysis-process card"><div class="done"><i>1</i><span>证据整理<small>对话＋文字成果</small></span></div><div id="analysisRubricStep"><i>2</i><span>AI 分析<small id="analysisRubricStatus">等待量规确认</small></span></div><div class="current"><i>3</i><span>个体报告审核<small id="analysisReviewStatus">等待学生报告</small></span></div><div><i>4</i><span>反馈阶段确认<small id="feedbackProgressStatus">阶段待确认</small></span></div></div>
+          <p class="feedback-stage-note">反馈阶段确认用于进入干预设计；个体报告需单独审核后推送给学生，阶段确认不会自动确认或推送个体报告。</p>
 
-          <div class="feedback-tabs"><button class="active" data-feedback-tab="class">班级学生思维结构情况</button><button data-feedback-tab="students">学生会话记录与分析结果</button></div>
+          <div class="feedback-tabs"><button data-feedback-tab="students">学生会话记录与分析结果</button><button class="active" data-feedback-tab="class">班级学生思维结构情况</button></div>
 
           <div class="feedback-panel active" data-feedback-panel="class" id="classEvidencePanel">
             <article class="card class-solo-card">
@@ -316,7 +374,7 @@
             <label>班级<select id="interventionClassSelect"><option>高一（3）班</option><option>高一（5）班</option></select></label>
             <label>精准教学<select id="interventionTeachingName" disabled><option>基本不等式中的模型与论证</option></select></label>
             <label>诊断依据任务<select id="interventionTaskName" disabled><option>课前 · 围绳面积最大方案论证</option></select></label>
-            <span class="status success" id="interventionEvidenceStatus">诊断结果已确认</span>
+            <span class="status success" id="interventionEvidenceStatus">反馈阶段已确认</span>
           </div>
           <div class="workflow-tabs intervention-tabs four" id="interventionSteps"><button class="active" data-istep="1"><i>1</i>设计依据</button><button data-istep="2"><i>2</i>目标设计与活动路径</button><button data-istep="3"><i>3</i>学习活动设计</button><button data-istep="4"><i>4</i>方案总览与导出</button></div>
 
@@ -325,7 +383,7 @@
               <div class="intervention-section-heading"><div><span class="section-kicker">教学情境与条件</span><p>AI 根据精准教学资料与班级报告起草前两项分析，教师核对后用于生成目标与路径。</p></div><div><button class="button ai" id="generateTeacherAnalysis">AI生成教学分析</button><button class="help-dot" data-intervention-help="teaching-context" aria-label="查看教学情境与条件说明">?</button></div></div>
               <p id="teacherAnalysisSourceNote" class="goal-path-source" hidden></p>
               <div class="basis-context-fields">
-                <label><span class="basis-field-heading"><span>教学内容与课标分析</span><button type="button" class="help-dot" data-intervention-help="content-standard" aria-label="查看教学内容与课标分析填写提示">?</button></span><textarea id="teachingContentAnalysis" rows="4" placeholder="请填写当前精准教学的内容、课程标准要求及其分析。"></textarea></label>
+                <label><span class="basis-field-heading"><span id="curriculumAnalysisLabel">教学内容与课标分析</span><button type="button" class="help-dot" data-intervention-help="content-standard" aria-label="查看教学内容与课程要求分析填写提示">?</button></span><textarea id="teachingContentAnalysis" rows="4" placeholder="请填写当前精准教学的内容、课程标准要求及其分析。"></textarea></label>
                 <label><span class="basis-field-heading"><span>教学重点与难点</span><button type="button" class="help-dot" data-intervention-help="focus-difficulty" aria-label="查看教学重点与难点填写提示">?</button></span><textarea id="teachingFocusAnalysis" rows="3" placeholder="请结合班级诊断，填写本课的教学重点与难点。"></textarea></label>
                 <div class="basis-context-field teaching-time-field"><span class="basis-field-heading"><span>教学时间</span><button type="button" class="help-dot" data-intervention-help="teaching-time" aria-label="查看教学时间设置提示">?</button></span><div class="teaching-time-control"><label>方案总时长<div class="unit-input"><input id="interventionDurationMinutes" type="number" value="45" min="10" step="5" inputmode="numeric" aria-label="干预方案总时长"><span>分钟</span></div></label></div><small>该时长用于生成后续学习活动及分配各活动时间。</small></div>
                 <label><span class="basis-field-heading"><span>课堂与技术条件</span><button type="button" class="help-dot" data-intervention-help="classroom-technology" aria-label="查看课堂与技术条件填写提示">?</button></span><textarea id="teachingEnvironmentConditions" rows="3" placeholder="例如班级人数、可用设备、分组条件与 AI 支持边界。"></textarea></label>
@@ -523,7 +581,10 @@
     </section>
   </div>
 
-  <div class="toast" id="toast" role="status"></div>
+  <div class="notice-stack" id="toast" aria-label="平台提示" popover="manual" hidden></div>
+  <dialog id="rubricReplaceDialog" class="rubric-replace-dialog" aria-labelledby="rubricReplaceTitle">
+    <form method="dialog"><h2 id="rubricReplaceTitle">替换当前分析标准？</h2><p>AI 生成会替换表格内容。取消则保留当前标准。</p><div class="panel-actions right"><button class="button" value="cancel">保留当前内容</button><button class="button primary" value="replace">继续 AI 生成</button></div></form>
+  </dialog>
   <dialog id="llmDebugDialog" class="llm-debug-dialog" aria-labelledby="llmDebugTitle">
     <div class="llm-debug-header"><div><h2 id="llmDebugTitle">LLM 请求入参</h2><p>仅本机开发环境可见。内容可能包含学生对话、作答和教师报告；不包含 API Key。</p></div><button class="button" type="button" id="llmDebugClose">关闭</button></div>
     <div class="llm-debug-layout"><div id="llmDebugList" class="llm-debug-list"></div><div class="llm-debug-detail"><p id="llmDebugMeta">选择一条请求查看实际发送的 JSON。</p><textarea id="llmDebugBody" readonly spellcheck="false" aria-label="实际发送给 LLM 的请求 JSON"></textarea></div></div>
@@ -532,8 +593,14 @@
     <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">京ICP备2026068374号-1</a>
     <a href="https://beian.mps.gov.cn/#/query/webSearch?code=11010802050729" target="_blank" rel="noopener noreferrer"><img src="/assets/beian.png" alt="公安备案图标" width="20" height="20">京公网安备11010802050729号</a>
   </footer>
-  <script src="api-client.js?v=20261018-accounts"></script>
+  <script src="notifications.js?v=20261019-error-only-v1"></script>
+  <script src="api-client.js?v=20261022-merged-accounts-runtime-v1"></script>
   <script src="llm-debug.js?v=20260925-llm2"></script>
-<script src="app.js?v=20261018-accounts"></script>
+  <dialog id="taskFormulaDialog" class="task-math-dialog" aria-labelledby="taskFormulaTitle"><div class="task-dialog-heading"><h2 id="taskFormulaTitle">插入或编辑数学公式</h2><button type="button" class="button" id="taskFormulaCancel">关闭</button></div><p>用数学键盘输入公式，也可粘贴 LaTeX；插入后会在预览中显示。</p><math-field id="taskFormulaField" math-virtual-keyboard-policy="manual" aria-label="数学公式输入"></math-field><div class="task-formula-shortcuts"><button type="button" class="button" data-task-formula="\frac{#0}{#?}">分式</button><button type="button" class="button" data-task-formula="\sqrt{#0}">根号</button><button type="button" class="button" data-task-formula="#0^{#?}">上标</button><button type="button" class="button" data-task-formula="#0_{#?}">下标</button><button type="button" class="button" data-task-formula="\overrightarrow{#0}">向量</button><button type="button" class="button" data-task-formula="\begin{cases}#0\end{cases}">分段式</button></div><div id="taskFormulaKeyboard"></div><div class="panel-actions right"><button type="button" class="button primary" id="taskFormulaInsert">插入任务</button></div></dialog>
+  <dialog id="taskRecognitionDialog" class="task-math-dialog" aria-labelledby="taskRecognitionTitle"><div class="task-dialog-heading"><h2 id="taskRecognitionTitle">题目识别草稿 · 待教师核对</h2><button type="button" class="button" id="cancelTaskRecognition">取消</button></div><p>核对后将题目附在完整任务之后，保留你写好的活动说明、对话要求和成果要求。</p><label for="recognizedTaskText">识别出的题目与公式</label><textarea id="recognizedTaskText" rows="7"></textarea><label for="recognizedGeometryNotes">图形条件</label><textarea id="recognizedGeometryNotes" rows="3"></textarea><h3>需要核对</h3><ul id="recognizedUncertainties"></ul><div class="panel-actions right"><button type="button" class="button primary" id="applyTaskRecognition">将题目插入诊断任务</button></div></dialog>
+  <script src="vendor/mathlive/mathlive.min.js"></script>
+  <script src="math-text.js?v=20261018"></script>
+  <script src="task-editor.js?v=20261019-error-only-v1"></script>
+  <script src="app.js?v=20261022-merged-accounts-runtime-v1"></script>
 </body>
 </html>

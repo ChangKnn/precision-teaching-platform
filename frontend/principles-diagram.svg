@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="640" viewBox="0 0 800 640" role="img" aria-labelledby="title desc">
+  <title id="title">AI赋能精准教学的六项基本原则</title>
+  <desc id="desc">中心为AI赋能精准教学，周围六项原则分别为目标引领、证据驱动、认知发展、差异适配、人机协同与人在回路、动态迭代。六项原则共同支持教学设计，不表示先后顺序。</desc>
+  <defs>
+    <radialGradient id="background"><stop stop-color="#eaf5f1"/><stop offset="1" stop-color="#fafcfb"/></radialGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#257f77"/><stop offset="1" stop-color="#124f50"/></linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#244c49" flood-opacity=".09"/></filter>
+  </defs>
+  <rect x="12" y="12" width="776" height="616" rx="28" fill="url(#background)"/>
+  <circle cx="400" cy="320" r="220" fill="none" stroke="#dbe8e3" stroke-width="2" stroke-dasharray="4 9"/>
+  <g fill="none" stroke-width="3" stroke-linecap="round">
+    <path d="M400 320V100" stroke="#8cbeb3"/><path d="M400 320L590 210" stroke="#99b8d7"/>
+    <path d="M400 320L590 430" stroke="#b4a7d6"/><path d="M400 320V540" stroke="#d5b780"/>
+    <path d="M400 320L210 430" stroke="#d6a6a0"/><path d="M400 320L210 210" stroke="#94bfc1"/>
+  </g>
+  <g filter="url(#shadow)">
+    <circle cx="400" cy="320" r="105" fill="url(#core)" stroke="#fff" stroke-width="6"/>
+    <circle cx="400" cy="100" r="78" fill="#e2f2eb" stroke="#b3d8c9" stroke-width="2"/>
+    <circle cx="590" cy="210" r="78" fill="#e6effa" stroke="#bdd1ea" stroke-width="2"/>
+    <circle cx="590" cy="430" r="78" fill="#efeaf9" stroke="#cec1e7" stroke-width="2"/>
+    <circle cx="400" cy="540" r="78" fill="#fbf0db" stroke="#e8d2a8" stroke-width="2"/>
+    <circle cx="210" cy="430" r="78" fill="#f9eae5" stroke="#e8c4ba" stroke-width="2"/>
+    <circle cx="210" cy="210" r="78" fill="#e3f1f2" stroke="#bad8da" stroke-width="2"/>
+  </g>
+  <g font-family="Microsoft YaHei, PingFang SC, sans-serif" text-anchor="middle">
+    <g fill="#fff"><text x="400" y="298" font-size="19" letter-spacing="2">AI赋能</text><text x="400" y="334" font-size="29" font-weight="700">精准教学</text><text x="400" y="363" font-size="13" fill="#c9e7df" letter-spacing="3">六项基本原则</text></g>
+    <g fill="#246b56"><text x="400" y="77" font-size="12" letter-spacing="2">G1</text><text x="400" y="110" font-size="25" font-weight="700">目标引领</text><text x="400" y="136" font-size="12">以学生发展为起点</text></g>
+    <g fill="#365f8b"><text x="590" y="187" font-size="12" letter-spacing="2">G2</text><text x="590" y="220" font-size="25" font-weight="700">证据驱动</text><text x="590" y="246" font-size="12">让思考过程可见</text></g>
+    <g fill="#6a518d"><text x="590" y="407" font-size="12" letter-spacing="2">G3</text><text x="590" y="440" font-size="25" font-weight="700">认知发展</text><text x="590" y="466" font-size="12">促进整合与迁移</text></g>
+    <g fill="#876528"><text x="400" y="517" font-size="12" letter-spacing="2">G4</text><text x="400" y="550" font-size="25" font-weight="700">差异适配</text><text x="400" y="576" font-size="12">匹配真实学习需求</text></g>
+    <g fill="#945b50"><text x="210" y="407" font-size="12" letter-spacing="2">G5</text><text x="210" y="440" font-size="25" font-weight="700">人机协同</text><text x="210" y="466" font-size="12">人在回路 · 教师决策</text></g>
+    <g fill="#336f76"><text x="210" y="187" font-size="12" letter-spacing="2">G6</text><text x="210" y="220" font-size="25" font-weight="700">动态迭代</text><text x="210" y="246" font-size="12">随学习变化调整</text></g>
+  </g>
+</svg>

@@ -31,21 +31,27 @@ def collect_keys(value: object) -> set[str]:
 
 
 def validate_input(data: dict) -> list[str]:
-    errors: list[str] = []
-    if set(data) != {"precision_teaching_context"}:
-        errors.append("input must contain only precision_teaching_context")
-    context = data.get("precision_teaching_context", {})
-    required = {
-        "subject",
-        "grade",
-        "textbook_version_and_chapter",
-        "precision_teaching_topic",
-        "precision_teaching_goals",
-        "precision_teaching_content",
+    # Use the same contract as the API rather than maintaining a second field
+    # list that can reject newly supported, legitimate teaching metadata.
+    import jsonschema
+
+    schema_path = Path(__file__).resolve().parents[1] / 'assets/diagnostic-task-input.schema.json'
+    schema = json.loads(schema_path.read_text(encoding='utf-8'))
+    validator = jsonschema.validators.validator_for(schema)(schema)
+    reasons = {
+        'required': '缺少必填信息',
+        'additionalProperties': '包含不支持的字段',
+        'type': '信息类型不正确',
+        'minLength': '必填内容为空',
+        'maxLength': '文字超过长度限制',
+        'minItems': '至少需要一项内容',
+        'enum': '选项不在允许范围内',
     }
-    if set(context) != required:
-        errors.append("precision_teaching_context fields do not match the contract")
-    return errors
+    return [
+        f"诊断任务输入格式不符合要求（{'.'.join(map(str, error.absolute_path)) or '输入'}）："
+        f"{reasons.get(error.validator, '不符合数据格式要求')}"
+        for error in validator.iter_errors(data)
+    ]
 
 
 def validate_output(data: dict) -> list[str]:
@@ -53,8 +59,8 @@ def validate_output(data: dict) -> list[str]:
     found_forbidden = collect_keys(data) & FORBIDDEN_KEYS
     if found_forbidden:
         errors.append(f"forbidden keys found: {sorted(found_forbidden)}")
-    if data.get("schema_version") != "2.0":
-        errors.append("schema_version must be 2.0")
+    if data.get("schema_version") != "2.1":
+        errors.append("schema_version must be 2.1")
     design = data.get("diagnostic_task_design", {})
     candidates = design.get("candidates", [])
     if not isinstance(candidates, list) or len(candidates) != 3:
@@ -72,6 +78,9 @@ def validate_output(data: dict) -> list[str]:
         if not isinstance(duration, int) or not 10 <= duration <= 30:
             errors.append(f"candidate {index} duration must be an integer from 10 to 30")
         task_content = candidate.get("task_content", "")
+        intent = candidate.get('design_intent', '')
+        if not isinstance(intent,str) or not intent.strip() or len(intent) > 4000:
+            errors.append(f'candidate {index} must include a nonempty task-specific design_intent')
         if not isinstance(task_content, str) or len(task_content.strip()) < 20:
             errors.append(f"candidate {index} task_content must be a complete paragraph")
         rules = candidate.get("dialogue_rules", {})

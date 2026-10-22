@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["items"],
+  "properties": {
+    "items": {
+      "type": "array", "minItems": 1, "maxItems": 5,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["level", "target_level", "development_goal", "content", "activity", "scaffold"],
+        "properties": {
+          "level": {"enum": ["P", "U", "M", "R", "EA"]},
+          "target_level": {"enum": ["U", "M", "R", "EA", "higher_EA"]},
+          "development_goal": {"type": "string", "minLength": 1, "maxLength": 60},
+          "content": {"type": "string", "minLength": 1, "maxLength": 60},
+          "activity": {"type": "string", "minLength": 1, "maxLength": 60},
+          "scaffold": {"type": "string", "minLength": 1, "maxLength": 60}
+        }
+      }
+    }
+  }
+}

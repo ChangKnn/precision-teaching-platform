@@ -145,7 +145,8 @@
               "textbook_version_and_chapter",
               "precision_teaching_topic",
               "precision_teaching_goals",
-              "precision_teaching_content"
+              "precision_teaching_content",
+              "education_stage", "course_name", "major"
             ]
           }
         }

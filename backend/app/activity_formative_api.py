@@ -13,6 +13,7 @@ from .database import database, fetch_one, utc_now, write_audit
 from .goal_path_api import _aliases, _replace_names, _serialized_row, _student_levels
 from .services.ai import run_activity_formative_design
 from .services.skills import load_skill
+from .services.education_context import higher_education_fields
 
 
 router = APIRouter(prefix="/api")
@@ -89,6 +90,7 @@ def _build_input(teaching_id: str, classroom_id: str, requirements: dict) -> tup
     payload = {
         "schema_version": "1.0",
         "precision_teaching_context": {
+            **higher_education_fields(teaching),
             "subject": teaching["subject"], "grade": teaching["grade"],
             "textbook_version_and_chapter": teaching["textbook"] or "未填写教材章节",
             "precision_teaching_topic": teaching["title"],

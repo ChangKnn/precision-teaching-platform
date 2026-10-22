@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from dataclasses import dataclass, field
 import hashlib
 import json
+from threading import RLock
+from time import monotonic
 from uuid import uuid4
 
 from fastapi import BackgroundTasks
@@ -11,6 +13,7 @@ from ..config import settings
 from ..database import database, fetch_all, fetch_one, utc_now, write_audit
 from .ai import run_class_diagnosis_report
 from .skills import load_skill
+from .education_context import higher_education_fields
 
 
 LEVELS = ("P", "U", "M", "R", "EA")
@@ -20,9 +23,60 @@ LEVEL_NAMES = {
 }
 
 
+@dataclass
+class _ReportTask:
+    token: str
+    source_hash: str
+    stamp: str
+    queued_at: float = field(default_factory=monotonic)
+
+
+# BackgroundTasks run in the single application worker. A live owner, not elapsed
+# model time, determines whether a report is still being generated.
+_task_lock = RLock()
+_report_tasks: dict[tuple[str, str, str], _ReportTask] = {}
+_running_tasks: dict[tuple[str, str, str], str] = {}
+_INTERRUPTED = "班级报告生成因服务重启或任务中断而停止，请点击重新生成。原报告已保留。"
+
+
+def _task_key(teaching_id: str, classroom_id: str) -> tuple[str, str, str]:
+    return str(settings.database_path.resolve()), teaching_id, classroom_id
+
+
+def recover_interrupted_class_reports() -> int:
+    """Fail orphaned work at startup without discarding previously saved reports.
+
+    Deployment uses one Uvicorn worker; another worker must not share this queue.
+    Repeated calls within this process leave its queued/running tasks untouched.
+    """
+    with _task_lock:
+        rows = fetch_all(
+            "SELECT teaching_id, classroom_id, source_hash FROM class_diagnosis_reports WHERE status IN ('queued', 'running')"
+        )
+        orphaned = [row for row in rows if _task_key(row["teaching_id"], row["classroom_id"]) not in _report_tasks]
+        active_tokens = {task.token for task in _report_tasks.values()} | set(_running_tasks.values())
+        interrupted_jobs = [
+            job["id"] for job in fetch_all(
+                "SELECT id FROM ai_jobs WHERE skill_key = ? AND status = 'running'", ("solo_class_diagnosis_intervention",)
+            ) if job["id"] not in active_tokens
+        ]
+        if not orphaned and not interrupted_jobs:
+            return 0
+        now = utc_now()
+        with database() as connection:
+            for row in orphaned:
+                connection.execute(
+                    "UPDATE class_diagnosis_reports SET status = 'failed', error = ?, updated_at = ? WHERE teaching_id = ? AND classroom_id = ? AND status IN ('queued', 'running')",
+                    (_INTERRUPTED, now, row["teaching_id"], row["classroom_id"]),
+                )
+            for job_id in interrupted_jobs:
+                connection.execute("UPDATE ai_jobs SET status = 'failed', error = ?, completed_at = ? WHERE id = ? AND status = 'running'", (_INTERRUPTED, now, job_id))
+        return len(orphaned)
+
+
 def class_report_input(teaching_id: str, classroom_id: str) -> tuple[dict | None, str | None, dict[str, str]]:
     teaching = fetch_one(
-        "SELECT subject, grade, textbook, title, goal, content FROM precision_teachings WHERE id = ?",
+        "SELECT subject, grade, textbook, title, goal, content, education_stage, course_name, major FROM precision_teachings WHERE id = ?",
         (teaching_id,),
     )
     if not teaching:
@@ -47,6 +101,7 @@ def class_report_input(teaching_id: str, classroom_id: str) -> tuple[dict | None
     payload = {
         "schema_version": "1.0",
         "precision_teaching_context": {
+            **higher_education_fields(teaching),
             "subject": teaching["subject"],
             "grade": teaching["grade"],
             "textbook_version_and_chapter": teaching["textbook"] or "未填写教材章节",
@@ -256,6 +311,7 @@ def render_class_markdown(result: dict) -> str:
 
 
 def report_row(teaching_id: str, classroom_id: str) -> dict | None:
+    from .class_teaching_suggestions import latest_suggestions
     row = fetch_one(
         "SELECT * FROM class_diagnosis_reports WHERE teaching_id = ? AND classroom_id = ?",
         (teaching_id, classroom_id),
@@ -275,11 +331,19 @@ def report_row(teaching_id: str, classroom_id: str) -> dict | None:
         "error": row["error"],
         "generated_at": row["generated_at"],
         "updated_at": row["updated_at"],
+        "teaching_suggestions": latest_suggestions(teaching_id, classroom_id, row["source_hash"]),
     }
 
 
 def queue_class_report(
     teaching_id: str, classroom_id: str, background_tasks: BackgroundTasks, *, force: bool = False
+) -> dict | None:
+    with _task_lock:
+        return _queue_class_report_locked(teaching_id, classroom_id, background_tasks, force=force)
+
+
+def _queue_class_report_locked(
+    teaching_id: str, classroom_id: str, background_tasks: BackgroundTasks, *, force: bool
 ) -> dict | None:
     payload, source_hash, _ = class_report_input(teaching_id, classroom_id)
     if not payload:
@@ -287,7 +351,20 @@ def queue_class_report(
     skill = load_skill("solo_class_diagnosis_intervention")
     row = report_row(teaching_id, classroom_id)
     same_source = bool(row and row["source_hash"] == source_hash and row["skill_version"] == skill.version)
-    if not force and row and not same_source and row["generated_at"] and row["result"] and row["skill_version"] == skill.version:
+    key = _task_key(teaching_id, classroom_id)
+    active = _report_tasks.get(key)
+    if active and key not in _running_tasks and monotonic() - active.queued_at >= 120:
+        # Only a callback which never started can expire. Model calls and newer
+        # inputs waiting for an already-running predecessor have no such limit.
+        _report_tasks.pop(key, None)
+        active = None
+    if same_source and active and active.source_hash == source_hash:
+        # Repeated polling, double-clicking and force retries share one live task.
+        return row
+    if row and row["status"] in ("queued", "running") and not active:
+        recover_interrupted_class_reports()
+        row = report_row(teaching_id, classroom_id)
+    if not force and row and row["status"] not in ("queued", "running") and not same_source and row["generated_at"] and row["result"] and row["skill_version"] == skill.version:
         # A teacher may polish published teaching text without changing any student evidence.
         # The old validated report remains the source for intervention design in that case.
         source_job = fetch_one(
@@ -318,12 +395,7 @@ def queue_class_report(
                 if updated.rowcount:
                     return report_row(teaching_id, classroom_id)
     if same_source and not force:
-        if row["status"] != "queued":
-            return row
-        # A queued job can be orphaned by a process restart.
-        queued_at = datetime.fromisoformat(row["updated_at"])
-        if (datetime.now(timezone.utc) - queued_at).total_seconds() < 120:
-            return row
+        return row
     now = utc_now()
     with database() as connection:
         connection.execute(
@@ -339,28 +411,53 @@ def queue_class_report(
             """,
             (teaching_id, classroom_id, skill.key, skill.version, settings.ai_provider, source_hash, now),
         )
-    background_tasks.add_task(generate_class_report, teaching_id, classroom_id, source_hash)
+    task = _ReportTask(f"job-{uuid4().hex}", source_hash, now)
+    _report_tasks[key] = task
+    background_tasks.add_task(generate_class_report, teaching_id, classroom_id, source_hash, task.token)
     return report_row(teaching_id, classroom_id)
 
 
-def generate_class_report(teaching_id: str, classroom_id: str, expected_hash: str) -> None:
-    payload, current_hash, names = class_report_input(teaching_id, classroom_id)
-    if not payload or current_hash != expected_hash:
-        return
-    skill = load_skill("solo_class_diagnosis_intervention")
-    job_id = f"job-{uuid4().hex}"
-    with database() as connection:
-        connection.execute(
-            "UPDATE class_diagnosis_reports SET status = 'running', updated_at = ? WHERE teaching_id = ? AND classroom_id = ? AND source_hash = ?",
-            (utc_now(), teaching_id, classroom_id, expected_hash),
-        )
-        connection.execute(
-            """
-            INSERT INTO ai_jobs (id, skill_key, skill_version, provider, status, input_json, created_at)
-            VALUES (?, ?, ?, ?, 'running', ?, ?)
-            """,
-            (job_id, skill.key, skill.version, settings.ai_provider, json.dumps(payload, ensure_ascii=False), utc_now()),
-        )
+def generate_class_report(
+    teaching_id: str, classroom_id: str, expected_hash: str, generation_token: str | None = None
+) -> None:
+    key = _task_key(teaching_id, classroom_id)
+    with _task_lock:
+        task = _report_tasks.get(key)
+        if not task or task.source_hash != expected_hash or (generation_token and task.token != generation_token):
+            return
+        if key in _running_tasks:
+            # The current worker will pick up the latest queued input when done.
+            return
+        try:
+            payload, current_hash, names = class_report_input(teaching_id, classroom_id)
+            if not payload or current_hash != expected_hash:
+                raise ValueError("诊断输入已变化，请重新生成班级报告。原报告已保留。")
+            skill = load_skill("solo_class_diagnosis_intervention")
+            job_id = task.token
+            with database() as connection:
+                claimed = connection.execute(
+                    "UPDATE class_diagnosis_reports SET status = 'running' WHERE teaching_id = ? AND classroom_id = ? AND source_hash = ? AND updated_at = ? AND status = 'queued'",
+                    (teaching_id, classroom_id, expected_hash, task.stamp),
+                )
+                if not claimed.rowcount:
+                    _report_tasks.pop(key, None)
+                    return
+                connection.execute(
+                    """INSERT INTO ai_jobs (id, skill_key, skill_version, provider, status, input_json, created_at)
+                       VALUES (?, ?, ?, ?, 'running', ?, ?)""",
+                    (job_id, skill.key, skill.version, settings.ai_provider, json.dumps(payload, ensure_ascii=False), utc_now()),
+                )
+            _running_tasks[key] = job_id
+        except Exception as error:
+            try:
+                with database() as connection:
+                    connection.execute(
+                        "UPDATE class_diagnosis_reports SET status = 'failed', error = ?, updated_at = ? WHERE teaching_id = ? AND classroom_id = ? AND source_hash = ? AND updated_at = ? AND status IN ('queued', 'running')",
+                        (str(error)[:1000], utc_now(), teaching_id, classroom_id, expected_hash, task.stamp),
+                    )
+            finally:
+                _report_tasks.pop(key, None)
+            return
     try:
         import jsonschema
 
@@ -384,33 +481,46 @@ def generate_class_report(teaching_id: str, classroom_id: str, expected_hash: st
         output_json = json.dumps(result, ensure_ascii=False)
         completed_at = utc_now()
         latest = class_report_input(teaching_id, classroom_id)[1]
-        with database() as connection:
+        with _task_lock, database() as connection:
             connection.execute(
                 "UPDATE ai_jobs SET status = 'completed', output_json = ?, completed_at = ? WHERE id = ?",
                 (output_json, completed_at, job_id),
             )
-            if latest == expected_hash:
+            if latest == expected_hash and _report_tasks.get(key) is task:
                 connection.execute(
                     """
                     UPDATE class_diagnosis_reports
                     SET status = 'ready', generated_json = ?, report_text = ?,
                         error = NULL, generated_at = ?, updated_at = ?
-                    WHERE teaching_id = ? AND classroom_id = ? AND source_hash = ?
+                    WHERE teaching_id = ? AND classroom_id = ? AND source_hash = ? AND updated_at = ? AND status = 'running'
                     """,
-                    (output_json, report_text, completed_at, completed_at, teaching_id, classroom_id, expected_hash),
+                    (output_json, report_text, completed_at, completed_at, teaching_id, classroom_id, expected_hash, task.stamp),
+                )
+            elif _report_tasks.get(key) is task:
+                connection.execute(
+                    "UPDATE class_diagnosis_reports SET status = 'failed', error = ?, updated_at = ? WHERE teaching_id = ? AND classroom_id = ? AND source_hash = ? AND updated_at = ? AND status = 'running'",
+                    ("诊断输入已变化，请重新生成班级报告。原报告已保留。", completed_at, teaching_id, classroom_id, expected_hash, task.stamp),
                 )
         write_audit("generate", "class_diagnosis_report", f"{teaching_id}:{classroom_id}", {"job_id": job_id})
     except Exception as error:
         completed_at = utc_now()
-        with database() as connection:
+        with _task_lock, database() as connection:
             connection.execute(
                 "UPDATE ai_jobs SET status = 'failed', error = ?, completed_at = ? WHERE id = ?",
                 (str(error), completed_at, job_id),
             )
-            connection.execute(
-                """
-                UPDATE class_diagnosis_reports SET status = 'failed', error = ?, updated_at = ?
-                WHERE teaching_id = ? AND classroom_id = ? AND source_hash = ?
-                """,
-                (str(error)[:1000], completed_at, teaching_id, classroom_id, expected_hash),
-            )
+            if _report_tasks.get(key) is task:
+                connection.execute(
+                    """UPDATE class_diagnosis_reports SET status = 'failed', error = ?, updated_at = ?
+                       WHERE teaching_id = ? AND classroom_id = ? AND source_hash = ? AND updated_at = ? AND status = 'running'""",
+                    (str(error)[:1000], completed_at, teaching_id, classroom_id, expected_hash, task.stamp),
+                )
+    finally:
+        with _task_lock:
+            _running_tasks.pop(key, None)
+            pending = _report_tasks.get(key)
+            if pending is task:
+                _report_tasks.pop(key, None)
+                pending = None
+        if pending:
+            generate_class_report(teaching_id, classroom_id, pending.source_hash, pending.token)

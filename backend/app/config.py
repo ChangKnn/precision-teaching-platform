@@ -35,6 +35,10 @@ class Settings:
     ai_base_url: str = os.getenv("AI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
     ai_api_key: str = _openrouter_api_key if _teacher_provider == "openrouter" else os.getenv("AI_API_KEY", "")
     ai_model: str = os.getenv("AI_MODEL", "")
+    task_vision_provider: str = os.getenv("TASK_VISION_PROVIDER", _teacher_provider)
+    task_vision_model: str = os.getenv("TASK_VISION_MODEL", os.getenv("AI_MODEL", ""))
+    task_vision_base_url: str = os.getenv("TASK_VISION_BASE_URL", "https://openrouter.ai/api/v1" if os.getenv("TASK_VISION_PROVIDER", _teacher_provider) == "openrouter" else os.getenv("AI_BASE_URL", "https://api.openai.com/v1")).rstrip("/")
+    task_vision_api_key: str = os.getenv("TASK_VISION_API_KEY", _openrouter_api_key if os.getenv("TASK_VISION_PROVIDER", _teacher_provider) == "openrouter" else os.getenv("AI_API_KEY", ""))
     student_ai_provider: str = _student_provider
     student_ai_base_url: str = os.getenv("STUDENT_AI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
     student_ai_api_key: str = _openrouter_api_key if _student_provider == "openrouter" else os.getenv("STUDENT_AI_API_KEY", "")

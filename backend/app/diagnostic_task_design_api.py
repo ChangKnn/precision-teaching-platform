@@ -5,14 +5,33 @@ import json
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from .config import settings
 from .database import database, fetch_one, utc_now, write_audit
 from .services.ai import run_diagnostic_task_design
 from .services.skills import load_skill
+from .services.education_context import higher_education_fields
 
 
 router = APIRouter(prefix="/api/precision-teachings")
+
+
+class TaskDesignPreferences(BaseModel):
+    teacher_ideas: str = Field(default='', max_length=4000)
+
+
+@router.put('/{teaching_id}/diagnostic-task-preferences')
+def save_preferences(teaching_id: str, payload: TaskDesignPreferences) -> dict:
+    if not fetch_one('SELECT id FROM precision_teachings WHERE id = ?', (teaching_id,)):
+        raise HTTPException(status_code=404, detail='精准教学不存在')
+    text = payload.teacher_ideas.strip()
+    with database() as connection:
+        connection.execute('''INSERT INTO diagnostic_task_preferences (teaching_id,teacher_ideas,updated_at)
+            VALUES (?,?,?) ON CONFLICT(teaching_id) DO UPDATE SET
+            teacher_ideas=excluded.teacher_ideas,updated_at=excluded.updated_at''', (teaching_id,text,utc_now()))
+    write_audit('save', 'diagnostic_task_preferences', teaching_id, {'characters':len(text)})
+    return {'teacher_ideas':text}
 
 
 def _source(teaching_id: str) -> tuple[dict, str, str]:
@@ -31,6 +50,7 @@ def _source(teaching_id: str) -> tuple[dict, str, str]:
     contents = [line.strip() for line in teaching["content"].splitlines() if line.strip()]
     payload = {
         "precision_teaching_context": {
+            **higher_education_fields(teaching),
             "subject": teaching["subject"] or "未提供",
             "grade": teaching["grade"] or "未提供",
             "textbook_version_and_chapter": teaching["textbook"] or "未提供",
@@ -39,6 +59,10 @@ def _source(teaching_id: str) -> tuple[dict, str, str]:
             "precision_teaching_content": contents,
         }
     }
+    preferences = fetch_one('SELECT teacher_ideas FROM diagnostic_task_preferences WHERE teaching_id = ?', (teaching_id,)) or {}
+    ideas = preferences.get('teacher_ideas', '').strip()
+    if ideas:
+        payload['teacher_ideas'] = ideas
     source_json = json.dumps(payload, ensure_ascii=False, sort_keys=True)
     source_hash = hashlib.sha256(f"{skill.version}\n{source_json}".encode("utf-8")).hexdigest()
     return payload, source_hash, skill.version
@@ -46,13 +70,14 @@ def _source(teaching_id: str) -> tuple[dict, str, str]:
 
 @router.get("/{teaching_id}/diagnostic-task-recommendations")
 def get_recommendations(teaching_id: str) -> dict:
-    _, source_hash, version = _source(teaching_id)
+    payload, source_hash, version = _source(teaching_id)
+    source = {'teacher_ideas':payload.get('teacher_ideas',''), 'input_hash':source_hash}
     row = fetch_one("SELECT * FROM diagnostic_task_recommendations WHERE teaching_id = ?", (teaching_id,))
     if not row:
-        return {"status": "not_generated", "result": None}
+        return {"status": "not_generated", "result": None, **source}
     if row["input_hash"] != source_hash or row["skill_version"] != version:
-        return {"status": "stale", "result": None}
-    return {"status": "ready", "result": json.loads(row["generated_json"]), "generated_at": row["generated_at"]}
+        return {"status": "stale", "result": None, **source}
+    return {"status": "ready", "result": json.loads(row["generated_json"]), "generated_at": row["generated_at"], **source}
 
 
 @router.post("/{teaching_id}/diagnostic-task-recommendations/generate")
@@ -77,19 +102,27 @@ def generate_recommendations(teaching_id: str) -> dict:
     now = utc_now()
     result_json = json.dumps(result, ensure_ascii=False)
     with database() as connection:
-        connection.execute(
-            "UPDATE ai_jobs SET status = 'completed', output_json = ?, completed_at = ? WHERE id = ?",
-            (result_json, now, job_id),
-        )
-        connection.execute(
-            """INSERT INTO diagnostic_task_recommendations
-               (teaching_id, skill_version, provider, input_hash, generated_json, generated_at)
-               VALUES (?, ?, ?, ?, ?, ?)
-               ON CONFLICT(teaching_id) DO UPDATE SET
-                 skill_version = excluded.skill_version, provider = excluded.provider,
-                 input_hash = excluded.input_hash, generated_json = excluded.generated_json,
-                 generated_at = excluded.generated_at""",
-            (teaching_id, skill.version, settings.ai_provider, source_hash, result_json, now),
-        )
+        connection.execute('BEGIN IMMEDIATE')
+        _, latest_hash, _ = _source(teaching_id)
+        stale = latest_hash != source_hash
+        if stale:
+            connection.execute("UPDATE ai_jobs SET status='failed',error=?,completed_at=? WHERE id=?", ('生成期间教学信息或设计要求已变化，结果未应用',now,job_id))
+        else:
+            connection.execute(
+                "UPDATE ai_jobs SET status = 'completed', output_json = ?, completed_at = ? WHERE id = ?",
+                (result_json, now, job_id),
+            )
+            connection.execute(
+                """INSERT INTO diagnostic_task_recommendations
+                   (teaching_id, skill_version, provider, input_hash, generated_json, generated_at)
+                   VALUES (?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(teaching_id) DO UPDATE SET
+                     skill_version = excluded.skill_version, provider = excluded.provider,
+                     input_hash = excluded.input_hash, generated_json = excluded.generated_json,
+                     generated_at = excluded.generated_at""",
+                (teaching_id, skill.version, settings.ai_provider, source_hash, result_json, now),
+            )
+    if stale:
+        raise HTTPException(status_code=409, detail='生成期间教学信息或设计要求已变化，请重新生成；旧结果未应用')
     write_audit("generate", "diagnostic_task_recommendations", teaching_id, {"skill_version": skill.version})
-    return {"status": "ready", "result": result, "generated_at": now}
+    return {"status": "ready", "result": result, "generated_at": now, 'teacher_ideas':payload.get('teacher_ideas',''), 'input_hash':source_hash}

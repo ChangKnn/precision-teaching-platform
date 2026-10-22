@@ -76,7 +76,9 @@ def main() -> None:
     }
     for label, context in contexts.items():
         require(set(context["required"]) == expected_fields, f"{label} required context fields differ.")
-        require(set(context["properties"]) == expected_fields, f"{label} context properties differ.")
+        optional_fields = {'education_stage', 'course_name', 'major'}
+        require(expected_fields <= set(context["properties"]) <= expected_fields | optional_fields,
+                f"{label} context properties differ.")
     print(f"PASS shared contract: {len(contexts)} installed Skills use the same precision_teaching_context fields")
 
     require("precision_teaching_context" in input_schema["required"], "Skill 1 precision_teaching_context must be required.")
@@ -91,7 +93,7 @@ def main() -> None:
     skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
     require("`precision_teaching_context`：必需" in skill_text, "SKILL.md must declare precision_teaching_context required.")
     require("`teacher_context`：可选" not in skill_text, "SKILL.md still declares the legacy input.")
-    require("运行时不要求教师提供 `general_solo_rubric`" in skill_text, "SKILL.md must declare the rubric internal.")
+    require("references/general-solo-rubric.md" in skill_text, "SKILL.md must reference the internal rubric.")
     print("PASS instructions: required inputs, internal rubric, and legacy-name removal")
 
 

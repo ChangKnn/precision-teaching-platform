@@ -19,6 +19,7 @@
       "required": ["diagnostic_task_source", "general_rubric_source", "general_rubric_anchors"],
       "properties": {
         "diagnostic_task_source": {"type": ["string", "null"]},
+        "teacher_design_intent_used": {"type": "boolean"},
         "general_rubric_source": {"type": ["string", "null"]},
         "general_rubric_anchors": {
           "type": "array",
@@ -31,7 +32,7 @@
           "type": "array",
           "items": {"type": "string"}
         },
-        "student_responses_role": {"enum": ["not_provided", "empirical_only"]},
+        "student_responses_role": {"description": "Legacy compatibility marker; rubric building does not use student responses.", "enum": ["not_provided"]},
         "source_uncertainties": {"type": "array", "items": {"type": "string"}}
       }
     },

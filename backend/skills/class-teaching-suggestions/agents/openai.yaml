@@ -1,0 +1,4 @@
+interface:
+  display_name: "班级简明教学建议"
+  short_description: "结合教师主题目标和论文进阶策略，提供发展目标、内容、活动与支架思路"
+  default_prompt: "使用 $class-teaching-suggestions，依据本班已有诊断和精准教学主题目标，为实际存在的层级提供简明的发展目标、内容、活动和支架。"

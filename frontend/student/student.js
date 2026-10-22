@@ -11,6 +11,35 @@ const state = {
   timerId: null,
   reportPollId: null
 };
+let taskImageUrls = [];
+let imageLoadVersion = 0;
+
+async function renderTaskImages(task) {
+  const version = ++imageLoadVersion;
+  taskImageUrls.forEach(url => URL.revokeObjectURL(url));
+  taskImageUrls = [];
+  const container = document.getElementById('studentTaskImages');
+  container.replaceChildren();
+  for (const [index, image] of (task.task_images || []).entries()) {
+    try {
+      const response = await fetch(image.file_url, { headers: { 'X-Student-Token': state.token } });
+      if (!response.ok) throw new Error('题图加载失败');
+      const blob = await response.blob();
+      if (version !== imageLoadVersion) return;
+      const url = URL.createObjectURL(blob);
+      taskImageUrls.push(url);
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = `本次任务题图 ${index + 1}`;
+      container.append(img);
+    } catch (_) {
+      if (version !== imageLoadVersion) return;
+      const warning = document.createElement('p');
+      warning.textContent = `题图 ${index + 1} 加载失败，请刷新页面重试。`;
+      container.append(warning);
+    }
+  }
+}
 
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
@@ -145,6 +174,7 @@ async function loadLoginOptions() {
     $("#loginAvailability").textContent = "学校与班级加载失败，请刷新页面重试。";
     $("#loginAvailability").hidden = false;
     $(".login-button", loginForm).disabled = true;
+    showToast('学校与班级加载失败','请刷新页面重试。');
   }
 }
 
@@ -182,6 +212,7 @@ loginForm.addEventListener("submit", async (event) => {
   } catch (error) {
     $("#loginError").textContent = error.message;
     $("#loginError").hidden = false;
+    showToast('登录失败',error.message);
   } finally {
     loginButton.disabled = false;
     loginButton.innerHTML = '进入学习空间<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>';
@@ -191,8 +222,6 @@ loginForm.addEventListener("submit", async (event) => {
 async function enterApp(payload) {
   state.student = payload.student;
   state.tasks = payload.tasks || [];
-  loginView.hidden = true;
-  studentApp.hidden = false;
   $("#studentNameLabel").textContent = state.student.name;
   $("#studentClassLabel").textContent = state.student.class_name;
   $("#studentAvatar").textContent = state.student.name.slice(-1);
@@ -205,6 +234,8 @@ async function enterApp(payload) {
   } else {
     renderNoTask();
   }
+  loginView.hidden = true;
+  studentApp.hidden = false;
 }
 
 function populateSubjects() {
@@ -287,9 +318,10 @@ function renderTask() {
   $("#taskTitleHeader").textContent = task.title;
   $("#teacherLabel").textContent = `${task.teacher_name}发布`;
   $("#taskCardTitle").textContent = task.title;
-  $("#taskDescription").textContent = task.task_text;
+  TaskMath.render($("#taskDescription"), task.task_text);
+  renderTaskImages(task);
   $("#durationText").textContent = task.duration_minutes;
-  $("#taskRequirements").innerHTML = "<li>与 AI 对话，完整说明你的想法和理由</li><li>最终作答文本可选，留空也能提交</li>";
+  $("#taskRequirements").innerHTML = "<li>按上方任务说明完成活动与 AI 对话</li><li>成果类型和提交要求以老师的任务说明为准</li>";
   const submitted = state.session.status === "submitted";
   const reportReady = state.session.report?.status === "pushed";
   $("#submitButtonLabel").textContent = submitted ? "已提交" : "提交给老师";
@@ -302,6 +334,9 @@ function renderTask() {
 }
 
 function renderNoTask() {
+  window.clearInterval(state.timerId);
+  state.timerId = null;
+  $("#elapsedTime").textContent = "尚未开始";
   $("#taskCard").hidden = true;
   messages.innerHTML = '<article class="task-card"><h1>暂无学习任务</h1><p>老师发布并分配诊断任务后，会显示在这里。</p></article>';
   $("#taskTitleHeader").textContent = "暂无已发布任务";
@@ -338,6 +373,7 @@ function renderMessages() {
   });
   if (report && !reportInserted) fragments.push(reportCard());
   messages.innerHTML = fragments.join("");
+  TaskMath.typeset(messages);
   if (state.typing) {
     messages.insertAdjacentHTML("beforeend", '<article class="message ai"><span class="message-avatar">AI</span><div class="message-body"><div class="message-meta"><span>思阶 AI</span><span>·</span><time>正在回应</time></div><span class="typing"><i></i><i></i><i></i></span></div></article>');
   }
@@ -353,6 +389,7 @@ function openReport() {
   $("#reportTaskTitle").textContent = state.activeTask?.title || "本次诊断任务";
   $("#reportPushedAt").textContent = `教师于 ${new Date(report.pushed_at).toLocaleString("zh-CN")} 推送`;
   $("#studentReportText").innerHTML = renderReportMarkdown(report.report_text);
+  TaskMath.typeset($("#studentReportText"));
   $("#reportDialog").showModal();
 }
 
@@ -385,7 +422,6 @@ function startReportPolling() {
       renderTask();
       renderHistory();
       renderMessages();
-      showToast("收到教师反馈", "点击对话中的提示卡片可以查看报告");
     } catch (_) {
       // 网络短暂波动时继续轮询，不打断学生当前页面。
     }
@@ -435,17 +471,28 @@ messageForm.addEventListener("submit", async (event) => {
   }
 });
 
+function sessionElapsedSeconds(session, now = Date.now()) {
+  const started = Date.parse(session?.started_at || "");
+  const ended = session?.status === "submitted" ? Date.parse(session.submitted_at || "") : now;
+  if (!Number.isFinite(started) || !Number.isFinite(ended)) return null;
+  return Math.max(0, Math.floor((ended - started) / 1000));
+}
+
 function startTimer() {
   window.clearInterval(state.timerId);
-  const started = new Date(state.session.started_at).getTime();
+  state.timerId = null;
   const paint = () => {
-    const seconds = Math.max(0, Math.floor((Date.now() - started) / 1000));
+    const seconds = sessionElapsedSeconds(state.session);
+    if (seconds === null) {
+      $("#elapsedTime").textContent = "用时待确认";
+      return;
+    }
     const mins = String(Math.floor(seconds / 60)).padStart(2, "0");
     const secs = String(seconds % 60).padStart(2, "0");
     $("#elapsedTime").textContent = `已用 ${mins}:${secs}`;
   };
   paint();
-  state.timerId = window.setInterval(paint, 1000);
+  if (state.session?.status === "in_progress") state.timerId = window.setInterval(paint, 1000);
 }
 
 function openSubmit() {
@@ -489,12 +536,13 @@ $("#confirmSubmitButton").addEventListener("click", async () => {
       : task);
     renderTask();
     renderHistory();
+    startTimer();
     startReportPolling();
     submitDialog.close();
-    showToast("提交成功", submittedText ? "老师已收到你的对话记录和文字成果" : "老师已收到你的对话记录");
   } catch (error) {
     $("#submitError").textContent = error.message;
     $("#submitError").hidden = false;
+    showToast('提交失败',error.message);
   } finally {
     setBusy(button, false, "正在提交…", "确认提交给老师");
   }
@@ -510,11 +558,7 @@ $("#openSidebar").addEventListener("click", openSidebar);
 $("#closeSidebar").addEventListener("click", closeSidebar);
 
 function showToast(title, detail) {
-  const toast = $("#toast");
-  $("strong", toast).textContent = title;
-  $("small", toast).textContent = detail;
-  toast.hidden = false;
-  window.setTimeout(() => { toast.hidden = true; }, 3400);
+  window.PlatformNotifications.show(title, detail, {kind:'error'});
 }
 
 function clearLogin() {

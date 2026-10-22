@@ -149,6 +149,37 @@ def initialize_database() -> None:
         updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS diagnosis_task_materials (
+        teaching_id TEXT PRIMARY KEY REFERENCES precision_teachings(id) ON DELETE CASCADE,
+        geometry_notes TEXT NOT NULL DEFAULT '',
+        confirmed_hash TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS diagnosis_image_readings (
+        teaching_id TEXT PRIMARY KEY REFERENCES precision_teachings(id) ON DELETE CASCADE,
+        image_hash TEXT NOT NULL,
+        job_token TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL,
+        task_text TEXT NOT NULL DEFAULT '',
+        diagram_notes TEXT NOT NULL DEFAULT '',
+        uncertainties_json TEXT NOT NULL DEFAULT '[]',
+        error TEXT NOT NULL DEFAULT '',
+        model TEXT NOT NULL DEFAULT '',
+        reviewed INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS diagnosis_task_images (
+        id TEXT PRIMARY KEY,
+        teaching_id TEXT NOT NULL REFERENCES precision_teachings(id) ON DELETE CASCADE,
+        stored_filename TEXT NOT NULL,
+        content_type TEXT NOT NULL,
+        sha256 TEXT NOT NULL,
+        size_bytes INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS diagnostic_task_recommendations (
         teaching_id TEXT PRIMARY KEY REFERENCES precision_teachings(id) ON DELETE CASCADE,
         skill_version TEXT NOT NULL,
@@ -156,6 +187,12 @@ def initialize_database() -> None:
         input_hash TEXT NOT NULL,
         generated_json TEXT NOT NULL,
         generated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS diagnostic_task_preferences (
+        teaching_id TEXT PRIMARY KEY REFERENCES precision_teachings(id) ON DELETE CASCADE,
+        teacher_ideas TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS diagnosis_rubrics (
@@ -451,11 +488,17 @@ def initialize_database() -> None:
     now = utc_now()
     with database() as connection:
         connection.executescript(schema)
+        diagnosis_columns = {row['name'] for row in connection.execute('PRAGMA table_info(diagnosis_tasks)').fetchall()}
+        if 'design_intent' not in diagnosis_columns:
+            connection.execute("ALTER TABLE diagnosis_tasks ADD COLUMN design_intent TEXT NOT NULL DEFAULT ''")
         teaching_columns = {
             row["name"] for row in connection.execute("PRAGMA table_info(precision_teachings)").fetchall()
         }
         if "content" not in teaching_columns:
             connection.execute("ALTER TABLE precision_teachings ADD COLUMN content TEXT NOT NULL DEFAULT ''")
+        for column in ('education_stage', 'course_name', 'major'):
+            if column not in teaching_columns:
+                connection.execute(f"ALTER TABLE precision_teachings ADD COLUMN {column} TEXT NOT NULL DEFAULT ''")
         if "workspace_id" not in teaching_columns:
             connection.execute("ALTER TABLE precision_teachings ADD COLUMN workspace_id TEXT REFERENCES teacher_workspaces(id)")
         workspace_columns = {row["name"] for row in connection.execute("PRAGMA table_info(teacher_workspaces)").fetchall()}

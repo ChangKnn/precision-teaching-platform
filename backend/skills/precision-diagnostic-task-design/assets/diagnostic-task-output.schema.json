@@ -23,6 +23,7 @@
         "externalization_focus",
         "interaction_mode",
         "task_content",
+        "design_intent",
         "ai_role",
         "dialogue_rules",
         "estimated_duration_minutes"
@@ -34,6 +35,7 @@
         "externalization_focus": {"type": "string", "minLength": 1},
         "interaction_mode": {"type": "string", "minLength": 1},
         "task_content": {"type": "string", "minLength": 20},
+        "design_intent": {"type": "string", "minLength": 1, "maxLength": 4000},
         "ai_role": {"type": "string", "minLength": 1},
         "dialogue_rules": {"$ref": "#/$defs/dialogue_rules"},
         "estimated_duration_minutes": {"type": "integer", "minimum": 10, "maximum": 30}
@@ -53,7 +55,7 @@
     }
   },
   "properties": {
-    "schema_version": {"const": "2.0"},
+    "schema_version": {"const": "2.1"},
     "diagnostic_task_design": {
       "type": "object",
       "required": ["comparison", "recommended_candidate_id", "recommendation_rationale", "candidates"],

@@ -27,5 +27,10 @@ jobs:
           node-version: '22'
       - run: node --check frontend/app.js
       - run: node --check frontend/api-client.js
+      - run: node --check frontend/task-input.js
+      - run: node --check frontend/task-editor.js
+      - run: node --check frontend/math-text.js
+      - run: node --check frontend/notifications.js
       - run: node --check frontend/student/student.js
       - run: node --check frontend/admin/admin.js
+      - run: node --test frontend/tests/runtime-regression.test.cjs

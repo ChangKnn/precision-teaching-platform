@@ -17,6 +17,8 @@ from .services.ai import run_intervention_plan_integration
 from .services.report_pdf import render_report_pdf
 from .services.report_docx import render_report_docx
 from .services.skills import load_skill
+from .services.education_context import higher_education_fields
+from .task_materials import canonical_task_text
 
 
 router = APIRouter(prefix="/api")
@@ -117,6 +119,7 @@ def _source(teaching_id: str, classroom_id: str) -> tuple[dict, str, str]:
     payload = {
         "schema_version": "1.2",
         "precision_teaching_context": {
+            **higher_education_fields(teaching),
             "subject": teaching["subject"],
             "grade": teaching["grade"],
             "textbook_version_and_chapter": teaching["textbook"] or "未填写教材章节",
@@ -128,7 +131,7 @@ def _source(teaching_id: str, classroom_id: str) -> tuple[dict, str, str]:
         "diagnostic_task_context": {
             "task_id": teaching_id,
             "task_title": None,
-            "task_text": task["task_text"],
+            "task_text": canonical_task_text(teaching_id),
             "task_materials_summary": None,
             "response_mode": "AI 对话与最终文字成果",
             "task_requirements": "依据诊断任务原文与 AI 对话，并提交最终文字成果。",

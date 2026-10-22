@@ -11,6 +11,7 @@ from .database import database, fetch_all, fetch_one, utc_now, write_audit
 from .schemas import TeacherAnalysisStandardUpdate
 from .services.ai import run_teacher_custom_analysis
 from .services.skills import load_skill
+from .services.education_context import higher_education_fields
 
 
 router = APIRouter(prefix="/api")
@@ -59,13 +60,15 @@ def build_custom_input(teaching_id: str, mode: str, subject_id: str) -> tuple[di
     if not standard["criteria"] or not standard[f"{mode}_enabled"]:
         raise HTTPException(status_code=409, detail="请先保存并启用该范围的教师自定义分析标准")
     teaching = fetch_one(
-        """SELECT p.subject, p.grade, p.title, p.goal, d.task_text
+        """SELECT p.subject, p.grade, p.title, p.goal, p.education_stage, p.course_name, p.major, d.task_text
            FROM precision_teachings p JOIN diagnosis_tasks d ON d.teaching_id = p.id
            WHERE p.id = ? AND d.status = 'published'""",
         (teaching_id,),
     )
     if not teaching:
         raise HTTPException(status_code=409, detail="请先发布诊断任务")
+    from .task_materials import canonical_task_text
+    teaching["task_text"] = canonical_task_text(teaching_id)
     scope_clause = "AND sts.id = ?" if mode == "individual" else "AND s.classroom_id = ?"
     rows = fetch_all(
         f"""SELECT sts.id AS session_id, sts.submitted_text, s.id AS student_id,
@@ -103,7 +106,7 @@ def build_custom_input(teaching_id: str, mode: str, subject_id: str) -> tuple[di
     payload = {
         "mode": mode,
         "teacher_criteria": standard["criteria"],
-        "teaching_context": {key: teaching[key] for key in ("subject", "grade", "title", "goal", "task_text")},
+        "teaching_context": {**{key: teaching[key] for key in ("subject", "grade", "title", "goal", "task_text")}, **higher_education_fields(teaching)},
         "students": students,
     }
     serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True)

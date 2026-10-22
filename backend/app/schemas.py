@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class TeacherProfileUpdate(BaseModel):
@@ -19,8 +19,19 @@ class PrecisionTeachingDraft(BaseModel):
     rationale: str = Field(default="", max_length=3000)
     subject: str = Field(default="数学", max_length=50)
     grade: str = Field(default="高一", max_length=50)
+    education_stage: Literal["", "小学", "初中", "高中", "高等教育"] = ""
+    course_name: str = Field(default="", max_length=120)
+    major: str = Field(default="", max_length=120)
     textbook: str = Field(default="", max_length=200)
     estimated_periods: int = Field(default=1, ge=1, le=100)
+
+    @model_validator(mode='after')
+    def check_stage_grade(self):
+        if self.education_stage == '高等教育' and self.grade.startswith(('小学','初一','初二','初三','高一','高二','高三')):
+            raise ValueError('选择高等教育后，请填写大学年级或培养阶段')
+        if self.education_stage in {'小学','初中','高中'} and self.grade.startswith(('大一','大二','大三','大四','大五','本科','大学','硕士','博士','研究生')):
+            raise ValueError('大学年级请使用高等教育学段')
+        return self
 
 
 class PrecisionTeachingCreate(PrecisionTeachingDraft):
@@ -49,6 +60,7 @@ class ClassroomUpdate(BaseModel):
 
 
 class DiagnosisTaskUpdate(BaseModel):
+    design_intent: str | None = Field(default=None, max_length=4000)
     diagnosis_type: Literal["pre", "during", "post"] = "pre"
     goal: str = Field(default="", max_length=3000)
     task_text: str = Field(default="", max_length=8000)

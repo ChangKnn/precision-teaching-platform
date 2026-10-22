@@ -18,14 +18,14 @@ diagnostic_task:
   requirements:
     - 作答要求或限制
 
-student_responses:
-  - 可选的真实学生作答或生机会话片段
+diagnostic_task_design_intent: 必填，为什么选择这个任务、希望观察哪些思考过程；不增加学生未被告知的要求
+
 ```
 
 ## 使用说明
 
-- `precision_teaching_context` 和 `diagnostic_task` 为必需输入；
-- `student_responses` 为可选经验材料，只用于补充真实表达与边界案例；
+- `precision_teaching_context`、`diagnostic_task` 和 `diagnostic_task_design_intent` 为必需输入；
+- 量规构建不读取或考虑学生回答；
 - 通用 SOLO 量规由 Skill 内置知识库提供，不作为运行时输入；
 - 教学情境不能替代任务原文，也不能改变内置通用 SOLO 量规；
 - 如果教学目标没有被诊断任务实际诱发，应报告任务缺口，不得把目标直接写成量规判据。

@@ -29,6 +29,8 @@ from .schemas import (
 )
 from .services.ai import run_skill, validate_task_rubric
 from .services.skills import list_skills, load_skill, sync_skills
+from .services.education_context import higher_education_fields
+from .services.manual_rubric import teacher_rubric, require_complete_levels
 from .student_api import router as student_router
 from .goal_path_api import router as goal_path_router
 from .activity_formative_api import router as activity_formative_router
@@ -37,11 +39,15 @@ from .diagnostic_task_design_api import router as diagnostic_task_design_router
 from .custom_analysis_api import router as custom_analysis_router, standard_for
 from .teacher_auth import current_teacher, current_account, router as teacher_auth_router, admin_auth_router
 from .admin_api import router as admin_router
+from .task_materials import router as task_materials_router, material_state, canonical_task_text, require_confirmed_materials, assert_material_editable
+from .services.class_teaching_suggestions import router as teaching_suggestions_router
+from .services.class_report import recover_interrupted_class_reports
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     initialize_database()
+    recover_interrupted_class_reports()
     settings.upload_path.mkdir(parents=True, exist_ok=True)
     sync_skills()
     yield
@@ -57,6 +63,8 @@ app.include_router(custom_analysis_router)
 app.include_router(teacher_auth_router)
 app.include_router(admin_auth_router)
 app.include_router(admin_router)
+app.include_router(task_materials_router)
+app.include_router(teaching_suggestions_router)
 
 
 @app.middleware("http")
@@ -213,25 +221,29 @@ def serialized_rubric(teaching_id: str) -> dict | None:
 def refresh_feedback_counts(teaching_id: str) -> None:
     result = fetch_one(
         """
-        SELECT COUNT(*) AS submitted_count
+        SELECT COUNT(*) AS submitted_count,
+               COALESCE(SUM(CASE WHEN r.status IN ('confirmed', 'pushed')
+                   AND r.provider != 'mock' THEN 1 ELSE 0 END), 0) AS reviewed_count
         FROM student_task_sessions sts
         JOIN students s ON s.id = sts.student_id
         JOIN diagnosis_assignments da ON da.teaching_id = sts.teaching_id
           AND da.classroom_id = s.classroom_id AND da.is_published = 1
+        LEFT JOIN student_diagnosis_reports r ON r.session_id = sts.id
         WHERE sts.teaching_id = ? AND sts.status = 'submitted'
         """,
         (teaching_id,),
     )
     count = int(result["submitted_count"] if result else 0)
+    reviewed = int(result["reviewed_count"] if result else 0)
     with database() as connection:
         connection.execute(
             """
             UPDATE feedback_summaries
             SET has_data = ?, total_students = ?,
-                confirmed_count = MIN(confirmed_count, ?), updated_at = ?
-            WHERE teaching_id = ? AND status != 'confirmed'
+                confirmed_count = ?, updated_at = ?
+            WHERE teaching_id = ?
             """,
-            (1 if count else 0, count, count, utc_now(), teaching_id),
+            (1 if count else 0, count, reviewed, utc_now(), teaching_id),
         )
 
 
@@ -255,6 +267,8 @@ def workspace_for(teaching_id: str) -> dict:
         "teaching": teaching,
         "diagnosis": diagnosis,
         "rubric": serialized_rubric(teaching_id),
+        "task_materials": material_state(teaching_id),
+        "task_design_preferences": fetch_one('SELECT teacher_ideas, updated_at FROM diagnostic_task_preferences WHERE teaching_id = ?', (teaching_id,)) or {'teacher_ideas': ''},
         "custom_analysis_standard": standard_for(teaching_id),
         "feedback": feedback,
         "intervention": intervention,
@@ -456,8 +470,8 @@ def create_precision_teaching(payload: PrecisionTeachingCreate, request: Request
             """
             INSERT INTO precision_teachings
             (id, workspace_id, title, goal, content, rationale, subject, grade, textbook,
-             estimated_periods, status, current_stage, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', 'diagnosis', ?, ?)
+             estimated_periods, education_stage, course_name, major, status, current_stage, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', 'diagnosis', ?, ?)
             """,
             (
                 teaching_id,
@@ -470,6 +484,9 @@ def create_precision_teaching(payload: PrecisionTeachingCreate, request: Request
                 payload.grade,
                 payload.textbook,
                 payload.estimated_periods,
+                payload.education_stage,
+                payload.course_name.strip(),
+                payload.major.strip(),
                 now,
                 now,
             ),
@@ -492,6 +509,9 @@ def update_precision_teaching(teaching_id: str, payload: PrecisionTeachingUpdate
     if not existing:
         raise HTTPException(status_code=404, detail="精准教学不存在")
     data = payload.model_dump(exclude={"edit_intent"})
+    for field in ('education_stage','course_name','major'):
+        if field not in payload.model_fields_set:
+            data[field] = existing[field]
     changed = any(existing[field] != value for field, value in data.items())
     if not changed:
         return next(item for item in ordered_teachings(workspace_id) if item["id"] == teaching_id)
@@ -505,10 +525,10 @@ def update_precision_teaching(teaching_id: str, payload: PrecisionTeachingUpdate
         connection.execute(
             """UPDATE precision_teachings
                SET title = ?, goal = ?, content = ?, rationale = ?, subject = ?, grade = ?,
-                   textbook = ?, estimated_periods = ?, updated_at = ?
+                   textbook = ?, estimated_periods = ?, education_stage = ?, course_name = ?, major = ?, updated_at = ?
                WHERE id = ? AND workspace_id = ?""",
             (data["title"], data["goal"], data["content"], data["rationale"], data["subject"],
-             data["grade"], data["textbook"], data["estimated_periods"], now, teaching_id, workspace_id),
+             data["grade"], data["textbook"], data["estimated_periods"], data['education_stage'], data['course_name'], data['major'], now, teaching_id, workspace_id),
         )
         if existing["status"] == "draft" and data["goal"] != existing["goal"]:
             connection.execute(
@@ -540,10 +560,15 @@ def update_diagnosis(teaching_id: str, payload: DiagnosisTaskUpdate) -> dict:
             raise HTTPException(status_code=422, detail="发布班级必须来自当前教师的班级列表")
     if payload.status == "published" and (not payload.goal.strip() or not payload.task_text.strip()):
         raise HTTPException(status_code=422, detail="发布前请填写诊断目标和诊断任务")
-    previous = fetch_one("SELECT goal, task_text FROM diagnosis_tasks WHERE teaching_id = ?", (teaching_id,))
+    if payload.status == "published":
+        require_confirmed_materials(teaching_id)
+    previous = fetch_one("SELECT goal, task_text, design_intent FROM diagnosis_tasks WHERE teaching_id = ?", (teaching_id,))
+    design_intent = payload.design_intent if payload.design_intent is not None else (previous or {}).get('design_intent', '')
     rubric_inputs_changed = bool(
-        previous and (previous["goal"] != payload.goal or previous["task_text"] != payload.task_text)
+        previous and (previous["goal"] != payload.goal or previous["task_text"] != payload.task_text or previous['design_intent'] != design_intent)
     )
+    if previous and (previous["task_text"] != payload.task_text or previous['design_intent'] != design_intent):
+        assert_material_editable(teaching_id)
     if payload.status == "published" and rubric_inputs_changed:
         raise HTTPException(status_code=409, detail="诊断目标或任务已变化，请返回分析标准步骤重新生成并确认量规")
     if payload.status == "published":
@@ -556,7 +581,7 @@ def update_diagnosis(teaching_id: str, payload: DiagnosisTaskUpdate) -> dict:
             """
             UPDATE diagnosis_tasks
             SET diagnosis_type = ?, goal = ?, task_text = ?, ai_role = ?,
-                duration_minutes = ?, status = ?, updated_at = ?
+                duration_minutes = ?, status = ?, updated_at = ?, design_intent = ?
             WHERE teaching_id = ?
             """,
             (
@@ -567,6 +592,7 @@ def update_diagnosis(teaching_id: str, payload: DiagnosisTaskUpdate) -> dict:
                 payload.duration_minutes,
                 payload.status,
                 now,
+                design_intent,
                 teaching_id,
             ),
         )
@@ -607,7 +633,7 @@ def update_diagnosis(teaching_id: str, payload: DiagnosisTaskUpdate) -> dict:
     return workspace_for(teaching_id)
 
 
-def build_rubric_input(teaching_id: str) -> dict:
+def build_rubric_input(teaching_id: str, *, require_design_intent: bool = True) -> dict:
     teaching = fetch_one("SELECT * FROM precision_teachings WHERE id = ?", (teaching_id,))
     diagnosis = fetch_one("SELECT * FROM diagnosis_tasks WHERE teaching_id = ?", (teaching_id,))
     if not teaching or not diagnosis:
@@ -622,11 +648,15 @@ def build_rubric_input(teaching_id: str) -> dict:
     ):
         if not str(value).strip():
             missing.append(label)
+    if require_design_intent and not diagnosis.get('design_intent', '').strip():
+        missing.append("诊断任务设计意图")
     if missing:
         raise HTTPException(status_code=422, detail=f"生成量规前请补充：{'、'.join(missing)}")
     contents = [item.strip() for item in str(teaching["content"]).splitlines() if item.strip()]
+    materials = material_state(teaching_id)
     return {
         "precision_teaching_context": {
+            **higher_education_fields(teaching),
             "subject": teaching["subject"],
             "grade": teaching["grade"],
             "textbook_version_and_chapter": teaching["textbook"],
@@ -635,19 +665,22 @@ def build_rubric_input(teaching_id: str) -> dict:
             "precision_teaching_content": contents or [teaching["content"]],
         },
         "diagnostic_task": {
-            "task_text": diagnosis["task_text"],
-            "requirements": ["与 AI 对话，完整说明自己的想法和理由", "提交完整的文字成果"],
+            "task_text": canonical_task_text(teaching_id),
+            "materials": [f"图片附件 {i+1}：{image['id']}；版本 {materials['source_hash']}；准备状态 {'ready' if materials['confirmed'] else materials['recognition']['status']}" for i, image in enumerate(materials['images'])],
+            "requirements": ["以任务原文中的对话要求、成果要求和限制为准，不额外增加隐藏要求"],
         },
+        "diagnostic_task_design_intent": diagnosis.get('design_intent', '').strip(),
     }
 
 
 @app.post("/api/precision-teachings/{teaching_id}/rubric/generate")
 def generate_diagnosis_rubric(teaching_id: str) -> dict:
     ensure_workspace(teaching_id)
+    require_confirmed_materials(teaching_id)
     skill = load_skill("solo_task_rubric_builder")
     skill_input = build_rubric_input(teaching_id)
     input_json = json.dumps(skill_input, ensure_ascii=False, sort_keys=True)
-    input_hash = hashlib.sha256(input_json.encode("utf-8")).hexdigest()
+    input_hash = hashlib.sha256((input_json + material_state(teaching_id)["source_hash"]).encode("utf-8")).hexdigest()
     job_id = f"job-{uuid4().hex}"
     now = utc_now()
     with database() as connection:
@@ -664,6 +697,11 @@ def generate_diagnosis_rubric(teaching_id: str) -> dict:
         completed_at = utc_now()
         output_json = json.dumps(output, ensure_ascii=False)
         with database() as connection:
+            connection.execute('BEGIN IMMEDIATE')
+            latest_input = json.dumps(build_rubric_input(teaching_id), ensure_ascii=False, sort_keys=True)
+            latest_hash = hashlib.sha256((latest_input + material_state(teaching_id)['source_hash']).encode('utf-8')).hexdigest()
+            if latest_hash != input_hash:
+                raise HTTPException(status_code=409, detail='生成期间任务、教师意图或附件已变化，请重新生成标准；旧结果未应用')
             connection.execute(
                 "UPDATE ai_jobs SET status = 'completed', output_json = ?, completed_at = ? WHERE id = ?",
                 (output_json, completed_at, job_id),
@@ -700,31 +738,60 @@ def generate_diagnosis_rubric(teaching_id: str) -> dict:
                 "UPDATE ai_jobs SET status = 'failed', error = ?, completed_at = ? WHERE id = ?",
                 (str(error), utc_now(), job_id),
             )
+        if isinstance(error, HTTPException):
+            raise
         raise HTTPException(status_code=502, detail=f"量规生成失败：{error}") from error
 
 
 @app.put("/api/precision-teachings/{teaching_id}/rubric")
 def update_diagnosis_rubric(teaching_id: str, payload: DiagnosisRubricUpdate) -> dict:
+    ensure_workspace(teaching_id)
     current = fetch_one("SELECT * FROM diagnosis_rubrics WHERE teaching_id = ?", (teaching_id,))
-    if not current:
-        raise HTTPException(status_code=404, detail="请先生成任务专用量规")
-    skill = load_skill(current["skill_key"])
+    manual = set(payload.rubric) == {'levels'}
+    skill = load_skill(current['skill_key'] if current else 'solo_task_rubric_builder')
     try:
-        validate_task_rubric(skill, payload.rubric)
+        if not current and not manual:
+            raise ValueError('首次手填请使用五级标准表')
+        rubric = teacher_rubric(canonical_task_text(teaching_id), payload.rubric['levels']) if manual else payload.rubric
+        validate_task_rubric(skill, rubric)
+        if payload.confirmed:
+            require_confirmed_materials(teaching_id)
+            # The migration leaves historical intent blank. Once students have
+            # started, that field is locked, so confirming an existing rubric
+            # must not require an impossible edit. AI generation remains strict.
+            legacy_locked_rubric = bool(current and fetch_one(
+                """SELECT 1 FROM diagnosis_tasks d
+                   WHERE d.teaching_id = ? AND TRIM(d.design_intent) = ''
+                     AND EXISTS (SELECT 1 FROM student_task_sessions sts WHERE sts.teaching_id = d.teaching_id)""",
+                (teaching_id,),
+            ))
+            build_rubric_input(teaching_id, require_design_intent=not legacy_locked_rubric)
+            require_complete_levels(rubric)
+    except HTTPException:
+        raise
     except Exception as error:
         raise HTTPException(status_code=422, detail=f"量规格式校验失败：{error}") from error
     now = utc_now()
     status = "confirmed" if payload.confirmed else "draft"
-    serialized = json.dumps(payload.rubric, ensure_ascii=False)
-    rubric_changed = serialized != current["current_json"]
+    serialized = json.dumps(rubric, ensure_ascii=False)
+    rubric_changed = not current or serialized != current["current_json"]
     with database() as connection:
+        if not current:
+            connection.execute(
+                """INSERT INTO diagnosis_rubrics (teaching_id, skill_key, skill_version, provider, status,
+                   input_hash, generated_json, current_json, generated_at, confirmed_at, updated_at)
+                   VALUES (?, ?, ?, 'teacher', ?, ?, ?, ?, ?, ?, ?)""",
+                (teaching_id, skill.key, skill.version, status, hashlib.sha256(canonical_task_text(teaching_id).encode()).hexdigest(),
+                 serialized, serialized, now, now if payload.confirmed else None, now),
+            )
         connection.execute(
             """
             UPDATE diagnosis_rubrics
-            SET current_json = ?, status = ?, confirmed_at = ?, updated_at = ?
+            SET current_json = ?, status = ?, confirmed_at = ?, updated_at = ?,
+                provider = CASE WHEN ? THEN 'teacher' ELSE provider END
             WHERE teaching_id = ?
             """,
-            (serialized, status, now if payload.confirmed else None, now, teaching_id),
+            (serialized, status, now if payload.confirmed else None, now, manual, teaching_id),
         )
         if rubric_changed:
             connection.execute(
@@ -746,7 +813,7 @@ def confirm_feedback(teaching_id: str) -> dict:
     now = utc_now()
     with database() as connection:
         connection.execute(
-            "UPDATE feedback_summaries SET status = 'confirmed', confirmed_count = total_students, updated_at = ? WHERE teaching_id = ?",
+            "UPDATE feedback_summaries SET status = 'confirmed', updated_at = ? WHERE teaching_id = ?",
             (now, teaching_id),
         )
         connection.execute(

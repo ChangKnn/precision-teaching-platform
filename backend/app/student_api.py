@@ -18,10 +18,12 @@ from .custom_analysis_api import custom_report_for, standard_for
 from .database import database, fetch_all, fetch_one, utc_now, write_audit
 from .schemas import StudentDiagnosisReportUpdate, StudentLogin, StudentMessageCreate, StudentTaskSubmit
 from .services.ai import run_student_diagnosis_report
+from .services.education_context import higher_education_fields
 from .services.class_report import queue_class_report
 from .services.skills import load_skill
 from .services.student_chat import generate_student_reply
 from .services.student_dialogue_skill import freeze_dialogue_config, generate_dialogue_turn, initial_skill_message
+from .task_materials import canonical_task_text, image_rows, image_response, require_confirmed_materials
 
 
 router = APIRouter(prefix="/api")
@@ -87,25 +89,29 @@ def match_classroom(school_name: str, class_name: str) -> dict | None:
 def refresh_feedback_counts(teaching_id: str) -> None:
     result = fetch_one(
         """
-        SELECT COUNT(*) AS submitted_count
+        SELECT COUNT(*) AS submitted_count,
+               COALESCE(SUM(CASE WHEN r.status IN ('confirmed', 'pushed')
+                   AND r.provider != 'mock' THEN 1 ELSE 0 END), 0) AS reviewed_count
         FROM student_task_sessions sts
         JOIN students s ON s.id = sts.student_id
         JOIN diagnosis_assignments da ON da.teaching_id = sts.teaching_id
           AND da.classroom_id = s.classroom_id AND da.is_published = 1
+        LEFT JOIN student_diagnosis_reports r ON r.session_id = sts.id
         WHERE sts.teaching_id = ? AND sts.status = 'submitted'
         """,
         (teaching_id,),
     )
     count = int(result["submitted_count"] if result else 0)
+    reviewed = int(result["reviewed_count"] if result else 0)
     with database() as connection:
         connection.execute(
             """
             UPDATE feedback_summaries
             SET has_data = ?, total_students = ?,
-                confirmed_count = MIN(confirmed_count, ?), updated_at = ?
-            WHERE teaching_id = ? AND status != 'confirmed'
+                confirmed_count = ?, updated_at = ?
+            WHERE teaching_id = ?
             """,
-            (1 if count else 0, count, count, utc_now(), teaching_id),
+            (1 if count else 0, count, reviewed, utc_now(), teaching_id),
         )
 
 
@@ -127,7 +133,7 @@ def require_student(x_student_token: str | None = Header(default=None)) -> dict:
 
 
 def task_rows(student: dict) -> list[dict]:
-    return fetch_all(
+    rows = fetch_all(
         """
         SELECT p.id AS teaching_id, p.title, p.subject, p.grade, p.textbook,
                d.diagnosis_type, d.task_text, d.duration_minutes, d.updated_at,
@@ -150,6 +156,9 @@ def task_rows(student: dict) -> list[dict]:
         """,
         (student["id"], student["classroom_id"], student["school_name"]),
     )
+    for row in rows:
+        row["task_text"] = canonical_task_text(row["teaching_id"])
+    return rows
 
 
 def bootstrap_payload(student: dict) -> dict:
@@ -180,6 +189,7 @@ def owned_session(session_id: str, student_id: str) -> dict:
     )
     if not session:
         raise HTTPException(status_code=404, detail="学习会话不存在")
+    session["task_text"] = canonical_task_text(session["teaching_id"])
     return session
 
 
@@ -419,6 +429,9 @@ def start_task(teaching_id: str, student: dict = Depends(require_student)) -> di
     )
     if not task:
         raise HTTPException(status_code=404, detail="诊断任务不存在或未分配到当前班级")
+    require_confirmed_materials(teaching_id)
+    task["task_text"] = canonical_task_text(teaching_id)
+    task["task_images"] = [{"id": image["id"], "file_url": f"/api/student/tasks/{teaching_id}/images/{image['id']}"} for image in image_rows(teaching_id)]
     session = fetch_one(
         "SELECT * FROM student_task_sessions WHERE student_id = ? AND teaching_id = ?",
         (student["id"], teaching_id),
@@ -455,6 +468,19 @@ def start_task(teaching_id: str, student: dict = Depends(require_student)) -> di
 @router.get("/student/sessions/{session_id}")
 def get_student_session(session_id: str, student: dict = Depends(require_student)) -> dict:
     return serialize_session(owned_session(session_id, student["id"]))
+
+
+@router.get("/student/tasks/{teaching_id}/images/{image_id}")
+def student_task_image(teaching_id: str, image_id: str, student: dict = Depends(require_student)) -> FileResponse:
+    assigned = fetch_one("""SELECT 1 FROM diagnosis_assignments da
+        JOIN precision_teachings p ON p.id=da.teaching_id
+        JOIN teacher_workspaces tw ON tw.id=p.workspace_id
+        JOIN diagnosis_tasks d ON d.teaching_id=p.id
+        WHERE da.teaching_id=? AND da.classroom_id=? AND da.is_published=1
+        AND d.status='published' AND tw.school_name=?""", (teaching_id, student["classroom_id"], student["school_name"]))
+    if not assigned:
+        raise HTTPException(status_code=404, detail="题图不属于当前学生任务")
+    return image_response(teaching_id, image_id)
 
 
 @router.post("/student/sessions/{session_id}/messages")
@@ -713,7 +739,7 @@ def build_student_diagnosis_input(session_id: str) -> tuple[dict, dict]:
     context = fetch_one(
         """
         SELECT sts.*, s.name AS student_name,
-               p.subject, p.grade, p.textbook, p.title, p.goal, p.content,
+               p.subject, p.grade, p.textbook, p.title, p.goal, p.content, p.education_stage, p.course_name, p.major,
                d.task_text, dr.status AS rubric_status, dr.current_json
         FROM student_task_sessions sts
         JOIN students s ON s.id = sts.student_id
@@ -739,6 +765,7 @@ def build_student_diagnosis_input(session_id: str) -> tuple[dict, dict]:
     contents = [item.strip() for item in context["content"].splitlines() if item.strip()]
     payload = {
         "precision_teaching_context": {
+            **higher_education_fields(context),
             "subject": context["subject"],
             "grade": context["grade"],
             "textbook_version_and_chapter": context["textbook"],
@@ -747,8 +774,8 @@ def build_student_diagnosis_input(session_id: str) -> tuple[dict, dict]:
             "precision_teaching_content": contents or [context["content"]],
         },
         "diagnostic_task": {
-            "task_text": context["task_text"],
-            "requirements": ["与 AI 对话，完整说明自己的想法和理由", "最终作答文本可选，未填写时仅依据对话记录分析"],
+            "task_text": canonical_task_text(context["teaching_id"]),
+            "requirements": ["活动、对话和成果要求以任务原文为准", "只依据实际对话与提交内容分析，不把缺少的成果假定为已完成"],
         },
         "task_specific_solo_rubric": json.loads(context["current_json"]),
         "student": {
@@ -823,6 +850,7 @@ def generate_student_report(session_id: str, background_tasks: BackgroundTasks) 
                  input_hash, output_json, report_text, student_feedback_text, completed_at, completed_at),
             )
         write_audit("generate", "student_diagnosis_report", session_id, {"job_id": job_id, "skill": skill.key})
+        refresh_feedback_counts(context["teaching_id"])
         classroom = fetch_one("SELECT classroom_id FROM students WHERE id = ?", (context["student_id"],))
         if classroom:
             try:
@@ -861,6 +889,7 @@ def update_student_report(session_id: str, payload: StudentDiagnosisReportUpdate
              payload.status, reviewed_at, pushed_at, now, session_id),
         )
     write_audit(payload.status, "student_diagnosis_report", session_id, {})
+    refresh_feedback_counts(report["teaching_id"])
     return {"report": serialize_student_report(session_id)}
 
 

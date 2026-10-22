@@ -26,7 +26,7 @@ class DiagnosticTaskDesignTest(unittest.TestCase):
         context = payload["precision_teaching_context"]
         self.assertEqual(set(payload), {"precision_teaching_context"})
         self.assertEqual(context["precision_teaching_content"], ["条件分析", "推理说明"])
-        self.assertEqual(version, "1.0.0")
+        self.assertEqual(version, "1.1.0")
         self.assertEqual(len(source_hash), 64)
 
     def test_missing_teaching_content_is_rejected(self):

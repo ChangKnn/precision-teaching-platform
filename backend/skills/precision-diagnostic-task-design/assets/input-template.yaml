@@ -1,3 +1,4 @@
+teacher_ideas: ""  # 可选：生成前的想法与要求，留空也可生成
 precision_teaching_context:
   subject: ""
   grade: ""

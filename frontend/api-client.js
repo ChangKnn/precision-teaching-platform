@@ -12,7 +12,9 @@ function readableApiDetail(detail, fallback) {
     focus_analysis_confirmed: "教学重点与难点",
     school_name: "学校",
     subject: "学科",
-    teacher_name: "教师姓名"
+    teacher_name: "教师姓名",
+    task_text: "任务文本",
+    diagram_notes: "附件图形说明"
   };
   const messages = detail.map(issue => {
     if (!issue || typeof issue !== "object") return "";
@@ -143,6 +145,10 @@ window.PlatformAPI = {
     return this.request(`/api/precision-teachings/${encodeURIComponent(teachingId)}/classrooms/${encodeURIComponent(classroomId)}/goal-path`);
   },
 
+  generateClassTeachingSuggestions(teachingId, classroomId) {
+    return this.request(`/api/precision-teachings/${encodeURIComponent(teachingId)}/classrooms/${encodeURIComponent(classroomId)}/teaching-suggestions/generate`, { method: "POST" });
+  },
+
   generateTeacherAnalysis(teachingId, classroomId) {
     return this.request(`/api/precision-teachings/${encodeURIComponent(teachingId)}/classrooms/${encodeURIComponent(classroomId)}/goal-path/teacher-analysis/generate`, {
       method: "POST"
@@ -253,6 +259,12 @@ window.PlatformAPI = {
 
   getDiagnosticTaskRecommendations(teachingId) {
     return this.request(`/api/precision-teachings/${encodeURIComponent(teachingId)}/diagnostic-task-recommendations`);
+  },
+
+  saveDiagnosticTaskPreferences(teachingId, teacherIdeas) {
+    return this.request(`/api/precision-teachings/${encodeURIComponent(teachingId)}/diagnostic-task-preferences`, {
+      method: 'PUT', body: JSON.stringify({ teacher_ideas: teacherIdeas })
+    });
   },
 
   generateDiagnosticTaskRecommendations(teachingId) {

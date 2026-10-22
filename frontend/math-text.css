@@ -1,0 +1,9 @@
+.math-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }
+.math-expression { display: inline-block; max-width: 100%; vertical-align: middle; overflow-x: auto; }
+.math-expression.math-display { display: block; margin: 8px 0; text-align: center; }
+.math-expression math-field { display: inline-block; max-width: 100%; padding: 0 3px; border: 0; border-radius: 0; background: transparent; font-size: 1.1em; pointer-events: none; }
+.math-expression math-field::part(menu-toggle), .math-expression math-field::part(virtual-keyboard-toggle) { display: none; }
+.math-editable { border-radius: 4px; cursor: pointer; }
+.math-editable:hover, .math-editable:focus-visible { background: #e7f4ef; outline: 1px solid #82b4a8; }
+.task-figure-list { display: grid; gap: 12px; margin: 14px 0; }
+.task-figure-list img { display: block; width: auto; max-width: 100%; max-height: 420px; object-fit: contain; border: 1px solid #d8e6e1; border-radius: 8px; background: white; }

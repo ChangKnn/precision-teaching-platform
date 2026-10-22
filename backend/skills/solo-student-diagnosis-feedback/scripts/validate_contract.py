@@ -84,15 +84,12 @@ def main() -> None:
 
     required_template_fields = {
         "{{level_name}}",
-        "{{current_level_plain_meaning}}",
-        "{{current_level_name}}",
         "{{target_level_display}}",
         "{{target_level_name}}",
-        "{{target_level_plain_meaning}}",
     }
     require(
         required_template_fields.issubset(set(part for part in required_template_fields if part in output_template)),
-        "Teacher-readable output template must include level names and plain meanings for current and target levels.",
+        "Platform feedback template must include current and target level names.",
     )
     require(
         "- 当前层级：{{current_level}}\n" not in output_template
@@ -104,33 +101,17 @@ def main() -> None:
         "{{evidence_bullets_each_as_student_quote_then_this_shows}}" in output_template,
         "Teacher-readable evidence must use quote plus plain-language interpretation bullets.",
     )
-    required_thinking_dimensions = {
-        "{{recognized_information_summary}}",
-        "{{relation_building_summary}}",
-        "{{overall_organization_summary}}",
-        "{{abstraction_transfer_summary}}",
-    }
-    require(
-        all(field in output_template for field in required_thinking_dimensions),
-        "Teacher-readable output must include the four thinking-structure dimensions.",
-    )
-    require(
-        "{{thinking_structure_text_map_with_5_to_9_nodes}}" in output_template,
-        "Teacher-readable output must include a text thinking-structure map.",
-    )
-    require(
-        all(symbol in output_template for symbol in ["●", "◐", "○"]),
-        "Thinking-structure map must explain established, partial, and not-yet-shown states.",
-    )
-    require("{{problem_bullets_2_to_4}}" in output_template, "Teacher-readable output must include multiple problem bullets.")
+    require(all(('## '+title) in output_template for title in ['当前情况','进阶目标','学习建议']), "Feedback must use the three agreed sections.")
+    require(all(('### '+title) in output_template for title in ['SOLO 水平','判断依据','当前障碍']), "Current situation must include SOLO, evidence and obstacles.")
+    require('{{main_obstacle}}' in output_template, 'Feedback must include the current obstacle.')
     require("{{observable_result}}" in output_template, "Strategies must include an observable result.")
     require(
-        100 <= len(sample_output["thinking_structure_summary"]) <= 260,
-        "Sample thinking structure summary must remain concise at roughly 200 Chinese characters.",
+        bool(sample_output["thinking_structure_summary"].strip()),
+        "The internal structure summary must be nonempty; no presentation length is prescribed.",
     )
 
     print("PASS semantic invariants: five levels, AI-echo P rule, Plus One, traceability")
-    print("PASS teacher-readable report: plain evidence bullets, thinking map, four-part analysis, multiple problems, theme strategies")
+    print("PASS platform feedback: current situation, progression goal, learning suggestions; no diagram requirement")
     print(f"PASS total behavior cases: {len(behavior_cases)}")
 
 

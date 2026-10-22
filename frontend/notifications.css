@@ -1,0 +1,10 @@
+.notice-stack { position: fixed; z-index: 10000; inset: auto 20px 20px auto; display: grid; gap: 10px; width: min(440px, calc(100vw - 32px)); max-height: 45vh; overflow-y: auto; margin: 0; border: 0; padding: 3px; background: transparent; }
+.notice-stack[hidden] { display: none; }
+.notice-card { display: grid; grid-template-columns: minmax(0,1fr) 32px; gap: 12px; padding: 14px 12px 14px 16px; border: 1px solid #bed3cd; border-left: 4px solid #176b65; border-radius: 9px; color: #203c38; background: #f3faf7; box-shadow: 0 6px 24px #173c3a24; font: 14px/1.6 'Microsoft YaHei',sans-serif; }
+.notice-card.notice-error { color: #6d2924; border-color: #eac3bb; border-left-color: #b7443e; background: #fff7f4; }
+.notice-card strong { display: block; font-size: 14px; font-weight: 600; white-space: pre-wrap; overflow-wrap: anywhere; }
+.notice-card p { margin: 6px 0 0; font-size: 13px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.notice-close { display: grid; place-items: center; align-self: start; width: 32px; height: 32px; padding: 0; border: 1px solid currentColor; border-radius: 6px; color: inherit; background: transparent; cursor: pointer; font: 22px/1 sans-serif; }
+.notice-close:hover { background: #173c3a0d; }
+.notice-close:focus-visible { outline: 3px solid #247cbe; outline-offset: 2px; }
+@media(max-width:560px) { .notice-stack { right: 13px; bottom: 13px; } }

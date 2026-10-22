@@ -9,6 +9,9 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23123f3c'/%3E%3Ctext x='32' y='43' text-anchor='middle' font-size='34' font-family='sans-serif' fill='white'%3E思%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="student.css?v=20260927-published-classes">
   <link rel="stylesheet" href="/filing.css?v=20261018">
+  <link rel="stylesheet" href="/notifications.css?v=20261018-persistent">
+  <link rel="stylesheet" href="/vendor/mathlive/mathlive-fonts.css">
+  <link rel="stylesheet" href="/math-text.css?v=20261018">
 </head>
 <body>
   <main class="login-view" id="loginView">
@@ -114,8 +117,8 @@
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
         <div class="header-task">
-          <span class="subject-dot" id="subjectDot">数学</span>
-          <div><strong id="taskTitleHeader">基本不等式中的模型与论证</strong><small id="teacherLabel">林老师发布</small></div>
+          <span class="subject-dot" id="subjectDot">—</span>
+          <div><strong id="taskTitleHeader">正在加载任务…</strong><small id="teacherLabel">请稍候</small></div>
         </div>
         <div class="header-actions">
           <span class="time-chip"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span id="elapsedTime">已用 00:00</span></span>
@@ -128,13 +131,14 @@
 
       <div class="conversation-scroll" id="conversationScroll">
         <div class="conversation-inner">
-          <section class="task-card" id="taskCard" aria-labelledby="taskCardTitle">
+          <section class="task-card" id="taskCard" aria-labelledby="taskCardTitle" hidden>
             <div class="task-card-top">
               <span class="task-tag">本次诊断任务</span>
-              <span class="duration"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>预计 <b id="durationText">15</b> 分钟</span>
+              <span class="duration"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>预计 <b id="durationText">—</b> 分钟</span>
             </div>
-            <h1 id="taskCardTitle">长方形劳动实践区怎样面积最大？</h1>
-            <p id="taskDescription">学校准备使用 20 米围栏围成一个长方形劳动实践区。请确定怎样设计长和宽能够使面积最大。</p>
+            <h1 id="taskCardTitle">正在加载任务…</h1>
+            <p id="taskDescription"></p>
+            <div id="studentTaskImages" class="task-figure-list"></div>
             <div class="task-requirements">
               <span>你需要完成</span>
               <ol id="taskRequirements">
@@ -199,15 +203,15 @@
     </article>
   </dialog>
 
-  <div class="toast" id="toast" role="status" aria-live="polite" hidden>
-    <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
-    <span><strong>提交成功</strong><small>老师将收到你的对话记录和已填写的文字成果</small></span>
-  </div>
+  <div class="notice-stack" id="toast" aria-label="平台提示" popover="manual" hidden></div>
 
   <footer class="site-filing" aria-label="网站备案信息">
     <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">京ICP备2026068374号-1</a>
     <a href="https://beian.mps.gov.cn/#/query/webSearch?code=11010802050729" target="_blank" rel="noopener noreferrer"><img src="/assets/beian.png" alt="公安备案图标" width="20" height="20">京公网安备11010802050729号</a>
   </footer>
-  <script src="student.js?v=20260927-published-classes"></script>
+  <script src="/vendor/mathlive/mathlive.min.js"></script>
+  <script src="/math-text.js?v=20261018"></script>
+  <script src="/notifications.js?v=20261019-error-only-v1"></script>
+  <script src="student.js?v=20261022-runtime-fixes-v1"></script>
 </body>
 </html>

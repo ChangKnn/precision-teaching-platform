@@ -6,9 +6,11 @@
   "additionalProperties": false,
   "required": [
     "precision_teaching_context",
-    "diagnostic_task"
+    "diagnostic_task",
+    "diagnostic_task_design_intent"
   ],
   "properties": {
+    "diagnostic_task_design_intent": {"type": "string", "minLength": 1, "pattern": "\\S", "maxLength": 4000},
     "precision_teaching_context": {
       "type": "object",
       "additionalProperties": false,
@@ -23,6 +25,9 @@
       "properties": {
         "subject": {"type": "string", "minLength": 1},
         "grade": {"type": "string", "minLength": 1},
+        "education_stage": {"type": "string", "enum": ["高等教育"]},
+        "course_name": {"type": "string", "maxLength": 120},
+        "major": {"type": "string", "maxLength": 120},
         "textbook_version_and_chapter": {"type": "string", "minLength": 1},
         "precision_teaching_topic": {"type": "string", "minLength": 1},
         "precision_teaching_goals": {
@@ -57,15 +62,6 @@
           }
         }
       ]
-    },
-    "student_responses": {
-      "type": "array",
-      "items": {
-        "oneOf": [
-          {"type": "string", "minLength": 1},
-          {"type": "object", "minProperties": 1}
-        ]
-      }
     }
   }
 }
