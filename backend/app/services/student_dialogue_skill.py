@@ -21,11 +21,13 @@ from .education_context import higher_education_fields, education_runtime_rules
 from ..task_materials import canonical_task_text, require_confirmed_materials
 
 
-BASE_PROHIBITIONS = [
+LEGACY_PROHIBITIONS = [
     "不得给出答案、关键概念、公式、方法、步骤、选项或方向性提示",
     "不得评价正误、判断 SOLO 层级或替学生补全作答",
 ]
-BASE_REQUIREMENTS = ["只围绕学生已经表达的内容作一次中性追问，保持教师确认的 AI 角色"]
+LEGACY_REQUIREMENTS = ["只围绕学生已经表达的内容作一次中性追问，保持教师确认的 AI 角色"]
+BASE_PROHIBITIONS = ["不得替学生完成整份诊断任务或直接交付标准答案", "不得在对话中进行 SOLO 层级诊断或打分"]
+BASE_REQUIREMENTS = ["按教师确认的 AI 角色与对话规则，围绕当前任务开展交流"]
 
 
 def _parts(text: str) -> list[str]:
@@ -38,14 +40,6 @@ def _teacher_contract(raw: str, status: str, version_seed: str) -> dict[str, Any
     raw = raw.strip()
     if not raw:
         raise ValueError("教师尚未确认 AI 角色与对话规则")
-    # A positive instruction to reveal answers conflicts with the Skill's integrity boundary.
-    for clause in _parts(raw):
-        if re.search(r"(?:直接|主动|必须|应当|可以|需要).{0,8}(?:给出|提供|讲解|告诉).{0,12}(?:答案|公式|步骤|方法)", clause):
-            if not re.search(r"(?:不|不得|禁止|不能).{0,12}(?:给出|提供|讲解|告诉)", clause):
-                raise ValueError("教师的 AI 规则与诊断完整性边界冲突，请教师修改后重新发布")
-        if re.search(r"(?:必须|应当|需要|可以).{0,8}(?:判断正误|评价对错|告诉.*正确)", clause):
-            if not re.search(r"(?:不|不得|禁止|不能).{0,12}(?:判断|评价|告诉)", clause):
-                raise ValueError("教师的 AI 规则与诊断完整性边界冲突，请教师修改后重新发布")
     role_match = re.search(r"(?:^|\n)AI\s*角色[：:]\s*(.+)", raw)
     role = role_match.group(1).strip() if role_match else raw.split("：", 1)[0].split(":", 1)[0].strip()
     required_match = re.search(r"(?:^|\n)应遵循[：:]\s*(.+)", raw)
@@ -53,7 +47,7 @@ def _teacher_contract(raw: str, status: str, version_seed: str) -> dict[str, Any
     required = _parts(required_match.group(1)) if required_match else [raw]
     prohibited = _parts(prohibited_match.group(1)) if prohibited_match else []
     return {
-        "contract_version": hashlib.sha256(version_seed.encode("utf-8")).hexdigest()[:12],
+        "contract_version": hashlib.sha256((version_seed + ':dialogue-policy-1.1').encode("utf-8")).hexdigest()[:12],
         "teacher_confirmed": True,
         "ai_role": role,
         "required_rules": required + BASE_REQUIREMENTS,
@@ -125,10 +119,31 @@ def _validate(payload: dict, result: dict) -> None:
         raise ValueError("学生对话输出不符合 Skill 契约：" + "；".join(errors))
 
 
+def _active_config(config: dict) -> dict:
+    """Replace only the known platform-added suffix in frozen pre-1.1 contracts.
+
+    Keep teacher-authored rules (even identical ones), task data, and stored
+    transcripts untouched. Already upgraded contracts are left unchanged.
+    """
+    contract = config['ai_dialogue_contract']
+    required = contract['required_rules']
+    prohibited = contract['prohibited_behaviors']
+    if (required[-len(LEGACY_REQUIREMENTS):] != LEGACY_REQUIREMENTS
+            or prohibited[-len(LEGACY_PROHIBITIONS):] != LEGACY_PROHIBITIONS):
+        return config
+    active = {
+        **contract,
+        'contract_version': hashlib.sha256((contract['contract_version'] + ':dialogue-policy-1.1').encode()).hexdigest()[:12],
+        'required_rules': required[:-len(LEGACY_REQUIREMENTS)] + BASE_REQUIREMENTS,
+        'prohibited_behaviors': prohibited[:-len(LEGACY_PROHIBITIONS)] + BASE_PROHIBITIONS,
+    }
+    return {**config, 'ai_dialogue_contract': active}
+
+
 def _payload(config: dict, session_id: str, student_id: str, history: list[dict], current: str | None) -> dict:
     alias = "student-" + hashlib.sha256(student_id.encode("utf-8")).hexdigest()[:12]
     return {
-        **config,
+        **_active_config(config),
         "student": {"student_id": alias, "student_name": "学生"},
         "dialogue_state": {
             "session_id": session_id,
@@ -151,7 +166,7 @@ def initial_skill_message(config: dict, session_id: str, student_id: str) -> tup
         "student_visible_reply": reply,
         "record_append": [{"turn_id": "turn-0001", "role": "assistant", "content": reply}],
         "internal_execution_record": {
-            "contract_version": config["ai_dialogue_contract"]["contract_version"],
+            "contract_version": payload["ai_dialogue_contract"]["contract_version"],
             "role_applied": config["ai_dialogue_contract"]["ai_role"],
             "response_action": "present_task", "boundary_event": "none",
             "new_answer_content_introduced": False, "evaluation_or_diagnosis_given": False,
@@ -252,7 +267,13 @@ def _mock_result(payload: dict) -> dict:
     elif any(word in current for word in ("答案", "解题步骤", "直接告诉")):
         reply, action, event = "我不能替你给出答案。请说说你目前怎样理解这个问题。", "decline_answer_request", "answer_request"
     elif any(word in current for word in ("对吗", "正确吗", "错了吗")):
-        reply, action, event = "我先不判断正误。请说明你作出这个判断的依据。", "decline_correctness_judgment", "correctness_request"
+        restricted = any(re.search(r"(?:不得|不|禁止).*(?:判断正误|评价.*正确|评价.*对错)", rule)
+                         for rule in payload['ai_dialogue_contract']['prohibited_behaviors'])
+        if restricted:
+            reply, action = "我先不判断正误。请说明你作出这个判断的依据。", "decline_correctness_judgment"
+        else:
+            reply, action = "请说明这个判断的依据，我们再按老师设定的角色讨论。", "ask_reason"
+        event = "correctness_request"
     elif any(word in current for word in ("不知道", "没想法", "不会")):
         reply, action, event = "你可以先说说目前注意到的信息或初步想法。", "invite_initial_thought", "no_initial_idea"
     else:

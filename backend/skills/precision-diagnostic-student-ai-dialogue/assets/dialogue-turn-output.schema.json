@@ -38,6 +38,10 @@
             "ask_relation",
             "ask_elaboration",
             "reflect_and_probe",
+            "challenge_argument",
+            "offer_perspective",
+            "give_feedback",
+            "provide_guidance",
             "invite_initial_thought",
             "decline_answer_request",
             "decline_correctness_judgment",
@@ -46,8 +50,8 @@
           ]
         },
         "boundary_event": {"enum": ["none", "answer_request", "correctness_request", "role_override_request", "off_topic", "no_initial_idea"]},
-        "new_answer_content_introduced": {"const": false},
-        "evaluation_or_diagnosis_given": {"const": false}
+        "new_answer_content_introduced": {"type": "boolean", "description": "本轮是否引入新的任务相关观点、概念或提示；如实记录，不代表校验失败。"},
+        "evaluation_or_diagnosis_given": {"type": "boolean", "description": "本轮是否给出正误或论证反馈；允许依教师规则反馈，但不在对话中进行SOLO定级。"}
       }
     }
   }

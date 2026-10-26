@@ -23,6 +23,10 @@ VALID_ACTIONS = {
     "ask_relation",
     "ask_elaboration",
     "reflect_and_probe",
+    "challenge_argument",
+    "offer_perspective",
+    "give_feedback",
+    "provide_guidance",
     "invite_initial_thought",
     "decline_answer_request",
     "decline_correctness_judgment",
@@ -123,10 +127,9 @@ def validate_output(data: dict, input_data: dict) -> list[str]:
         if record[1].get("role") != "assistant" or record[1].get("content") != reply:
             errors.append("assistant record must exactly match student_visible_reply")
     internal = data.get("internal_execution_record", {})
-    if internal.get("new_answer_content_introduced") is not False:
-        errors.append("new_answer_content_introduced must be false")
-    if internal.get("evaluation_or_diagnosis_given") is not False:
-        errors.append("evaluation_or_diagnosis_given must be false")
+    for flag in ("new_answer_content_introduced", "evaluation_or_diagnosis_given"):
+        if not isinstance(internal.get(flag), bool):
+            errors.append(f"{flag} must be boolean")
     if internal.get("contract_version") != input_data.get("ai_dialogue_contract", {}).get("contract_version"):
         errors.append("contract_version must match the teacher-confirmed contract")
     if internal.get("response_action") not in VALID_ACTIONS:

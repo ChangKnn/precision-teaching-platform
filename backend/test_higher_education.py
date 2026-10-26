@@ -96,7 +96,7 @@ class HigherEducationTest(TestCase):
             self.assertIn('不得仅因学生属于大学就预设其SOLO层级较高',prompt)
         prompt=_runtime_instructions(load_skill('precision_diagnostic_student_ai_dialogue'),{})
         self.assertIn('高等教育',prompt)
-        self.assertIn('不因为大学生',prompt)
+        self.assertIn('不得仅因学生属于大学就预设其SOLO层级较高',prompt)
 
     def test_student_feedback_no_longer_forces_school_audience(self):
         skill=load_skill('solo_student_diagnosis_feedback')
