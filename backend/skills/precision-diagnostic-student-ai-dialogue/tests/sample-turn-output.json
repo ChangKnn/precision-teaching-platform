@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "session_id": "session-baijia-001",
   "turn_index": 1,
-  "student_visible_reply": "你提到‘社会很乱’和‘严格管理’，请说明这两者之间为什么能够形成联系。",
+  "student_visible_reply": "严格管理会怎样改善你说的混乱局面？",
   "record_append": [
     {
       "turn_id": "turn-0002",
@@ -12,7 +12,7 @@
     {
       "turn_id": "turn-0003",
       "role": "assistant",
-      "content": "你提到‘社会很乱’和‘严格管理’，请说明这两者之间为什么能够形成联系。"
+      "content": "严格管理会怎样改善你说的混乱局面？"
     }
   ],
   "internal_execution_record": {
@@ -24,4 +24,3 @@
     "evaluation_or_diagnosis_given": false
   }
 }
-

@@ -6,6 +6,7 @@ import re
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
+from anyio import to_thread
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -39,14 +40,21 @@ from .diagnostic_task_design_api import router as diagnostic_task_design_router
 from .custom_analysis_api import router as custom_analysis_router, standard_for
 from .teacher_auth import current_teacher, current_account, router as teacher_auth_router, admin_auth_router
 from .admin_api import router as admin_router
-from .task_materials import router as task_materials_router, material_state, canonical_task_text, require_confirmed_materials, assert_material_editable
+from .task_materials import router as task_materials_router, material_state, canonical_task_text, require_confirmed_materials
+from .classroom_management import router as classroom_management_router, deleted_classrooms
+from .task_attachments import router as task_attachments_router
+from .services.task_versions import preserve_published_task, preserve_legacy_task_versions
+from .services.student_dialogue_skill import _teacher_contract
+from .role_knowledge import router as role_knowledge_router, knowledge_state
 from .services.class_teaching_suggestions import router as teaching_suggestions_router
 from .services.class_report import recover_interrupted_class_reports
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    to_thread.current_default_thread_limiter().total_tokens = settings.request_thread_limit
     initialize_database()
+    preserve_legacy_task_versions()
     recover_interrupted_class_reports()
     settings.upload_path.mkdir(parents=True, exist_ok=True)
     sync_skills()
@@ -64,6 +72,9 @@ app.include_router(teacher_auth_router)
 app.include_router(admin_auth_router)
 app.include_router(admin_router)
 app.include_router(task_materials_router)
+app.include_router(task_attachments_router)
+app.include_router(classroom_management_router)
+app.include_router(role_knowledge_router)
 app.include_router(teaching_suggestions_router)
 
 
@@ -220,7 +231,7 @@ def serialized_rubric(teaching_id: str) -> dict | None:
 
 def refresh_feedback_counts(teaching_id: str) -> None:
     result = fetch_one(
-        """
+        f"""
         SELECT COUNT(*) AS submitted_count,
                COALESCE(SUM(CASE WHEN r.status IN ('confirmed', 'pushed')
                    AND r.provider != 'mock' THEN 1 ELSE 0 END), 0) AS reviewed_count
@@ -230,6 +241,7 @@ def refresh_feedback_counts(teaching_id: str) -> None:
           AND da.classroom_id = s.classroom_id AND da.is_published = 1
         LEFT JOIN student_diagnosis_reports r ON r.session_id = sts.id
         WHERE sts.teaching_id = ? AND sts.status = 'submitted'
+
         """,
         (teaching_id,),
     )
@@ -268,6 +280,7 @@ def workspace_for(teaching_id: str) -> dict:
         "diagnosis": diagnosis,
         "rubric": serialized_rubric(teaching_id),
         "task_materials": material_state(teaching_id),
+        "role_knowledge": knowledge_state(teaching_id),
         "task_design_preferences": fetch_one('SELECT teacher_ideas, updated_at FROM diagnostic_task_preferences WHERE teaching_id = ?', (teaching_id,)) or {'teacher_ideas': ''},
         "custom_analysis_standard": standard_for(teaching_id),
         "feedback": feedback,
@@ -307,9 +320,10 @@ def bootstrap(request: Request) -> dict:
                     "years_experience": teacher["years_experience"], "teaching_style": teacher["teaching_style"],
                     "profile_completed": bool(teacher["profile_completed"])},
         "classrooms": fetch_all(
-            """SELECT c.* FROM classrooms c
+            """SELECT c.*, (SELECT COUNT(*) FROM classroom_workspaces links WHERE links.classroom_id=c.id) AS shared_teacher_count FROM classrooms c
                JOIN classroom_workspaces cw ON cw.classroom_id = c.id
                WHERE cw.workspace_id = ? ORDER BY c.name""", (workspace_id,)),
+        "deleted_classrooms": deleted_classrooms(workspace_id),
         "precision_teachings": teachings,
         "current_teaching_id": current_teaching_id(teachings, workspace_id),
         "skills": list_skills(),
@@ -431,6 +445,17 @@ def update_classroom(classroom_id: str, payload: ClassroomUpdate, request: Reque
     if not owned:
         raise HTTPException(status_code=404, detail="班级不存在")
     with database() as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        if payload.name is not None:
+            name=payload.name.strip()
+            if not name:raise HTTPException(status_code=422,detail='请填写班级名称')
+            school=connection.execute('SELECT school_name FROM classroom_schools WHERE classroom_id=?',(classroom_id,)).fetchone()
+            if not school:school=connection.execute('SELECT school_name FROM teacher_workspaces WHERE id=?',(request.state.teacher_workspace_id,)).fetchone()
+            duplicate=connection.execute('''SELECT 1 FROM classrooms c JOIN classroom_schools cs ON cs.classroom_id=c.id
+                WHERE cs.school_name=? AND c.name=? AND c.id<>?''',(school['school_name'],name,classroom_id)).fetchone()
+            if duplicate:raise HTTPException(status_code=409,detail='该学校已有同名班级，请使用其他名称')
+            connection.execute('UPDATE classrooms SET name=? WHERE id=?',(name,classroom_id))
+            connection.execute('UPDATE students SET class_name=? WHERE classroom_id=?',(name,classroom_id))
         connection.execute(
             "UPDATE classrooms SET student_count = ?, background = ?, updated_at = ? WHERE id = ?",
             (payload.student_count, payload.background.strip(), utc_now(), classroom_id),
@@ -515,13 +540,16 @@ def update_precision_teaching(teaching_id: str, payload: PrecisionTeachingUpdate
     changed = any(existing[field] != value for field, value in data.items())
     if not changed:
         return next(item for item in ordered_teachings(workspace_id) if item["id"] == teaching_id)
-    if existing["status"] != "draft":
-        if not data["title"].strip() or not data["goal"].strip() or not data["content"].strip():
-            raise HTTPException(status_code=422, detail="已发布的精准教学须保留主题、目标和教学内容")
-        if payload.edit_intent != "wording":
-            raise HTTPException(status_code=409, detail="请先确认本次仅优化表述；若教学范围或诊断依据发生变化，请新建精准教学")
+    # Teacher edits create a draft; already-published student evidence keeps its
+    # original snapshot. The legacy wording flag remains accepted for old clients.
+    rubric_inputs_changed = payload.edit_intent != 'wording' and any(
+        data[field] != existing[field] for field in
+        ('title','goal','content','subject','grade','textbook','education_stage','course_name','major')
+    )
     now = utc_now()
     with database() as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        preserve_published_task(teaching_id, connection)
         connection.execute(
             """UPDATE precision_teachings
                SET title = ?, goal = ?, content = ?, rationale = ?, subject = ?, grade = ?,
@@ -530,16 +558,19 @@ def update_precision_teaching(teaching_id: str, payload: PrecisionTeachingUpdate
             (data["title"], data["goal"], data["content"], data["rationale"], data["subject"],
              data["grade"], data["textbook"], data["estimated_periods"], data['education_stage'], data['course_name'], data['major'], now, teaching_id, workspace_id),
         )
-        if existing["status"] == "draft" and data["goal"] != existing["goal"]:
+        if rubric_inputs_changed and data["goal"] != existing["goal"]:
             connection.execute(
-                "UPDATE diagnosis_tasks SET goal = ?, updated_at = ? WHERE teaching_id = ? AND status = 'draft' AND goal = ?",
+                "UPDATE diagnosis_tasks SET goal = ?, updated_at = ? WHERE teaching_id = ? AND goal = ?",
                 (data["goal"], now, teaching_id, existing["goal"]),
             )
-        if existing["status"] == "draft":
+        if existing["status"] == "draft" or rubric_inputs_changed:
             connection.execute(
                 "UPDATE diagnosis_rubrics SET status = 'stale', confirmed_at = NULL, updated_at = ? WHERE teaching_id = ?",
                 (now, teaching_id),
             )
+        if rubric_inputs_changed:
+            connection.execute("UPDATE diagnosis_tasks SET status='draft',updated_at=? WHERE teaching_id=?",(now,teaching_id))
+            connection.execute("UPDATE precision_teachings SET current_stage='diagnosis' WHERE id=?",(teaching_id,))
     write_audit("update", "precision_teaching", teaching_id, {"before": {field: existing[field] for field in data}, "after": data, "edit_intent": payload.edit_intent})
     return next(item for item in ordered_teachings(workspace_id) if item["id"] == teaching_id)
 
@@ -564,19 +595,27 @@ def update_diagnosis(teaching_id: str, payload: DiagnosisTaskUpdate) -> dict:
         require_confirmed_materials(teaching_id)
     previous = fetch_one("SELECT goal, task_text, design_intent FROM diagnosis_tasks WHERE teaching_id = ?", (teaching_id,))
     design_intent = payload.design_intent if payload.design_intent is not None else (previous or {}).get('design_intent', '')
+    # The editor trims outer whitespace. Do not mistake that for a new question.
+    task_text = previous['task_text'] if previous and previous['task_text'].strip() == payload.task_text.strip() else payload.task_text
+    if previous and previous['design_intent'].strip() == design_intent.strip():
+        design_intent = previous['design_intent']
     rubric_inputs_changed = bool(
-        previous and (previous["goal"] != payload.goal or previous["task_text"] != payload.task_text or previous['design_intent'] != design_intent)
+        previous and (previous["goal"] != payload.goal or previous["task_text"] != task_text or previous['design_intent'] != design_intent)
     )
-    if previous and (previous["task_text"] != payload.task_text or previous['design_intent'] != design_intent):
-        assert_material_editable(teaching_id)
     if payload.status == "published" and rubric_inputs_changed:
         raise HTTPException(status_code=409, detail="诊断目标或任务已变化，请返回分析标准步骤重新生成并确认量规")
     if payload.status == "published":
+        try:
+            _teacher_contract(payload.ai_role, 'published', payload.ai_role)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
         rubric = fetch_one("SELECT status FROM diagnosis_rubrics WHERE teaching_id = ?", (teaching_id,))
         if not rubric or rubric["status"] != "confirmed":
             raise HTTPException(status_code=409, detail="请先生成并确认本任务的 SOLO 分析标准")
     now = utc_now()
     with database() as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        preserve_published_task(teaching_id, connection)
         connection.execute(
             """
             UPDATE diagnosis_tasks
@@ -587,7 +626,7 @@ def update_diagnosis(teaching_id: str, payload: DiagnosisTaskUpdate) -> dict:
             (
                 payload.diagnosis_type,
                 payload.goal,
-                payload.task_text,
+                task_text,
                 payload.ai_role,
                 payload.duration_minutes,
                 payload.status,
@@ -601,10 +640,7 @@ def update_diagnosis(teaching_id: str, payload: DiagnosisTaskUpdate) -> dict:
                 "UPDATE diagnosis_rubrics SET status = 'stale', confirmed_at = NULL, updated_at = ? WHERE teaching_id = ?",
                 (now, teaching_id),
             )
-            connection.execute(
-                "UPDATE student_diagnosis_reports SET status = 'stale', reviewed_at = NULL, pushed_at = NULL, updated_at = ? WHERE teaching_id = ?",
-                (now, teaching_id),
-            )
+            # Submitted work and reports remain attached to their immutable task version.
         if payload.status == "published":
             connection.execute(
                 "UPDATE diagnosis_assignments SET is_published = 0 WHERE teaching_id = ?",
@@ -629,6 +665,7 @@ def update_diagnosis(teaching_id: str, payload: DiagnosisTaskUpdate) -> dict:
                 "UPDATE precision_teachings SET status = 'active', current_stage = 'feedback', updated_at = ? WHERE id = ?",
                 (now, teaching_id),
             )
+            preserve_published_task(teaching_id, connection, publish=True)
     write_audit(payload.status, "diagnosis_task", teaching_id, payload.model_dump())
     return workspace_for(teaching_id)
 
@@ -756,9 +793,8 @@ def update_diagnosis_rubric(teaching_id: str, payload: DiagnosisRubricUpdate) ->
         validate_task_rubric(skill, rubric)
         if payload.confirmed:
             require_confirmed_materials(teaching_id)
-            # The migration leaves historical intent blank. Once students have
-            # started, that field is locked, so confirming an existing rubric
-            # must not require an impossible edit. AI generation remains strict.
+            # Historical intent may be blank. Preserve confirmation compatibility
+            # for existing student evidence; AI generation still requires intent.
             legacy_locked_rubric = bool(current and fetch_one(
                 """SELECT 1 FROM diagnosis_tasks d
                    WHERE d.teaching_id = ? AND TRIM(d.design_intent) = ''
@@ -776,6 +812,8 @@ def update_diagnosis_rubric(teaching_id: str, payload: DiagnosisRubricUpdate) ->
     serialized = json.dumps(rubric, ensure_ascii=False)
     rubric_changed = not current or serialized != current["current_json"]
     with database() as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        preserve_published_task(teaching_id, connection)
         if not current:
             connection.execute(
                 """INSERT INTO diagnosis_rubrics (teaching_id, skill_key, skill_version, provider, status,

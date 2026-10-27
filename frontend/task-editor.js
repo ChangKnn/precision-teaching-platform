@@ -178,7 +178,7 @@
     return result;
   }
   function renderImages(container, editable) {
-    const key = JSON.stringify([materials?.images, materials?.locked, busy, editable]);
+    const key = JSON.stringify([materials?.images, busy, editable]);
     if (container.dataset.materialKey === key) return;
     container.dataset.materialKey = key; container.replaceChildren();
     for (const [index, image] of (materials?.images || []).entries()) {
@@ -186,7 +186,7 @@
       link.href = image.file_url; link.target = '_blank'; link.rel = 'noopener';
       img.src = image.file_url; img.alt = `图片附件 ${index + 1}，点击查看原图`; link.append(img); figure.append(link);
       const caption = document.createElement('figcaption'); caption.textContent = `图片附件 ${index + 1} · 查看原图`;
-      if (editable && !materials.locked) {
+      if (editable) {
         const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'text-button'; remove.textContent = '移除'; remove.disabled = busy;
         remove.addEventListener('click', () => perform(async id => {
           await saveText(id);
@@ -198,10 +198,30 @@
     }
   }
   function render() {
-    el('taskMaterialStatus').textContent = busy ? '正在保存…' : materials?.locked ? '学生已开始作答，附件不可更换' : materials?.images?.length ? `已附 ${materials.images.length} 张图片` : '';
-    el('taskImageUploadButton').disabled = busy || Boolean(materials?.locked);
+    el('taskMaterialStatus').textContent = busy ? '正在保存…' : materials?.images?.length ? `已附 ${materials.images.length} 张图片` : '';
+    el('taskImageUploadButton').disabled = busy;
     renderImages(el('taskImageGallery'), true);
+    renderAttachments(el('taskFileGallery'),true);
     renderReading();
+  }
+  function renderAttachments(container,editable) {
+    if (!container) return;
+    container.replaceChildren();
+    for (const item of materials?.attachments || []) {
+      const row=document.createElement('div');row.className='task-file-row';
+      const link=document.createElement('a');link.href=item.kind==='link' ? item.url : item.file_url;
+      link.target='_blank';link.rel='noopener noreferrer';link.textContent=`${item.kind==='link' ? '网页' : '文件'} · ${item.name}`;
+      row.append(link);
+      if (editable) {
+        const remove=document.createElement('button');remove.type='button';remove.className='text-button';remove.textContent='移除';remove.disabled=busy;
+        remove.addEventListener('click',()=>perform(async id=>{
+          await saveText(id);
+          update(await PlatformAPI.request(`/api/precision-teachings/${id}/materials/attachments/${item.id}`,{method:'DELETE',body:JSON.stringify({source_hash:materials.source_hash})}));
+          await hooks.reload(id);
+        }));row.append(remove);
+      }
+      container.append(row);
+    }
   }
   function renderReading() {
     const hasImages = Boolean(materials?.images?.length), r = materials?.recognition || {status:'pending'};
@@ -216,10 +236,10 @@
     const unavailable = r.status === 'pending' && !materials.recognition_available;
     el('taskReadingStatus').textContent = readingDirty ? '附件内容已修改，尚未保存' : unavailable ? '尚未启用图片识别' : labels[r.status] || '附件待处理';
     el('taskReadingMessage').textContent = r.error || (unavailable ? '当前未启用视觉模型，可展开手动填写附件内容，核对后继续；不会伪造识别结果。' : r.status === 'ready' ? '后续分析将使用这些附件内容；可展开查看，如发现错误可修改。' : r.status === 'processing' ? '原任务和图片已保存，识别完成后会自动更新。' : '可展开查看识别内容、补全疑点；不会用缺失的图片内容生成标准。');
-    el('retryTaskReading').disabled = busy || r.status === 'processing' || !materials.recognition_available || materials.locked;
+    el('retryTaskReading').disabled = busy || r.status === 'processing' || !materials.recognition_available;
     el('retryTaskReading').textContent = r.status === 'pending' ? '开始识别' : '重新识别';
-    el('saveTaskReading').disabled = busy || r.status === 'processing' || materials.locked;
-    el('taskReadingText').readOnly = Boolean(materials.locked || r.status === 'processing');
+    el('saveTaskReading').disabled = busy || r.status === 'processing';
+    el('taskReadingText').readOnly = r.status === 'processing';
     const key = JSON.stringify([workspaceId, r, materials.image_hash]);
     if (!readingDirty && readingKey !== key) {
       el('taskReadingText').value = [r.task_text, r.diagram_notes].filter(value=>value?.trim()).join('\n\n');
@@ -257,23 +277,35 @@
   }
   async function upload(files) {
     if (readingDirty) { notify('请先保存正在修改的附件识别内容'); return; }
-    if (materials?.locked) { notify('本任务已有学生开始作答，请新建精准教学添加附件'); return; }
-    const selected = [...files].filter(file => ['image/png','image/jpeg','image/webp'].includes(file.type));
-    if (!selected.length) {notify('请选择 PNG、JPG 或 WEBP 图片'); return;}
-    if (selected.some(file=>file.size > 5*1024*1024)) {notify('每张图片请控制在 5 MB 以内'); return;}
-    if (selected.length + (materials?.images?.length || 0) > 4) {notify('每个任务最多保留 4 张图片'); return;}
+    const selected=[...files];if (!selected.length) return;
+    const isImage=file=>['image/png','image/jpeg','image/webp'].includes(file.type);
+    if (selected.some(file=>!isImage(file) && !/\.(pdf|docx|txt)$/i.test(file.name))) {notify('支持图片、PDF、Word（.docx）和TXT');return;}
+    if (selected.some(file=>file.size > 5*1024*1024)) {notify('每份附件最多5MB'); return;}
+    if (selected.filter(isImage).length + (materials?.images?.length || 0) > 4) {notify('每个任务最多保留4张图片'); return;}
     await perform(async id => {
       await saveText(id);
       for (const file of selected) {
         if (!current(id)) return;
-        update(await PlatformAPI.request(`/api/precision-teachings/${id}/materials/images`, {method:'POST',headers:{'Content-Type':file.type,'X-Material-Version':materials.source_hash,'X-Defer-Recognition':'1'},body:file}));
+        update(await PlatformAPI.request(`/api/precision-teachings/${id}/materials/${isImage(file) ? 'images' : 'files'}`, {method:'POST',headers:{'Content-Type':file.type || 'application/octet-stream','X-File-Name':encodeURIComponent(file.name),'X-Material-Version':materials.source_hash,'X-Defer-Recognition':'1'},body:file}));
       }
       if (!current(id)) return;
-      update(await PlatformAPI.request(`/api/precision-teachings/${id}/materials/recognition/start`,{method:'POST'}));
+      if (selected.some(isImage)) update(await PlatformAPI.request(`/api/precision-teachings/${id}/materials/recognition/start`,{method:'POST'}));
       await hooks.reload(id);
     });
   }
-  el('taskImageUploadButton').addEventListener('click',()=>el('taskImageInput').click());
+  el('taskImageUploadButton').addEventListener('click',()=>{el('taskAttachmentActions').hidden=!el('taskAttachmentActions').hidden;});
+  el('taskUploadFileChoice').addEventListener('click',()=>{el('taskAttachmentActions').hidden=true;el('taskImageInput').click();});
+  el('taskAddWebLink').addEventListener('click',()=>{el('taskAttachmentActions').hidden=true;el('taskWebLinkForm').reset();el('taskWebLinkDialog').showModal();});
+  el('taskWebLinkCancel').addEventListener('click',()=>el('taskWebLinkDialog').close());
+  el('taskWebLinkForm').addEventListener('submit',async event=>{
+    event.preventDefault();
+    const draft={url:el('taskWebLinkUrl').value.trim(),name:el('taskWebLinkName').value.trim(),content_text:el('taskWebLinkContent').value.trim()};
+    await perform(async id=>{
+      await saveText(id);
+      update(await PlatformAPI.request(`/api/precision-teachings/${id}/materials/links`,{method:'POST',body:JSON.stringify({...draft,source_hash:materials.source_hash})}));
+      el('taskWebLinkDialog').close();await hooks.reload(id);
+    });
+  });
   el('taskImageInput').addEventListener('change',event=>{upload(event.target.files);event.target.value='';});
   editor.addEventListener('paste',event=>{
     const images=[...(event.clipboardData?.items || [])].filter(item=>item.kind==='file' && item.type.startsWith('image/')).map(item=>item.getAsFile()).filter(Boolean);
@@ -283,7 +315,12 @@
   });
   editor.addEventListener('dragover',event=>{if ([...(event.dataTransfer?.types || [])].includes('Files')) event.preventDefault();});
   editor.addEventListener('drop',event=>{if (event.dataTransfer?.files.length) {event.preventDefault();upload(event.dataTransfer.files);}});
-  el('diagnosisDesignIntent').addEventListener('input',()=>{dirty=true;});
+  for (const id of ['diagnosisDesignIntent', 'diagnosisRoleText', 'diagnosisDuration']) {
+    el(id).addEventListener('input',()=>{dirty=true;});
+  }
+  document.querySelectorAll('input[name="diagnosisTiming"]').forEach(input => {
+    input.addEventListener('change',()=>{dirty=true;});
+  });
   el('taskGenerationIdeas').addEventListener('input',()=>{
     el('taskGenerationSaveState').textContent = el('taskGenerationIdeas').value.trim() === savedIdeas ? '' : '生成或保存草稿时保存';
     document.dispatchEvent(new CustomEvent('task-generation-ideas-changed'));
@@ -341,7 +378,7 @@
       try {await saveText(id);await hooks.reload(id);} finally {busy=false;render();}
     },
     saveGenerationIdeas: saveIdeas,
-    renderPublish() {TaskMath.render(el('publishTaskPreviewText'),canonicalText(false) || '尚未填写任务内容，请返回诊断任务步骤补充。');renderImages(el('publishTaskImages'),false);},
+    renderPublish() {TaskMath.render(el('publishTaskPreviewText'),canonicalText(false) || '尚未填写任务内容，请返回诊断任务步骤补充。');renderImages(el('publishTaskImages'),false);renderAttachments(el('publishTaskFiles'),false);},
   };
   // Retain the legacy field only as the existing API's plain-text/LaTeX storage.
   backing.hidden = true;

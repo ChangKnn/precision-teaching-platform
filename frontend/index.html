@@ -6,7 +6,7 @@
   <meta name="description" content="支持教师开展精准诊断、反馈与课堂干预设计的研究原型。">
   <title>思阶｜AI 精准教学工作台</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="styles.css?v=20261022-merged-accounts-runtime-v1">
+  <link rel="stylesheet" href="styles.css?v=20261027-all-attachments-v1">
   <link rel="stylesheet" href="/filing.css?v=20261018">
   <link rel="stylesheet" href="notifications.css?v=20261018-persistent">
   <link rel="stylesheet" href="vendor/mathlive/mathlive-fonts.css">
@@ -129,7 +129,7 @@
 
         <section class="page" id="page-block-edit">
           <div class="page-heading"><div><button class="back-link" data-page="blocks">← 返回我的精准教学</button><h1 id="teachingEditorHeading">开启新的精准教学</h1></div><span class="draft-state">返回列表时保存草稿</span></div>
-          <p class="profile-setup-notice" id="publishedTeachingNotice" hidden>此项目已有发布记录。可以完善表述；保存前请确认教学范围与诊断依据未改变。已发布任务、学生提交和已有报告不会自动更新。若需实质调整，请开启新的精准教学。</p>
+          <p class="profile-setup-notice" id="publishedTeachingNotice" hidden>可直接修改教学信息、诊断任务、附件、AI角色与分析标准。保存后请核对相关标准，再更新任务布置；重新发布前学生继续使用原版本，历史作答与报告保留。</p>
           <div class="editor-layout">
             <form class="card form-card" id="blockForm">
               <div class="form-section-title"><span>1</span><div><h2>基础信息</h2></div></div>
@@ -205,8 +205,10 @@
                 <p class="task-authoring-hint" id="taskAuthoringHint">请说明学生要做什么、如何与 AI 对话，以及最后提交什么成果。</p>
                 <textarea id="diagnosisTaskText" rows="6">学校准备使用 20 米围栏围成一个长方形劳动实践区。请确定怎样设计长和宽能够使面积最大。先与 AI 充分对话，说明你提取了哪些信息、建立了什么关系以及为什么这样判断；AI 只用中性追问帮助你把已有思路说完整，不提供公式、步骤或答案。对话结束后，请提交一份完整论证文本，说明模型、求解过程、取等条件和结论。</textarea>
                 <div id="diagnosisTaskEditor" class="task-rich-editor math-text" contenteditable="true" role="textbox" aria-label="诊断任务" aria-describedby="taskAuthoringHint" aria-multiline="true" data-placeholder="请说明学生需要做什么、如何与 AI 对话，以及最后提交什么成果。"></div>
-                <div class="task-input-toolbar"><button type="button" class="button" id="taskInsertFormula">ƒ 插入公式</button><button type="button" class="button" id="taskImageUploadButton" title="最多 4 张，每张 5 MB" aria-describedby="taskAttachmentLimits">＋ 添加图片附件</button><span id="taskAttachmentLimits" hidden>最多 4 张，每张 5 MB</span><input type="file" id="taskImageInput" accept="image/png,image/jpeg,image/webp" multiple hidden><span id="taskMaterialStatus" class="task-material-status" role="status" aria-live="polite"></span></div>
+                <div class="task-input-toolbar"><button type="button" class="button" id="taskInsertFormula">ƒ 插入公式</button><button type="button" class="button" id="taskImageUploadButton" title="图片、PDF、Word、TXT或网页链接" aria-describedby="taskAttachmentLimits">＋ 添加附件</button><span id="taskAttachmentLimits" hidden>图片、PDF、Word、TXT或网页链接；每份文件最多5MB</span><input type="file" id="taskImageInput" accept="image/png,image/jpeg,image/webp,.pdf,.docx,.txt" multiple hidden><span id="taskMaterialStatus" class="task-material-status" role="status" aria-live="polite"></span></div>
+                <div id="taskAttachmentActions" class="panel-actions right" hidden><button type="button" class="button small" id="taskUploadFileChoice">上传图片或文件</button><button type="button" class="button small" id="taskAddWebLink">添加网页链接</button></div>
                 <div class="task-image-gallery" id="taskImageGallery" aria-label="诊断任务图片附件"></div>
+                <div id="taskFileGallery" aria-label="诊断任务文件与网页附件"></div>
                 <section id="taskReadingPanel" class="task-reading-panel" hidden aria-label="附件识别状态">
                   <div class="task-reading-heading"><span id="taskReadingStatus" role="status" aria-live="polite"></span><button type="button" class="button small" id="retryTaskReading">重新识别</button></div>
                   <p id="taskReadingMessage" class="task-authoring-hint"></p>
@@ -224,6 +226,12 @@
                 <div class="field-group major-field">
                   <div class="label-row"><label for="diagnosisRoleText">AI角色与对话规则</label><button type="button" class="help-dot" data-help="diagnosisRoleHelp" aria-controls="diagnosisRoleHelp" aria-expanded="false" aria-label="查看 AI 角色说明">?</button><div class="help-popover" id="diagnosisRoleHelp" role="tooltip" hidden><strong>AI 角色</strong><p>可设为中性引导者、需要教授的学生同伴、解释型同伴或辩论对象，也可以不设定角色。诊断型 AI 只促进表达，不提示公式、步骤、答案或正误方向。</p></div></div>
                   <textarea id="diagnosisRoleText" rows="4">中性引导者：只追问“请说明理由”“请把思路写完整”等，不提供公式、步骤、正误判断或解题方向。</textarea>
+                  <section class="role-knowledge" aria-label="AI角色知识库">
+                    <div class="role-knowledge-toolbar"><span>对话参考知识库 · 学生不可见</span><button type="button" class="button" id="uploadRoleKnowledge">＋ 上传知识库</button></div>
+                    <input type="file" id="roleKnowledgeInput" accept=".pdf,.docx,.txt" multiple hidden>
+                    <p class="field-example" id="roleKnowledgeStatus" role="status">PDF / DOCX / TXT，最多5份，每份5MB。</p>
+                    <ul class="role-knowledge-list" id="roleKnowledgeList"></ul>
+                  </section>
                 </div>
                 <div class="field-group major-field duration-field">
                   <div class="label-row"><label for="diagnosisDuration">预计时长</label><button type="button" class="help-dot" data-help="diagnosisDurationHelp" aria-controls="diagnosisDurationHelp" aria-expanded="false" aria-label="查看预计时长说明">?</button><div class="help-popover" id="diagnosisDurationHelp" role="tooltip" hidden><strong>预计时长</strong><p>请预估学生完成生机会话和最终成果所需的总时间，可在采用 AI 推荐方案后继续调整。</p></div></div>
@@ -257,6 +265,7 @@
                 <tr><th scope="row">R 关联结构</th><td></td><td></td><td></td></tr>
                 <tr><th scope="row">EA 拓展抽象</th><td></td><td></td><td></td></tr>
               </tbody></table></div>
+              <p id="rubricObservationNote" class="field-example" hidden></p>
               <label class="confirm-row"><input type="checkbox" id="rubricConfirmed" disabled>我已检查并确认本任务的 SOLO 分析标准</label>
               <details class="custom-analysis-settings" aria-labelledby="customAnalysisHeading">
                 <summary id="customAnalysisHeading">教师自定义分析标准（可选）</summary>
@@ -277,10 +286,11 @@
             <div class="publish-layout">
               <div class="card panel-card"><div class="panel-heading"><span class="step-index">04</span><div><h2>发布诊断任务</h2><p>选择班级，确认学生看到的任务和成果要求。</p></div></div>
                 <label>发布班级</label><div class="class-options" id="publishClassOptions"></div>
+                <p class="field-example">更新用于尚未开始任务的学生，已开始的会话继续使用原任务与 AI 角色。</p>
                 <section class="publish-task-preview" aria-labelledby="publishTaskPreviewHeading">
                   <h3 id="publishTaskPreviewHeading">发布前确认</h3>
                   <dl class="publish-task-meta"><div><dt>诊断时间</dt><dd id="publishDiagnosisTiming"></dd></div><div><dt>任务时长</dt><dd id="publishDiagnosisDuration"></dd></div><div class="publish-role-summary"><dt>AI 角色</dt><dd id="publishDiagnosisRole"></dd></div></dl>
-                  <h4>任务内容</h4><div id="publishTaskPreviewText"></div><div class="task-image-gallery" id="publishTaskImages"></div>
+                  <h4>任务内容</h4><div id="publishTaskPreviewText"></div><div class="task-image-gallery" id="publishTaskImages"></div><div id="publishTaskFiles"></div>
                 </section>
                 <div class="panel-actions spread"><button class="button" data-dnext="3">上一步</button><button class="button primary" id="publishTaskButton">确认发布</button></div>
               </div>
@@ -545,7 +555,7 @@
         <section class="page" id="page-profile">
           <div class="page-heading"><div><button class="back-link" data-page="blocks">← 返回</button><h1>教师与班级背景信息</h1><p>这些信息保存一次，可在多项精准教学中重复使用。</p></div><button class="button primary" id="saveProfileButton">保存设置</button></div>
           <div class="profile-setup-notice" id="profileSetupNotice" hidden></div>
-          <div class="profile-grid"><article class="card profile-card"><h2>我的教学信息</h2><label>显示名称<input id="profileDisplayName" value="林老师"></label><label>任教学科<input id="profileSubject" value="数学"></label><small>修改姓名或学科后，下次需用新组合进入当前空间。</small><label>教龄<div class="unit-input"><input id="profileYears" type="number" value="12" min="0" max="80"><span>年</span></div></label><label>教学风格<textarea id="profileTeachingStyle" rows="5">重视学生表达与同伴讨论，习惯从典型错误切入，通过追问帮助学生建立概念和关系；课堂节奏清晰，倾向使用纸质学习单。</textarea><small>可以写：你常用的课堂组织方式、提问习惯、技术使用偏好以及希望 AI 避免的做法。也可以点击下方短语快速填写。</small></label><div class="tag-list"><button type="button" data-style-suggestion>重视学生表达</button><button type="button" data-style-suggestion>典型错误分析</button><button type="button" data-style-suggestion>同伴讨论</button><button type="button" data-style-suggestion>纸质学习单</button></div></article><article class="card profile-card"><h2>我的班级</h2><div id="classroomList"><div class="class-profile"><header><b>高一（3）班</b><span>40 人</span></header><p>学生愿意口头表达，但书面论证完整性差异较大；教室可使用投影，每组有 1 台平板。</p><button class="text-button">编辑班级背景</button></div><div class="class-profile"><header><b>高一（5）班</b><span>42 人</span></header><p>学生独立作答速度差异较大，小组合作规范较稳定。</p><button class="text-button">编辑班级背景</button></div></div><button class="button full">＋ 添加班级</button></article></div>
+          <div class="profile-grid"><article class="card profile-card"><h2>我的教学信息</h2><label>学校名称<input id="profileSchoolName" readonly></label><label>显示名称<input id="profileDisplayName" value="林老师"></label><label>任教学科<input id="profileSubject" value="数学"></label><small>修改姓名或学科后，下次需用新组合进入当前空间。</small><label>教龄<div class="unit-input"><input id="profileYears" type="number" value="12" min="0" max="80"><span>年</span></div></label><label>教学风格<textarea id="profileTeachingStyle" rows="5">重视学生表达与同伴讨论，习惯从典型错误切入，通过追问帮助学生建立概念和关系；课堂节奏清晰，倾向使用纸质学习单。</textarea><small>可以写：你常用的课堂组织方式、提问习惯、技术使用偏好以及希望 AI 避免的做法。也可以点击下方短语快速填写。</small></label><div class="tag-list"><button type="button" data-style-suggestion>重视学生表达</button><button type="button" data-style-suggestion>典型错误分析</button><button type="button" data-style-suggestion>同伴讨论</button><button type="button" data-style-suggestion>纸质学习单</button></div></article><article class="card profile-card"><h2>我的班级</h2><div id="classroomList"><div class="class-profile"><header><b>高一（3）班</b><span>40 人</span></header><p>学生愿意口头表达，但书面论证完整性差异较大；教室可使用投影，每组有 1 台平板。</p><button class="text-button">编辑班级背景</button></div><div class="class-profile"><header><b>高一（5）班</b><span>42 人</span></header><p>学生独立作答速度差异较大，小组合作规范较稳定。</p><button class="text-button">编辑班级背景</button></div></div><button class="button full">＋ 添加班级</button></article></div>
         </section>
 
       </div>
@@ -594,13 +604,15 @@
     <a href="https://beian.mps.gov.cn/#/query/webSearch?code=11010802050729" target="_blank" rel="noopener noreferrer"><img src="/assets/beian.png" alt="公安备案图标" width="20" height="20">京公网安备11010802050729号</a>
   </footer>
   <script src="notifications.js?v=20261019-error-only-v1"></script>
-  <script src="api-client.js?v=20261022-merged-accounts-runtime-v1"></script>
+  <script src="api-client.js?v=20261027-classroom-management-v1"></script>
   <script src="llm-debug.js?v=20260925-llm2"></script>
   <dialog id="taskFormulaDialog" class="task-math-dialog" aria-labelledby="taskFormulaTitle"><div class="task-dialog-heading"><h2 id="taskFormulaTitle">插入或编辑数学公式</h2><button type="button" class="button" id="taskFormulaCancel">关闭</button></div><p>用数学键盘输入公式，也可粘贴 LaTeX；插入后会在预览中显示。</p><math-field id="taskFormulaField" math-virtual-keyboard-policy="manual" aria-label="数学公式输入"></math-field><div class="task-formula-shortcuts"><button type="button" class="button" data-task-formula="\frac{#0}{#?}">分式</button><button type="button" class="button" data-task-formula="\sqrt{#0}">根号</button><button type="button" class="button" data-task-formula="#0^{#?}">上标</button><button type="button" class="button" data-task-formula="#0_{#?}">下标</button><button type="button" class="button" data-task-formula="\overrightarrow{#0}">向量</button><button type="button" class="button" data-task-formula="\begin{cases}#0\end{cases}">分段式</button></div><div id="taskFormulaKeyboard"></div><div class="panel-actions right"><button type="button" class="button primary" id="taskFormulaInsert">插入任务</button></div></dialog>
   <dialog id="taskRecognitionDialog" class="task-math-dialog" aria-labelledby="taskRecognitionTitle"><div class="task-dialog-heading"><h2 id="taskRecognitionTitle">题目识别草稿 · 待教师核对</h2><button type="button" class="button" id="cancelTaskRecognition">取消</button></div><p>核对后将题目附在完整任务之后，保留你写好的活动说明、对话要求和成果要求。</p><label for="recognizedTaskText">识别出的题目与公式</label><textarea id="recognizedTaskText" rows="7"></textarea><label for="recognizedGeometryNotes">图形条件</label><textarea id="recognizedGeometryNotes" rows="3"></textarea><h3>需要核对</h3><ul id="recognizedUncertainties"></ul><div class="panel-actions right"><button type="button" class="button primary" id="applyTaskRecognition">将题目插入诊断任务</button></div></dialog>
   <script src="vendor/mathlive/mathlive.min.js"></script>
   <script src="math-text.js?v=20261018"></script>
-  <script src="task-editor.js?v=20261019-error-only-v1"></script>
-  <script src="app.js?v=20261022-merged-accounts-runtime-v1"></script>
+  <dialog id="taskWebLinkDialog" class="task-math-dialog" aria-labelledby="taskWebLinkTitle"><form id="taskWebLinkForm"><div class="task-dialog-heading"><h2 id="taskWebLinkTitle">添加网页链接</h2><button type="button" class="button" id="taskWebLinkCancel">取消</button></div><label>网页地址<input id="taskWebLinkUrl" type="url" maxlength="2000" placeholder="https://" required></label><label>标题（选填）<input id="taskWebLinkName" maxlength="180"></label><label>网页内容（选填）<textarea id="taskWebLinkContent" rows="3" maxlength="12000" placeholder="如需AI分析网页内容，可粘贴相关正文"></textarea></label><div class="panel-actions right"><button type="submit" class="button primary">添加</button></div></form></dialog>
+  <script src="task-editor.js?v=20261027-role-save-v1"></script>
+  <script src="role-knowledge.js?v=20261027-concise-v1"></script>
+  <script src="app.js?v=20261027-classroom-qa-v1"></script>
 </body>
 </html>

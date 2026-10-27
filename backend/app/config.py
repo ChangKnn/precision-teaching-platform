@@ -31,6 +31,8 @@ class Settings:
     frontend_path: Path = PROJECT_ROOT / "frontend"
     upload_path: Path = project_path(os.getenv("UPLOAD_PATH", "data/uploads"))
     skills_path: Path = PROJECT_ROOT / "backend" / "skills"
+    # Leave room for login/save/submit requests while a 40-student class waits on AI.
+    request_thread_limit: int = max(80, int(os.getenv("REQUEST_THREAD_LIMIT", "96")))
     ai_provider: str = _teacher_provider
     ai_base_url: str = os.getenv("AI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
     ai_api_key: str = _openrouter_api_key if _teacher_provider == "openrouter" else os.getenv("AI_API_KEY", "")

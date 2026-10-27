@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://local.codex/precision-diagnostic-student-ai-dialogue/input.schema.json",
-  "title": "精准诊断生机会话输入",
+  "title": "教师设定的角色对话输入",
   "type": "object",
   "additionalProperties": false,
   "required": ["precision_teaching_context", "diagnostic_task", "ai_dialogue_contract", "student", "dialogue_state"],
@@ -54,7 +54,14 @@
         "teacher_confirmed": {"const": true},
         "ai_role": {"type": "string", "minLength": 1},
         "required_rules": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
-        "prohibited_behaviors": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+        "prohibited_behaviors": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "role_knowledge": {
+          "type":"array", "maxItems":5,
+          "items":{
+            "type":"object", "additionalProperties":false, "required":["source_id","content"],
+            "properties":{"source_id":{"type":"string","minLength":1},"content":{"type":"string","minLength":1,"maxLength":12000}}
+          }
+        }
       }
     },
     "student": {

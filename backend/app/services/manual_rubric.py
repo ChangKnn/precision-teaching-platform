@@ -40,6 +40,6 @@ def teacher_rubric(task_text: str, levels: dict) -> dict:
 
 
 def require_complete_levels(rubric: dict) -> None:
-    missing = [level for level in LEVELS if rubric['levels'][level]['status'] != 'not_reasonably_elicitable' and any(not any(str(x).strip() for x in rubric['levels'][level][field]) for field in FIELDS[:2])]
+    missing = [level for level in LEVELS if any(not any(str(x).strip() for x in rubric['levels'][level][field]) for field in FIELDS)]
     if missing:
-        raise ValueError('请补全以下层级的主要认知特征和学生表现后再确认：' + '、'.join(missing))
+        raise ValueError('请补全以下层级的主要认知特征和学生表现，并填写示例后再确认：' + '、'.join(missing))

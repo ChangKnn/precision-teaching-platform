@@ -89,6 +89,7 @@ def class_report_input(teaching_id: str, classroom_id: str) -> tuple[dict | None
         JOIN students s ON s.id = sts.student_id
         WHERE r.teaching_id = ? AND s.classroom_id = ?
           AND sts.status = 'submitted' AND r.status != 'stale' AND r.provider != 'mock'
+
         ORDER BY s.id
         """,
         (teaching_id, classroom_id),

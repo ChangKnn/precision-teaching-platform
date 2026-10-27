@@ -327,6 +327,11 @@ const interventionActivities = {
   }
 };
 let serverState = null;
+window.RoleKnowledge.configure({
+  getContext: () => ({teachingId: serverState?.current_teaching_id}),
+  onChange: value => {if (serverState?.current_workspace) serverState.current_workspace.role_knowledge = value;},
+  notify: message => showToast(message),
+});
 window.TaskInput.configure({
   getContext: () => ({ teachingId: serverState?.current_teaching_id }),
   saveDraft: () => saveCurrentDiagnosis('draft'),
@@ -356,6 +361,7 @@ function updateTeacherIdentity(profile) {
   document.getElementById("teacherDisplayName").textContent = name;
   document.querySelector("#teacherProfileButton .avatar").textContent = name.slice(0, 1);
   document.getElementById("profileDisplayName").value = name;
+  document.getElementById("profileSchoolName").value = profile.school_name || "";
   document.getElementById("profileSubject").value = profile.subject || "";
   document.getElementById("profileYears").value = profile.years_experience ?? 0;
   document.getElementById("profileTeachingStyle").value = profile.teaching_style || "";
@@ -399,11 +405,21 @@ function renderClassrooms(classrooms) {
     const edit = document.createElement("button");
     edit.className = "text-button";
     edit.type = "button";
-    edit.textContent = "编辑班级背景";
+    edit.textContent = "编辑班级";
     edit.dataset.editClassroom = classroom.id;
-    card.append(header, background, edit);
+    const remove=document.createElement('button');
+    remove.type='button';remove.className='text-button danger';remove.textContent='删除班级';remove.dataset.deleteClassroom=classroom.id;
+    const actions=document.createElement('div');actions.className='classroom-form-actions';actions.append(edit,remove);
+    card.append(header, background, actions);
     list.append(card);
   });
+}
+
+async function refreshClassroomState() {
+  const latest=await window.PlatformAPI.bootstrap();
+  serverState.classrooms=latest.classrooms;
+  if (serverState.current_teaching_id) storeWorkspace(await window.PlatformAPI.getWorkspace(serverState.current_teaching_id));
+  renderClassrooms(serverState.classrooms);
 }
 
 function needsProfileSetup() {
@@ -763,7 +779,7 @@ function renderStudentResultDetail(result) {
   const report = result.report;
   const reportStatus = report?._saveError ? "保存失败" : report?._saving ? "正在保存" : ({ draft: "待教师确认", confirmed: "已确认", pushed: "已推送", stale: "需要重新生成" }[report?.status] || "尚未生成");
   const reportStatusClass = report?._saveError || report?.status === "stale" ? "warning" : report?.status === "pushed" || report?.status === "confirmed" ? "success" : "neutral";
-  const rubricReady = serverState.current_workspace?.rubric?.status === "confirmed";
+  const rubricReady = result.task_rubric_confirmed ?? (serverState.current_workspace?.rubric?.status === "confirmed");
   const submittedWork = result.submitted_text
     ? `<blockquote class="submitted-text-evidence">${escapeHTML(result.submitted_text)}</blockquote>`
     : `<p class="muted">本次未提交文字成果；生成报告时仅使用完整对话。</p>`;
@@ -777,11 +793,12 @@ function renderStudentResultDetail(result) {
       <div class="report-footer"><span class="autosave-state" id="feedbackAutosaveState">${report._saveError ? "保存失败，请再次编辑重试" : report._saving ? "正在自动保存…" : report.status === "stale" ? "上游内容已变化" : "已保存"}</span><div><button class="button" data-generate-student-report="${escapeHTML(result.id)}">重新生成</button><button class="button primary" id="pushStudentFeedback" data-report-status="${report.status === "confirmed" ? "pushed" : "confirmed"}" ${report.provider === "mock" || report.status === "stale" || report.status === "pushed" || report._saveError || report._saving ? "disabled" : ""}>${report.provider === "mock" ? "Mock 报告不可确认" : report.status === "confirmed" ? "推送给学生" : report.status === "pushed" ? "已推送" : "确认报告"}</button></div></div>
     </article>`;
   panel.innerHTML = `<article class="card learning-record-card">
-    <div class="card-heading"><div><span class="section-kicker">学生原始证据</span><h2>${escapeHTML(result.student.name)}的学习记录</h2><p>${escapeHTML(result.student.class_name)} · 提交时间：${escapeHTML(formatUpdatedAt(result.submitted_at))}</p></div><span class="status success">已提交</span></div>
+    <div class="card-heading"><div><span class="section-kicker">学生原始证据</span><h2>${escapeHTML(result.student.name)}的学习记录</h2><p>${escapeHTML(result.student.class_name)} · 提交时间：${escapeHTML(formatUpdatedAt(result.submitted_at))}${result.task_version_number ? ` · 任务第 ${Number(result.task_version_number)} 版，按原任务和当前确认的 SOLO 标准分析` : ''}</p></div><span class="status success">已提交</span></div>
+    ${result.task ? `<details class="student-facing-card"><summary>查看本次作答的任务 · 第 ${Number(result.task_version_number)} 版</summary><p>${escapeHTML(result.task.task_text)}</p>${(result.task.task_images || []).map(image=>`<a href="/api/precision-teachings/${encodeURIComponent(result.teaching_id)}/task-versions/${encodeURIComponent(result.task_version_id)}/images/${encodeURIComponent(image.id)}" target="_blank" rel="noopener">查看原附件</a>`).join(' ')}</details>` : ''}
     <section class="conversation-record">
       <div class="record-section-heading"><div><h3>学生与 AI 对话记录</h3><p>共 ${studentMessages} 次学生发言。</p></div></div>
       <div class="conversation-messages" role="region" aria-label="${escapeHTML(result.student.name)}的对话记录" tabindex="0">${result.messages.map(message => {
-        return `<div class="record-message ${message.role === 'student' ? 'student' : 'ai'}"><b>${message.role === 'student' ? '学生' : 'AI'}</b><p>${escapeHTML(message.content)}</p><time>${escapeHTML(formatUpdatedAt(message.created_at))}</time></div>`;
+        return `<div class="record-message ${message.role === 'student' ? 'student' : 'ai'}"><b>${message.role === 'student' ? '学生' : 'AI'}${message.task_version_number ? ` · 任务第 ${Number(message.task_version_number)} 版` : ''}</b><p>${escapeHTML(message.content)}</p><time>${escapeHTML(formatUpdatedAt(message.created_at))}</time></div>`;
       }).join('')}</div>
     </section>
     <section class="submitted-work"><div class="record-section-heading"><div><h3>最终作答文本</h3><p>${result.submitted_text ? "学生提交的成果原文。" : "学生未填写，可依据对话记录继续分析。"}</p></div></div>${submittedWork}</section>
@@ -900,7 +917,7 @@ function renderStudentResults(payload) {
     return;
   }
   ui.activeStudentResultIndex = Math.min(ui.activeStudentResultIndex, results.length - 1);
-  const rubricReady = serverState.current_workspace?.rubric?.status === "confirmed";
+  const rubricReady = results.some(result => result.task_rubric_confirmed ?? (serverState.current_workspace?.rubric?.status === "confirmed"));
   studentPanel.innerHTML = `<div class="card student-feedback-toolbar"><div><b>个体报告生成</b><span>${generatedCount}/${results.length} 份已生成 · ${pushableCount} 份已确认待推送</span></div><div class="student-feedback-actions"><button class="button" id="generateAllStudentReports" ${rubricReady ? "" : "disabled"}>${rubricReady ? "生成全部待分析报告" : "请先确认任务量规"}</button>${serverState.current_workspace?.custom_analysis_standard?.individual_enabled ? '<button class="button" id="generateAllCustomReports">生成全部个人补充反馈</button>' : ""}<button class="button primary" id="pushConfirmedStudentReports" ${pushableCount ? "" : "disabled"}>一键推送已确认报告</button></div></div><div class="student-review-layout">
     <aside class="card student-list" id="studentResultList"><div class="list-header"><b>${results.length} 名学生</b><span>学生提交</span></div>${results.map((result, index) => `<button class="${index === ui.activeStudentResultIndex ? "active" : ""}" data-result-index="${index}"><span><b>${escapeHTML(result.student.name)}</b><small class="student-result-meta"><span class="student-solo-label">${escapeHTML(studentSOLOLabel(result.report))}</span><span title="按学生发言次数统计">对话 ${result.messages.filter(message => message.role === 'student').length} 次</span><span>${result.submitted_text?.trim() ? '成果已交' : '成果未交'}</span></small></span><em>${result.report?.provider === 'mock' ? '预览' : result.report ? ({ draft: "待确认", confirmed: "已确认", pushed: "已推送", stale: "需重生成" }[result.report.status]) : "待生成"}</em></button>`).join("")}</aside>
     <div class="student-review-main" id="studentResultDetail"></div>
@@ -1662,7 +1679,7 @@ function populateTeachingEditor(teaching) {
 function updateTeachingEditorMode(teaching) {
   const published = Boolean(teaching && teaching.status !== "draft");
   document.getElementById("publishedTeachingNotice").hidden = !published;
-  document.querySelector("#page-block-edit .draft-state").textContent = published ? "修改需确认；已有任务与报告保持原样" : "返回列表时保存草稿";
+  document.querySelector("#page-block-edit .draft-state").textContent = published ? "可自主修改；重新发布后生效，历史记录保留" : "返回列表时保存草稿";
   document.getElementById("saveBlockDraftButton").textContent = published ? "保存修改" : "保存草稿";
   document.getElementById("createBlockButton").textContent = published ? "保存修改并进入诊断设计" : "保存并进入诊断设计";
 }
@@ -1672,13 +1689,7 @@ function teachingEditIntent(existing, payload) {
   const labels = { title: "主题", rationale: "选题说明", goal: "目标", content: "教学内容", subject: "学科", grade: "年级", education_stage: '学段', course_name: '课程名称', major: '专业', textbook: "教材章节", estimated_periods: "预计课时" };
   const changes = Object.keys(labels).filter(field => existing[field] !== payload[field]).map(field => labels[field]);
   if (!changes.length) return null;
-  const accepted = window.confirm(`本次修改：${changes.join("、")}。\n\n请确认这只是完善表述，不改变原诊断任务的教学范围与判断依据。已发布任务、学生提交和已有报告会保持原样，不会自动重算。\n\n若是实质调整，请点“取消”并开启新的精准教学。`);
-  if (!accepted) {
-    const error = new Error("已取消保存，修改仍保留在当前页面");
-    error.code = "TEACHING_SAVE_CANCELLED";
-    throw error;
-  }
-  return "wording";
+  return "revision";
 }
 
 function teachingFormPayload() {
@@ -1810,6 +1821,7 @@ function applyWorkspace(workspace) {
   document.getElementById("diagnosisRoleText").value = diagnosis.ai_role || "";
   document.getElementById("diagnosisDuration").value = diagnosis.duration_minutes || 15;
   window.TaskInput.applyWorkspace(workspace);
+  window.RoleKnowledge.applyWorkspace(workspace);
   renderPublishTaskPreview();
   const typeCopy = {
     pre: ["课前诊断", "本次结果将作为课堂干预设计的主要证据来源。"],
@@ -1952,6 +1964,23 @@ function fitRubricColumns() {
   });
 }
 
+function rubricObservationText(record) {
+  if (!record?.rubric || record.status==='stale' || record.provider==='teacher') return '';
+  const rubric=record.rubric;
+  const levels=Object.keys(rubricLevelNames);
+  const affordance=rubric.task_analysis?.task_affordance || {};
+  const highest=levels.indexOf(affordance.highest_reasonably_elicitable_level);
+  const firstReason=items=>Array.isArray(items) ? items.find(item=>typeof item==='string' && item.trim())?.trim() : '';
+  const notes=[];
+  levels.forEach((level,index)=>{
+    const row=rubric.levels?.[level] || {};
+    if (row.status!=='not_reasonably_elicitable' && !(highest>=0 && index>highest)) return;
+    const reason=firstReason(row.limitations) || firstReason(affordance.limitations);
+    if (reason) notes.push(`${rubricLevelNames[level]}层级较难激发：${reason}`);
+  });
+  return notes.length ? `备注：${notes.join('；')}` : '';
+}
+
 function renderRubric(record) {
   const body = document.getElementById("rubricTableBody");
   const status = document.getElementById("rubricRuntimeStatus");
@@ -1960,11 +1989,14 @@ function renderRubric(record) {
   const generate = document.getElementById("regenerateRubric");
   body.innerHTML = Object.keys(rubricLevelNames).map(level => {
     const row = record?.rubric?.levels?.[level] || {};
-    return `<tr data-rubric-level="${level}"><th>${rubricLevelNames[level]}${row.status === "not_reasonably_elicitable" ? "<small>当前任务难以引出</small>" : ""}</th>
+    return `<tr data-rubric-level="${level}"><th>${rubricLevelNames[level]}</th>
       <td contenteditable="true" role="textbox" aria-multiline="true" aria-label="${rubricLevelNames[level]}主要认知特征" data-rubric-field="core_performance">${escapeHTML(rubricListText(row.core_performance))}</td>
       <td contenteditable="true" role="textbox" aria-multiline="true" aria-label="${rubricLevelNames[level]}学生表现" data-rubric-field="decision_evidence">${escapeHTML(rubricListText(row.decision_evidence))}</td>
       <td contenteditable="true" role="textbox" aria-multiline="true" aria-label="${rubricLevelNames[level]}示例" data-rubric-field="typical_expressions">${escapeHTML(rubricListText(row.typical_expressions))}</td></tr>`;
   }).join("");
+  const observationNote=document.getElementById('rubricObservationNote');
+  observationNote.textContent=rubricObservationText(record);
+  observationNote.hidden=!observationNote.textContent;
   fitRubricColumns();
   const confirmed = record?.status === "confirmed";
   const stale = record?.status === "stale";
@@ -1981,7 +2013,7 @@ function renderRubric(record) {
 function rubricEditorComplete() {
   return [...document.querySelectorAll('#rubricTableBody [data-rubric-level]')].length === 5 &&
     [...document.querySelectorAll('#rubricTableBody [data-rubric-level]')].every(row =>
-      ['core_performance','decision_evidence'].every(field => row.querySelector(`[data-rubric-field="${field}"]`).innerText.trim()));
+      ['core_performance','decision_evidence','typical_expressions'].every(field => row.querySelector(`[data-rubric-field="${field}"]`).innerText.trim()));
 }
 
 function rubricFromEditor() {
@@ -3343,9 +3375,23 @@ function showInterventionPlanPreview() {
 }
 
 document.addEventListener("click", async event => {
-  if (event.target.closest('.task-input-toolbar, .task-image-gallery, #taskReadingPanel, #diagnosisTaskEditor, #taskFormulaDialog')) return;
+  if (event.target.closest('.task-input-toolbar, .task-image-gallery, #taskReadingPanel, #diagnosisTaskEditor, #taskFormulaDialog, #taskAttachmentActions, #taskFileGallery, #taskWebLinkDialog')) return;
   // These controls have their own listeners; do not report them as placeholders.
   if (event.target.closest("#teacherAuthScreen, #teacherLogoutButton, #teacherChangePasswordButton, #addClassroomButton, .add-classroom-form, .edit-classroom-form")) return;
+  const removeClassroomButton=event.target.closest('[data-delete-classroom]');
+  if (removeClassroomButton) {
+    const button=removeClassroomButton;
+    const classroomId=button.dataset.deleteClassroom;
+    const classroom=serverState.classrooms.find(item=>item.id===classroomId);
+    if (!window.confirm(`删除班级“${classroom?.name || ''}”吗？已有作答与报告会保留。`)) return;
+    button.disabled=true;
+    try {
+      await window.PlatformAPI.deleteClassroom(classroomId);
+      await refreshClassroomState();
+      showToast('班级已删除');
+    } catch(error) {button.disabled=false;showToast(`操作失败：${error.message}`);}
+    return;
+  }
   const editClassroomButton = event.target.closest("[data-edit-classroom]");
   if (editClassroomButton) {
     const classroom = serverState.classrooms.find(item => item.id === editClassroomButton.dataset.editClassroom);
@@ -3353,9 +3399,11 @@ document.addEventListener("click", async event => {
     const card = editClassroomButton.closest(".class-profile");
     const form = document.createElement("form");
     form.className = "edit-classroom-form";
-    form.innerHTML = `<label>学生人数<input name="student_count" type="number" min="0" max="1000" required></label>
+    form.innerHTML = `<label>班级名称<input name="name" maxlength="80" required></label>
+      <label>学生人数<input name="student_count" type="number" min="0" max="1000" required></label>
       <label>班级背景（可选）<textarea name="background" rows="4" maxlength="2000"></textarea></label>
       <div class="classroom-form-actions"><button class="button primary" type="submit">保存班级信息</button><button class="button" type="button" data-cancel>取消</button></div>`;
+    form.querySelector('[name="name"]').value=classroom.name;
     form.querySelector('[name="student_count"]').value = classroom.student_count;
     form.querySelector('[name="background"]').value = classroom.background || "";
     editClassroomButton.hidden = true;
@@ -3367,17 +3415,18 @@ document.addEventListener("click", async event => {
       saveButton.disabled = true;
       try {
         const updated = await window.PlatformAPI.updateClassroom(classroom.id, {
+          name: form.querySelector('[name="name"]').value.trim(),
           student_count: Number(form.querySelector('[name="student_count"]').value),
           background: form.querySelector('[name="background"]').value.trim()
         });
-        serverState.classrooms = serverState.classrooms.map(item => item.id === updated.id ? updated : item);
+        serverState.classrooms = serverState.classrooms.map(item => item.id === updated.id ? {...item,...updated} : item);
         renderClassrooms(serverState.classrooms);
       } catch (error) {
         showToast(`保存班级失败：${error.message}`);
         saveButton.disabled = false;
       }
     });
-    form.querySelector('[name="student_count"]').focus();
+    form.querySelector('[name="name"]').focus();
     return;
   }
   if (event.target.closest("#generateActivityFormative, #generateActivityFormativeEmpty")) {
@@ -3742,7 +3791,7 @@ document.addEventListener("click", async event => {
     const targetTeachingId = pageButton.dataset.openTeaching;
     const currentInfoLink = pageButton.id === 'currentTeachingInfoButton';
     if (currentInfoLink && ui.currentPage === 'block-edit' && ui.editingTeachingId === targetTeachingId) return;
-    if (currentInfoLink && ui.currentPage === 'diagnosis') {
+    if (ui.currentPage === 'diagnosis' && (currentInfoLink || pageButton.dataset.page !== 'diagnosis' || targetTeachingId)) {
       try {
         if (ui.diagnosisStep === 3 && document.getElementById('rubricRuntimeStatus').textContent === '正在保存草稿…') {
           window.clearTimeout(rubricSaveTimer);
@@ -3957,6 +4006,7 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("#publishTaskButton")) {
     const button = event.target.closest("#publishTaskButton");
+    try { window.RoleKnowledge.prepare(); } catch (error) { showToast(error.message); return; }
     try { await window.TaskInput.prepareAnalysis(); } catch (error) { showToast(error.message); return; }
     if (window.TaskInput.requiresConfirmation()) { setDiagnosisStep(2); document.getElementById('taskReadingDetails').open = true; showToast('请先完成附件识别或核对后再发布。'); return; }
     if (!serverState.classrooms.length) {
@@ -4130,7 +4180,7 @@ document.addEventListener("click", async event => {
   if (event.target.closest("#generateAllStudentReports")) {
     const button = event.target.closest("#generateAllStudentReports");
     const pending = (serverState.studentResults?.results || []).filter(
-      item => item.student.classroom_id === ui.activeClassroomId && (!item.report || item.report.provider === "mock" || item.report.status === "stale")
+      item => item.student.classroom_id === ui.activeClassroomId && (item.task_rubric_confirmed ?? (serverState.current_workspace?.rubric?.status === "confirmed")) && (!item.report || item.report.provider === "mock" || item.report.status === "stale")
     );
     if (!pending.length) {
       return;

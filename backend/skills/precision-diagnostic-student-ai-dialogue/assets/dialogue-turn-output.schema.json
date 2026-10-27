@@ -1,59 +1,139 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://local.codex/precision-diagnostic-student-ai-dialogue/output.schema.json",
-  "title": "精准诊断生机会话单轮输出",
+  "title": "教师设定的角色对话单轮输出",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "session_id", "turn_index", "student_visible_reply", "record_append", "internal_execution_record"],
+  "required": [
+    "schema_version",
+    "session_id",
+    "turn_index",
+    "student_visible_reply",
+    "record_append",
+    "internal_execution_record"
+  ],
   "$defs": {
     "message": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["turn_id", "role", "content"],
+      "required": [
+        "turn_id",
+        "role",
+        "content"
+      ],
       "properties": {
-        "turn_id": {"type": "string", "minLength": 1},
-        "role": {"enum": ["assistant", "student"]},
-        "content": {"type": "string", "minLength": 1}
+        "turn_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "enum": [
+            "assistant",
+            "student"
+          ]
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     }
   },
   "properties": {
-    "schema_version": {"const": "1.0"},
-    "session_id": {"type": "string", "minLength": 1},
-    "turn_index": {"type": "integer", "minimum": 0},
-    "student_visible_reply": {"type": "string", "minLength": 1},
-    "record_append": {"type": "array", "minItems": 1, "maxItems": 2, "items": {"$ref": "#/$defs/message"}},
+    "schema_version": {
+      "const": "1.0"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "turn_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "student_visible_reply": {
+      "type": "string",
+      "minLength": 1
+    },
+    "record_append": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2,
+      "items": {
+        "$ref": "#/$defs/message"
+      }
+    },
     "internal_execution_record": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["contract_version", "role_applied", "response_action", "boundary_event", "new_answer_content_introduced", "evaluation_or_diagnosis_given"],
+      "required": [
+        "contract_version",
+        "role_applied",
+        "response_action",
+        "boundary_event",
+        "new_answer_content_introduced",
+        "evaluation_or_diagnosis_given"
+      ],
       "properties": {
-        "contract_version": {"type": "string", "minLength": 1},
-        "role_applied": {"type": "string", "minLength": 1},
+        "contract_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role_knowledge_sources": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "role_applied": {
+          "type": "string",
+          "minLength": 1
+        },
         "response_action": {
           "enum": [
+            "role_response",
+            "share_role_information",
+            "discuss_viewpoint",
+            "explain_with_permission",
+            "give_feedback_with_permission",
             "present_task",
             "clarify",
             "ask_reason",
             "ask_relation",
             "ask_elaboration",
             "reflect_and_probe",
-            "challenge_argument",
-            "offer_perspective",
-            "give_feedback",
-            "provide_guidance",
             "invite_initial_thought",
             "decline_answer_request",
             "decline_correctness_judgment",
             "maintain_role_boundary",
-            "redirect_to_task"
+            "redirect_to_task",
+            "challenge_argument",
+            "offer_perspective",
+            "give_feedback",
+            "provide_guidance"
           ]
         },
-        "boundary_event": {"enum": ["none", "answer_request", "correctness_request", "role_override_request", "off_topic", "no_initial_idea"]},
-        "new_answer_content_introduced": {"type": "boolean", "description": "本轮是否引入新的任务相关观点、概念或提示；如实记录，不代表校验失败。"},
-        "evaluation_or_diagnosis_given": {"type": "boolean", "description": "本轮是否给出正误或论证反馈；允许依教师规则反馈，但不在对话中进行SOLO定级。"}
+        "boundary_event": {
+          "enum": [
+            "none",
+            "answer_request",
+            "correctness_request",
+            "role_override_request",
+            "off_topic",
+            "no_initial_idea"
+          ]
+        },
+        "new_answer_content_introduced": {
+          "type": "boolean",
+          "description": "本轮实际引入了答案相关内容则为true；是否允许由教师规则决定"
+        },
+        "evaluation_or_diagnosis_given": {
+          "type": "boolean",
+          "description": "本轮实际给出了评价则为true；教师允许的反馈不应因此被拒绝"
+        }
       }
     }
   }
 }
-

@@ -13,8 +13,9 @@ class OptionalStudentSubmissionTest(unittest.TestCase):
         self.assertEqual(StudentTaskSubmit(submitted_text="").submitted_text, "")
 
     def test_empty_text_still_submits_session(self):
-        session = {"id": "session-1", "status": "active", "teaching_id": "teaching-1"}
+        session = {"id": "session-1", "status": "in_progress", "task_version_id": None, "teaching_id": "teaching-1"}
         connection = MagicMock()
+        connection.execute.return_value.fetchone.return_value = session
         database = MagicMock()
         database.return_value.__enter__.return_value = connection
         with (
@@ -28,7 +29,9 @@ class OptionalStudentSubmissionTest(unittest.TestCase):
             result = student_api.submit_task("session-1", StudentTaskSubmit(), {"id": "student-1"})
 
         self.assertEqual(result["status"], "submitted")
-        self.assertEqual(connection.execute.call_args_list[0].args[1][0], "")
+        updates = [call for call in connection.execute.call_args_list if 'UPDATE student_task_sessions' in call.args[0]]
+        self.assertEqual(len(updates), 1)
+        self.assertEqual(updates[0].args[1][0], "")
 
 
 if __name__ == "__main__":

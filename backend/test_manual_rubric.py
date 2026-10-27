@@ -33,10 +33,18 @@ class ManualRubricTest(TestCase):
         self.assertIn('主要认知特征和学生表现',str(caught.exception.detail))
         self.assertIsNone(main.serialized_rubric('pt'))
 
-    def test_complete_teacher_rubric_can_confirm_without_examples(self):
+    def test_teacher_rubric_requires_examples_for_confirmation_but_can_save_draft(self):
         payload=self.payload(complete=True,confirmed=True)
         for row in payload.rubric['levels'].values():row['typical_expressions']=[]
-        result=main.update_diagnosis_rubric('pt',payload)['rubric']
+        with self.assertRaises(HTTPException) as caught:
+            main.update_diagnosis_rubric('pt',payload)
+        self.assertEqual(caught.exception.status_code,422)
+        self.assertIn('示例',caught.exception.detail)
+        payload.confirmed=False
+        self.assertEqual(main.update_diagnosis_rubric('pt',payload)['rubric']['status'],'draft')
+
+    def test_complete_teacher_rubric_can_confirm_with_all_three_fields(self):
+        result=main.update_diagnosis_rubric('pt',self.payload(complete=True,confirmed=True))['rubric']
         self.assertEqual(result['status'],'confirmed')
         self.assertTrue(result['confirmed_at'])
         self.assertEqual(result['provider'],'teacher')
@@ -63,7 +71,7 @@ class ManualRubricTest(TestCase):
             main.update_diagnosis_rubric('pt',self.payload(complete=True,confirmed=True))
         self.assertEqual(caught.exception.status_code,409)
 
-    def test_legacy_locked_rubric_can_be_reconfirmed_without_inventing_intent(self):
+    def test_legacy_rubric_reconfirmation_preserves_fields_and_archives_evidence(self):
         main.update_diagnosis_rubric('pt', self.payload(complete=True, confirmed=True))
         base.TaskMaterialsTest.session(self)
         with db.database() as connection:
@@ -73,7 +81,12 @@ class ManualRubricTest(TestCase):
         with patch('backend.app.main.run_skill', side_effect=AssertionError('Must not call AI')):
             result = main.update_diagnosis_rubric('pt', DiagnosisRubricUpdate(rubric=existing, confirmed=True))
         self.assertEqual(result['rubric']['status'], 'confirmed')
-        self.assertEqual(db.fetch_one("SELECT * FROM diagnosis_tasks WHERE teaching_id = 'pt'"), before)
+        after=db.fetch_one("SELECT * FROM diagnosis_tasks WHERE teaching_id = 'pt'")
+        self.assertEqual({k:v for k,v in after.items() if k!='published_version_id'},
+                         {k:v for k,v in before.items() if k!='published_version_id'})
+        self.assertIsNotNone(after['published_version_id'])
+        from backend.app.services.task_versions import get_version
+        self.assertEqual(get_version(after['published_version_id'])['snapshot']['rubric'],existing)
 
     def test_new_task_without_intent_cannot_confirm_first_manual_rubric(self):
         with db.database() as connection:

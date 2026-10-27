@@ -444,7 +444,7 @@ def _run_structured_skill(
     return json.loads(text)
 
 
-def validate_task_rubric(skill: SkillDefinition, rubric: dict[str, Any]) -> None:
+def validate_task_rubric(skill: SkillDefinition, rubric: dict[str, Any], *, require_complete: bool = False) -> None:
     schema_path = skill.path.parent / "assets/task-specific-solo-rubric.schema.json"
     try:
         import jsonschema
@@ -457,6 +457,11 @@ def validate_task_rubric(skill: SkillDefinition, rubric: dict[str, Any]) -> None
     for level, row in rubric['levels'].items():
         if any(internal_code.search(text) for field in teacher_fields for text in row.get(field, [])):
             raise ValueError(f'{level} 层级的教师说明含内部编号，请改为具体内容与关系的自然语言表述；追溯编号仅可留在机器字段。')
+    if require_complete:
+        from .manual_rubric import require_complete_levels
+        require_complete_levels(rubric)
+        if any(row['status'] != 'defined' for row in rubric['levels'].values()):
+            raise ValueError('生成标准须完整定义五个层级；任务观察限制请写在表下备注，不代替层级标准。')
 
 
 def run_teacher_custom_analysis(skill: SkillDefinition, payload: dict[str, Any], provider: str) -> dict[str, Any]:
@@ -774,9 +779,12 @@ def run_skill(skill: SkillDefinition, payload: dict[str, Any], provider: str) ->
                 "全部 levels 自然语言字段禁止内部要素、关系、路径或锚点编号；编号仅可出现在 task_analysis 定位字段和 trace_to。"
                 "使用学生第一人称的实际句子，不写层级定义、判定提醒、边界说明或真实学生诊断；"
                 "层级边界和限制仍分别保留在 adjacent_boundaries、limitations 字段。"
+                "五级 status 均为 defined；每级 core_performance、decision_evidence、typical_expressions 必须有具体内容，任何一栏不得留空。"
+                "即使任务未主动要求概括或迁移，也要定义学生自主展示该结构时的标准及假想示例，不增加原题隐藏要求。"
+                "不得在表格标准中使用‘当前任务难以引出’或以任务未要求替代学生表现；观察机会限制只写备注，不能作为学生定级上限。"
             ),
         )
-        validate_task_rubric(skill, result)
+        validate_task_rubric(skill, result, require_complete=True)
         return result
     if skill.key == "solo_student_diagnosis_feedback":
         result, _, _ = run_student_diagnosis_report(skill, payload, provider)

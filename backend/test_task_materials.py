@@ -148,19 +148,23 @@ class TaskMaterialsTest(TestCase):
         main.update_diagnosis('pt', DiagnosisTaskUpdate(goal='说明理由', task_text='改为求二次式最大值'))
         self.assertFalse(materials.material_state('pt')['confirmed'])
 
-    def test_started_session_locks_task_materials_and_wording(self):
+    def test_started_session_allows_edits_and_preserves_original_materials(self):
         state = self.upload()
         self.confirm()
         self.session()
-        for action in (
-            lambda: self.upload(),
-            lambda: materials.remove_task_image('pt', state['images'][0]['id'], materials.MaterialConfirmation(source_hash=state['source_hash'])),
-            lambda: materials.save_material_notes('pt', materials.MaterialNotes(source_hash=state['source_hash'], geometry_notes='换题')),
-            lambda: main.update_diagnosis('pt', DiagnosisTaskUpdate(goal='说明理由', task_text='新题目')),
-        ):
-            with self.subTest(action=action), self.assertRaises(HTTPException) as error:
-                action()
-            self.assertEqual(error.exception.status_code, 409)
+        self.upload()
+        state = materials.material_state('pt')
+        materials.remove_task_image('pt', state['images'][0]['id'], materials.MaterialConfirmation(source_hash=state['source_hash']))
+        state = materials.material_state('pt')
+        materials.save_material_notes('pt', materials.MaterialNotes(source_hash=state['source_hash'], geometry_notes='换题'))
+        main.update_diagnosis('pt', DiagnosisTaskUpdate(goal='说明理由', task_text='新题目'))
+        saved = db.fetch_one('SELECT snapshot_json FROM diagnosis_task_versions WHERE teaching_id=?', ('pt',))
+        original = json.loads(saved['snapshot_json'])
+        self.assertIn('最小值', original['task_text'])
+        self.assertEqual(len(original['images']), 1)
+        self.assertTrue((self.settings.upload_path / original['images'][0]['stored_filename']).is_file())
+        self.assertFalse(materials.material_state('pt')['locked'])
+        self.assertTrue(materials.material_state('pt')['has_started_sessions'])
 
     def test_invalid_image_and_oversized_payload_rejected(self):
         for content, code in ((b'<svg onload="alert(1)"/>', 415), (b'x' * (materials.MAX_IMAGE_BYTES + 1), 413)):

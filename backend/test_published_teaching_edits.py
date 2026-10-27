@@ -70,11 +70,21 @@ class PublishedTeachingEditTests(TestCase):
         data.update(changes)
         return PrecisionTeachingUpdate(**data)
 
-    def test_published_edit_requires_explicit_wording_confirmation(self):
-        with self.assertRaises(HTTPException) as raised:
-            update_precision_teaching("pt-test", self.payload(goal="润色后的目标"), self.request)
-        self.assertEqual(raised.exception.status_code, 409)
-        self.assertEqual(fetch_one("SELECT goal FROM precision_teachings WHERE id = 'pt-test'")["goal"], "原目标")
+    def test_published_content_can_be_changed_without_wording_only_gate(self):
+        update_precision_teaching("pt-test", self.payload(goal="新的教学目标"), self.request)
+        self.assertEqual(fetch_one("SELECT goal FROM precision_teachings WHERE id = 'pt-test'")["goal"], "新的教学目标")
+        self.assertEqual(fetch_one("SELECT status FROM diagnosis_rubrics WHERE teaching_id='pt-test'")['status'],'stale')
+        self.assertEqual(fetch_one("SELECT status FROM diagnosis_tasks WHERE teaching_id='pt-test'")['status'],'draft')
+        version=fetch_one("SELECT snapshot_json FROM diagnosis_task_versions WHERE teaching_id='pt-test'")
+        self.assertEqual(json.loads(version['snapshot_json'])['teaching']['goal'],'原目标')
+
+    def test_published_content_can_be_cleared_temporarily_for_rewriting(self):
+        update_precision_teaching("pt-test",self.payload(title='',goal='',content='',edit_intent='revision'),self.request)
+        current=fetch_one("SELECT title,goal,content FROM precision_teachings WHERE id='pt-test'")
+        self.assertEqual(current,{'title':'','goal':'','content':''})
+        version=json.loads(fetch_one("SELECT snapshot_json FROM diagnosis_task_versions WHERE teaching_id='pt-test'")['snapshot_json'])
+        self.assertEqual(version['task']['task_text'],'已发布任务')
+        self.assertEqual(version['teaching']['goal'],'原目标')
 
     def test_wording_edit_keeps_published_task_and_confirmed_rubric(self):
         result = update_precision_teaching(

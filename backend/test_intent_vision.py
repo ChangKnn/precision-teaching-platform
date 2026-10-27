@@ -119,15 +119,17 @@ class IntentVisionTest(TestCase):
                 m.process_recognition('pt',token);network.assert_not_called()
         self.assertIn('人工核对结果',m.canonical_task_text('pt'))
 
-    def test_session_lock_covers_intent_reading_and_recognition(self):
+    def test_started_session_allows_intent_reading_and_recognition_with_archive(self):
         state=self.read();self.session()
         original=db.fetch_one("SELECT * FROM diagnosis_tasks WHERE teaching_id='pt'")
-        for action in (
-            lambda:m.queue_recognition('pt',BackgroundTasks()),
-            lambda:m.review_recognition('pt',m.ReadingReview(source_hash=state['source_hash'],task_text='替换',checked=True)),
-            lambda:main.update_diagnosis('pt',DiagnosisTaskUpdate(goal=original['goal'],task_text=original['task_text'],design_intent='替换意图')),
-        ):
-            with self.subTest(action=action),self.assertRaises(HTTPException):action()
+        m.queue_recognition('pt',BackgroundTasks())
+        state=m.material_state('pt')
+        m.review_recognition('pt',m.ReadingReview(source_hash=state['source_hash'],task_text='替换',checked=True))
+        main.update_diagnosis('pt',DiagnosisTaskUpdate(goal=original['goal'],task_text=original['task_text'],design_intent='替换意图'))
+        saved=db.fetch_one("SELECT snapshot_json FROM diagnosis_task_versions WHERE teaching_id='pt'")
+        self.assertIsNotNone(saved)
+        self.assertEqual(json.loads(saved['snapshot_json'])['task']['task_text'],original['task_text'])
+        self.assertEqual(db.fetch_one("SELECT design_intent FROM diagnosis_tasks WHERE teaching_id='pt'")['design_intent'],'替换意图')
 
     def test_unresolved_marker_or_unchecked_review_is_rejected(self):
         self.upload();state=m.material_state('pt')

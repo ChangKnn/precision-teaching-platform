@@ -21,6 +21,8 @@ from .database import database, fetch_all, fetch_one, utc_now, write_audit
 from .services.http import verified_ssl_context
 from .services.llm_debug import record_llm_request
 from .services.skills import load_skill
+from .services.task_versions import preserve_published_task, get_version
+from .services.task_attachment_data import attachment_rows,append_attachment_text,public_attachments
 
 router = APIRouter(prefix="/api/precision-teachings")
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
@@ -56,7 +58,7 @@ def canonical_task_text(teaching_id: str) -> str:
         text += '\n\n【图片附件内容（任务材料，非学生作答）】\n' + reading['task_text']
         if reading['diagram_notes'].strip():
             text += '\n【图形、图表与材料标注】\n' + reading['diagram_notes']
-    return text
+    return append_attachment_text(text,attachment_rows(teaching_id))
 
 
 def material_state(teaching_id: str) -> dict:
@@ -68,20 +70,23 @@ def material_state(teaching_id: str) -> dict:
         "task_text": task["task_text"] if task else "", "geometry_notes": notes,
         "images": [{"id": item["id"], "sha256": item["sha256"]} for item in images],
     }
+    attachments=attachment_rows(teaching_id)
+    if attachments:version_data['attachments']=[{key:item[key] for key in ('id','sha256','content_text')} for item in attachments]
     reading = current_reading(teaching_id)
     # Preserve hashes of legacy tasks until a new reading exists.
     if reading:
         version_data['reading'] = {key: reading[key] for key in ('status', 'task_text', 'diagram_notes', 'uncertainties_json', 'reviewed')}
     version = hashlib.sha256(json.dumps(version_data, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
-    locked = bool(fetch_one("SELECT 1 FROM student_task_sessions WHERE teaching_id = ? LIMIT 1", (teaching_id,)))
+    has_started_sessions = bool(fetch_one("SELECT 1 FROM student_task_sessions WHERE teaching_id = ? LIMIT 1", (teaching_id,)))
     return {
         "images": [{"id": item["id"], "content_type": item["content_type"], "size_bytes": item["size_bytes"],
                     "file_url": f"/api/precision-teachings/{teaching_id}/materials/images/{item['id']}"} for item in images],
         "geometry_notes": notes, "source_hash": version, 'image_hash': image_version(teaching_id),
+        "attachments": public_attachments(attachments,f'/api/precision-teachings/{teaching_id}/materials/attachments'),
         # Legacy text notes are part of the task, not evidence of an attachment.
         "confirmation_required": bool(images),
         "confirmed": row.get("confirmed_hash") == version or bool(images and reading.get('status') == 'ready'),
-        "locked": locked,
+        "locked": False, "has_started_sessions": has_started_sessions,
         "recognition_available": settings.task_vision_provider in {"openrouter", "openai"} and bool(settings.task_vision_model and settings.task_vision_api_key),
         "recognition": {
             'status': reading.get('status', 'pending' if images else 'none'),
@@ -97,11 +102,6 @@ def require_confirmed_materials(teaching_id: str) -> None:
     state = material_state(teaching_id)
     if state["confirmation_required"] and not state["confirmed"]:
         raise HTTPException(status_code=409, detail="图片附件尚未准备好，请查看识别内容并处理待核对项；未启用视觉模型时可手动补全附件内容")
-
-
-def assert_material_editable(teaching_id: str) -> None:
-    if fetch_one("SELECT 1 FROM student_task_sessions WHERE teaching_id = ? LIMIT 1", (teaching_id,)):
-        raise HTTPException(status_code=409, detail="本任务已有学生开始作答，不能更换题图或图形条件；请新建精准教学使用新题目")
 
 
 def _invalidate(teaching_id: str, connection) -> None:
@@ -141,7 +141,7 @@ def save_material_notes(teaching_id: str, payload: MaterialNotes) -> dict:
         _check_version(teaching_id, payload.source_hash)
         old = material_state(teaching_id)["geometry_notes"]
         if payload.geometry_notes.strip() != old:
-            assert_material_editable(teaching_id)
+            preserve_published_task(teaching_id, connection)
             connection.execute("""INSERT INTO diagnosis_task_materials (teaching_id, geometry_notes, updated_at)
                 VALUES (?, ?, ?) ON CONFLICT(teaching_id) DO UPDATE SET geometry_notes=excluded.geometry_notes, updated_at=excluded.updated_at""",
                 (teaching_id, payload.geometry_notes.strip(), utc_now()))
@@ -188,7 +188,7 @@ async def upload_task_image(teaching_id: str, request: Request, background_tasks
     target = settings.upload_path / filename
     with database() as connection:
         connection.execute("BEGIN IMMEDIATE")
-        assert_material_editable(teaching_id)
+        preserve_published_task(teaching_id, connection)
         version = request.headers.get("x-material-version")
         if version:
             _check_version(teaching_id, version)
@@ -219,11 +219,36 @@ def teacher_image(teaching_id: str, image_id: str) -> FileResponse:
     return image_response(teaching_id, image_id)
 
 
+@router.get('/{teaching_id}/task-versions')
+def teacher_task_versions(teaching_id: str) -> dict:
+    versions = fetch_all('SELECT id,revision,created_at,snapshot_json FROM diagnosis_task_versions WHERE teaching_id=? ORDER BY revision DESC', (teaching_id,))
+    result = []
+    for row in versions:
+        snapshot = json.loads(row.pop('snapshot_json'))
+        result.append({**row, 'task_text':snapshot['task_text'], 'ai_role':snapshot['task']['ai_role'],
+            'images':[{'id':image['id'], 'file_url':f"/api/precision-teachings/{teaching_id}/task-versions/{row['id']}/images/{image['id']}"} for image in snapshot['images']]})
+    return {'versions':result}
+
+
+@router.get('/{teaching_id}/task-versions/{version_id}/images/{image_id}')
+def teacher_version_image(teaching_id: str, version_id: str, image_id: str) -> FileResponse:
+    version = get_version(version_id)
+    if not version or version['teaching_id'] != teaching_id:
+        raise HTTPException(status_code=404, detail='任务版本不存在')
+    image = next((row for row in version['snapshot']['images'] if row['id']==image_id), None)
+    if not image:
+        raise HTTPException(status_code=404, detail='此版本没有该图片')
+    path = settings.upload_path / Path(image['stored_filename']).name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail='题图文件不可用')
+    return FileResponse(path, media_type=image['content_type'], headers={'Cache-Control':'private, no-store', 'X-Content-Type-Options':'nosniff'})
+
+
 @router.delete("/{teaching_id}/materials/images/{image_id}")
 def remove_task_image(teaching_id: str, image_id: str, payload: MaterialConfirmation, background_tasks: BackgroundTasks = None) -> dict:
     with database() as connection:
         connection.execute("BEGIN IMMEDIATE")
-        assert_material_editable(teaching_id)
+        preserve_published_task(teaching_id, connection)
         _check_version(teaching_id, payload.source_hash)
         connection.execute("DELETE FROM diagnosis_task_images WHERE teaching_id = ? AND id = ?", (teaching_id, image_id))
         _invalidate(teaching_id, connection)
@@ -286,12 +311,12 @@ def recognize_images(teaching_id: str) -> dict:
 
 def queue_recognition(teaching_id: str, background_tasks: BackgroundTasks, force: bool = False) -> dict:
     """Persist a versioned job before starting network work; never fabricate mock OCR."""
-    assert_material_editable(teaching_id)
     if not image_rows(teaching_id):
         return material_state(teaching_id)
     state = material_state(teaching_id)
     with database() as connection:
         connection.execute('BEGIN IMMEDIATE')
+        preserve_published_task(teaching_id, connection)
         old = current_reading(teaching_id)
         if old.get('status') == 'processing' or (old.get('status') in {'ready', 'review'} and not force):
             return material_state(teaching_id)
@@ -328,8 +353,6 @@ def process_recognition(teaching_id: str, token: str) -> None:
         row = current_reading(teaching_id)
         if row.get('job_token') != token or row.get('status') != 'processing' or row.get('image_hash') != job['image_hash']:
             return
-        if fetch_one('SELECT 1 FROM student_task_sessions WHERE teaching_id=? LIMIT 1', (teaching_id,)):
-            return
         connection.execute("""UPDATE diagnosis_image_readings SET status=?,task_text=?,diagram_notes=?,
             uncertainties_json=?,error=?,updated_at=? WHERE teaching_id=? AND job_token=?""", (*values, utc_now(), teaching_id, token))
         _invalidate(teaching_id, connection)
@@ -358,7 +381,7 @@ def review_recognition(teaching_id: str, payload: ReadingReview) -> dict:
         raise HTTPException(status_code=422, detail='仍有待核对标记，请先补全关键内容')
     with database() as connection:
         connection.execute('BEGIN IMMEDIATE')
-        assert_material_editable(teaching_id)
+        preserve_published_task(teaching_id, connection)
         _check_version(teaching_id, payload.source_hash)
         if not image_rows(teaching_id):
             raise HTTPException(status_code=409, detail='图片已移除，请刷新后继续')

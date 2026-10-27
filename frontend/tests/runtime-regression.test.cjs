@@ -10,6 +10,7 @@ const vm = require("node:vm");
 const frontend = path.resolve(__dirname, "..");
 const studentSource = fs.readFileSync(path.join(frontend, "student/student.js"), "utf8");
 const teacherSource = fs.readFileSync(path.join(frontend, "app.js"), "utf8");
+const taskEditorSource = fs.readFileSync(path.join(frontend, "task-editor.js"), "utf8");
 
 function loadFunctions(source, names, globals = {}) {
   const context = vm.createContext(globals);
@@ -29,6 +30,146 @@ function fakeDocument() {
   };
   return { getElementById: get, querySelector: get };
 }
+
+test('pending AI response disables final submission and restores availability afterwards', () => {
+  const buttons=[{disabled:false},{disabled:false}],send={disabled:false};
+  const state={typing:true,session:{status:'in_progress'}};
+  const context=loadFunctions(studentSource,['resizeComposer'],{
+    state,messageInput:{value:'继续写的想法',style:{},scrollHeight:30,disabled:false},messageForm:{},
+    $:()=>send,$$:()=>buttons
+  });
+  context.resizeComposer();assert.ok(buttons.every(button=>button.disabled));assert.ok(send.disabled);
+  state.typing=false;context.resizeComposer();assert.ok(buttons.every(button=>!button.disabled));
+  state.session.status='submitted';context.resizeComposer();assert.ok(buttons.every(button=>button.disabled));
+});
+
+test('submit dialog cannot open while a student message is still awaiting AI', () => {
+  let opened=false,notice='';
+  const context=loadFunctions(studentSource,['openSubmit'],{
+    state:{typing:true,session:{status:'in_progress'}},submitDialog:{showModal(){opened=true;}},
+    showToast:message=>{notice=message;}
+  });
+  context.openSubmit();assert.equal(opened,false);assert.ok(notice.includes('等待'));
+});
+
+test('student picker uses course names for university tasks and subjects for school tasks', () => {
+  const context=loadFunctions(studentSource,['taskSubject']);
+  assert.equal(context.taskSubject({subject:'',course_name:'中学教育学基础',education_stage:'高等教育'}),'中学教育学基础');
+  assert.equal(context.taskSubject({subject:'数学',course_name:'旧课程名',education_stage:'高中'}),'数学');
+  assert.equal(context.taskSubject({subject:'语文',course_name:'  '}),'语文');
+  assert.equal(context.taskSubject({subject:''}),'其他课程');
+});
+
+test('separate university courses do not collapse into one blank subject option', () => {
+  const options=[];const subjectSelect={replaceChildren(){options.length=0;},append(o){options.push(o);}};
+  const context=loadFunctions(studentSource,['taskSubject','populateSubjects'],{subjectSelect,Option:class {constructor(text,value){this.text=text;this.value=value;}},state:{tasks:[
+    {subject:'',course_name:'中学教育学基础'}, {subject:'',course_name:'教育研究方法'}, {subject:'数学',education_stage:'高中'}
+  ]}});
+  context.populateSubjects();
+  assert.deepEqual(options.map(o=>o.text),['中学教育学基础','教育研究方法','数学']);
+  assert.ok(options.every(o=>o.value));
+});
+
+test('published teaching edits accept content changes without a wording-only confirmation', () => {
+  const context=loadFunctions(teacherSource,['teachingEditIntent'],{window:{confirm:()=>{throw Error('Must not ask teachers to certify wording-only edits');}}});
+  assert.equal(context.teachingEditIntent({status:'active',title:'原主题'},{title:'新的能力与内容'}),'revision');
+  assert.equal(context.teachingEditIntent({status:'draft',title:'原主题'},{title:'新主题'}),null);
+});
+
+test('student participation never disables teacher image and reading controls', () => {
+  const elements=new Map();
+  const el=id=>{if(!elements.has(id)) elements.set(id,{value:'',dataset:{},replaceChildren(){}});return elements.get(id);};
+  const state={locked:true,has_started_sessions:true,images:[{id:'image'}],recognition_available:true,image_hash:'new',recognition:{status:'ready',task_text:'教师可替换的材料',diagram_notes:'',uncertainties:[],reviewed:true}};
+  const context=loadFunctions(taskEditorSource.replace(/^ {2}/gm,''),['render','renderReading'],{el,materials:state,busy:false,renderImages:()=>{},renderAttachments:()=>{},readingDirty:false,readingKey:'',readingImageHash:'',workspaceId:'t1',polling:null,document:{createElement:()=>({})}});
+  context.render();
+  assert.equal(el('taskImageUploadButton').disabled,false);
+  assert.equal(el('saveTaskReading').disabled,false);
+  assert.equal(el('retryTaskReading').disabled,false);
+  assert.equal(el('taskReadingText').readOnly,false);
+  assert.equal(el('taskMaterialStatus').textContent,'已附 1 张图片');
+});
+
+test('all five rubric rows need features, evidence and examples before confirmation', () => {
+  const rows=Array.from({length:5},()=>({fields:{core_performance:'认知结构',decision_evidence:'学生表现',typical_expressions:'假想学生表达'},querySelector(selector){return {innerText:this.fields[selector.match(/="(.*?)"/)[1]]};}}));
+  const context=loadFunctions(teacherSource,['rubricEditorComplete'],{document:{querySelectorAll:()=>rows}});
+  assert.equal(context.rubricEditorComplete(),true);
+  rows[4].fields.typical_expressions='  ';
+  assert.equal(context.rubricEditorComplete(),false);
+  rows[4].fields.typical_expressions='我能说明此规律适用的条件。';
+  assert.equal(context.rubricEditorComplete(),true);
+});
+
+test('legacy task observation limits appear as a note without a level badge', () => {
+  const document=fakeDocument();
+  const context=loadFunctions(teacherSource,['rubricListText','rubricObservationText','renderRubric'],{
+    document,ui:{rubricGenerating:false},rubricLevelNames:{P:'P 前结构',U:'U 单点结构',M:'M 多点结构',R:'R 关联结构',EA:'EA 拓展抽象'},
+    fitRubricColumns:()=>{},rubricEditorComplete:()=>true,escapeHTML:x=>x
+  });
+  context.renderRubric({status:'draft',rubric:{levels:{EA:{status:'not_reasonably_elicitable',core_performance:['抽象与迁移'],decision_evidence:['学生实际呈现的推理'],typical_expressions:['我会用另一种情境检验解释。'],limitations:['任务未设置跨情境迁移要求。']}}}});
+  assert.doesNotMatch(document.getElementById('rubricTableBody').innerHTML,/当前任务难以引出|<small>/);
+  assert.match(document.getElementById('rubricTableBody').innerHTML,/我会用另一种情境检验解释/);
+  assert.equal(document.getElementById('rubricObservationNote').hidden,false);
+  assert.match(document.getElementById('rubricObservationNote').textContent,/EA.*任务未设置跨情境迁移要求/);
+  context.renderRubric(null);
+  assert.equal(document.getElementById('rubricObservationNote').hidden,true);
+});
+
+test('rubric observation notes identify specific levels and reasons only when supported', () => {
+  const names={P:'P 前结构',U:'U 单点结构',M:'M 多点结构',R:'R 关联结构',EA:'EA 拓展抽象'};
+  const context=loadFunctions(teacherSource,['rubricObservationText'],{rubricLevelNames:names});
+  const record={status:'confirmed',provider:'openrouter',rubric:{levels:{EA:{status:'defined'}},task_analysis:{task_affordance:{highest_reasonably_elicitable_level:'R',limitations:['本任务仅分析单个案例，未安排迁移情境。']}}}};
+  assert.match(context.rubricObservationText(record),/EA 拓展抽象.*本任务仅分析单个案例/);
+  assert.equal(context.rubricObservationText({...record,status:'stale'}),'');
+  assert.equal(context.rubricObservationText({...record,provider:'teacher'}),'');
+  record.rubric.task_analysis.task_affordance.highest_reasonably_elicitable_level='EA';
+  assert.equal(context.rubricObservationText(record),'');
+  record.rubric.task_analysis.task_affordance.highest_reasonably_elicitable_level='R';
+  record.rubric.task_analysis.task_affordance.limitations=[];
+  assert.equal(context.rubricObservationText(record),'');
+});
+
+test('active student polling keeps its task version and unsent composer', async () => {
+  let poll;
+  const composer = {value:'尚未发送的思考'};
+  const state = {session:{id:'s1',status:'in_progress',task_version_id:'v1'},activeTask:{teaching_id:'t1'},tasks:[{teaching_id:'t1'}],typing:false};
+  const latest = {id:'s1',status:'in_progress',task_version_id:'v2',task:{teaching_id:'t1',task_text:'新任务'},messages:[]};
+  const calls = [];
+  const context = loadFunctions(studentSource,['stopReportPolling','startReportPolling'],{
+    state,messageInput:composer,
+    window:{clearInterval:()=>{},setInterval:fn=>{poll=fn;return 1;}},
+    api:async(url,options)=>{calls.push([url,options?.method]);return options ? {session:latest} : latest;},
+    renderTask:()=>{},renderHistory:()=>{},renderMessages:()=>{},showToast:()=>{}
+  });
+  context.startReportPolling();
+  await poll();
+  assert.equal(state.session.task_version_id,'v1');
+  assert.equal(state.activeTask.task_text,undefined);
+  assert.equal(composer.value,'尚未发送的思考');
+  assert.equal(calls.length,1);
+});
+
+test('republish polling cannot overwrite a conversation while a student is sending', async () => {
+  let poll, calls=0;
+  const state={session:{id:'s1',status:'in_progress'},typing:true};
+  const context=loadFunctions(studentSource,['stopReportPolling','startReportPolling'],{
+    state,window:{clearInterval:()=>{},setInterval:fn=>{poll=fn;return 1;}},api:async()=>{calls++;}
+  });
+  context.startReportPolling();await poll();assert.equal(calls,0);
+});
+
+test('polling recovers a late AI reply after refresh even without a diagnosis report', async () => {
+  let poll,renders=0;
+  const composer={value:'等待期间的新草稿'};
+  const state={session:{id:'s1',status:'in_progress',task_version_id:'v1',messages:[]},activeTask:{teaching_id:'t1'},tasks:[{teaching_id:'t1'}],typing:false};
+  const latest={id:'s1',status:'in_progress',task_version_id:'v1',messages:[{id:1,role:'student',content:'原话'},{id:2,role:'assistant',content:'迟到的回复'}]};
+  const context=loadFunctions(studentSource,['stopReportPolling','startReportPolling'],{
+    state,messageInput:composer,window:{clearInterval(){},setInterval(fn){poll=fn;return 1;}},
+    api:async()=>latest,renderTask(){},renderHistory(){},renderMessages(){renders++;}
+  });
+  context.startReportPolling();await poll();
+  assert.equal(state.session.messages.length,2);assert.equal(renders,1);
+  assert.equal(composer.value,'等待期间的新草稿');
+});
 
 const submittedSession = {
   status: "submitted", started_at: "2026-10-01T01:00:00+00:00", submitted_at: "2026-10-01T01:15:09+00:00"
@@ -332,7 +473,7 @@ test("student app becomes visible only after a real task has loaded", async () =
   const studentApp = { hidden: true };
   let finish;
   const pending = new Promise(resolve => { finish = resolve; });
-  const context = loadFunctions(studentSource, ["enterApp"], {
+  const context = loadFunctions(studentSource, ["taskSubject","enterApp"], {
     state: {}, loginView, studentApp, $: selector => document.querySelector(selector), subjectSelect: {},
     populateSubjects: () => {}, renderHistory: () => {}, openTask: () => pending
   });
@@ -349,7 +490,7 @@ test("student task initialization failures keep the app hidden", async () => {
   const document = fakeDocument();
   const loginView = { hidden: false };
   const studentApp = { hidden: true };
-  const context = loadFunctions(studentSource, ["enterApp"], {
+  const context = loadFunctions(studentSource, ["taskSubject","enterApp"], {
     state: {}, loginView, studentApp, $: selector => document.querySelector(selector), subjectSelect: {},
     populateSubjects: () => {}, renderHistory: () => {}, openTask: async () => { throw new Error("任务加载失败"); }
   });

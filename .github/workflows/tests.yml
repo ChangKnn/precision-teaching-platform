@@ -31,6 +31,7 @@ jobs:
       - run: node --check frontend/task-editor.js
       - run: node --check frontend/math-text.js
       - run: node --check frontend/notifications.js
+      - run: node --check frontend/role-knowledge.js
       - run: node --check frontend/student/student.js
       - run: node --check frontend/admin/admin.js
       - run: node --test frontend/tests/runtime-regression.test.cjs

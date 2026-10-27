@@ -20,6 +20,24 @@ async function renderTaskImages(task) {
   taskImageUrls = [];
   const container = document.getElementById('studentTaskImages');
   container.replaceChildren();
+  for (const item of task.task_attachments || []) {
+    if (item.kind==='link') {
+      const link=document.createElement('a');link.href=item.url;link.target='_blank';link.rel='noopener noreferrer';
+      link.className='button small';link.textContent=`网页 · ${item.name}`;container.append(link);
+    } else {
+      const button=document.createElement('button');button.type='button';button.className='button small';button.textContent=`下载 · ${item.name}`;
+      button.addEventListener('click',async()=>{
+        button.disabled=true;
+        try {
+          const response=await fetch(item.file_url,{headers:{'X-Student-Token':state.token}});
+          if (!response.ok) throw new Error('附件下载失败，请重试');
+          const url=URL.createObjectURL(await response.blob());taskImageUrls.push(url);
+          const link=document.createElement('a');link.href=url;link.download=item.name;link.click();
+        } catch(error) {showToast(error.message);}
+        finally {button.disabled=false;}
+      });container.append(button);
+    }
+  }
   for (const [index, image] of (task.task_images || []).entries()) {
     try {
       const response = await fetch(image.file_url, { headers: { 'X-Student-Token': state.token } });
@@ -229,7 +247,7 @@ async function enterApp(payload) {
   renderHistory();
   if (state.tasks.length) {
     const preferred = state.tasks.find((task) => task.session_status === "in_progress") || state.tasks[0];
-    subjectSelect.value = preferred.subject;
+    subjectSelect.value = taskSubject(preferred);
     await openTask(preferred.teaching_id);
   } else {
     renderNoTask();
@@ -238,8 +256,14 @@ async function enterApp(payload) {
   studentApp.hidden = false;
 }
 
+function taskSubject(task) {
+  const schoolStage=['小学','初中','高中'].includes(task?.education_stage);
+  const course=schoolStage ? '' : String(task?.course_name || '').trim();
+  return course || String(task?.subject || '').trim() || '其他课程';
+}
+
 function populateSubjects() {
-  const subjects = [...new Set(state.tasks.map((task) => task.subject))];
+  const subjects = [...new Set(state.tasks.map(taskSubject))];
   subjectSelect.replaceChildren();
   if (!subjects.length) {
     subjectSelect.append(new Option("暂无任务", ""));
@@ -248,6 +272,15 @@ function populateSubjects() {
   }
   subjectSelect.disabled = false;
   subjects.forEach((subject) => subjectSelect.append(new Option(subject, subject)));
+}
+
+function studentTaskTitle(task) {
+  const text = String(task.task_text || '');
+  const growthCase = text.match(/学生([^，。；\n\s]{1,6})的成长困境/);
+  if (growthCase && /分析.*原因/s.test(text) && /教育措施|教育建议/.test(text)) {
+    return `${growthCase[1]}的成长困境：原因分析与教育建议`;
+  }
+  return task.title || '学习任务';
 }
 
 function renderHistory() {
@@ -263,13 +296,13 @@ function renderHistory() {
     const time = task.submitted_at || task.started_at || task.updated_at;
     return `<button class="history-item${active ? " active" : ""}" data-teaching-id="${escapeHtml(task.teaching_id)}">
       <span class="history-status ${task.session_status === "submitted" ? "done" : "live"}"></span>
-      <span><strong>${escapeHtml(task.title)}</strong><small>${status} · ${escapeHtml(formatTime(time))}</small></span>
+      <span><strong>${escapeHtml(studentTaskTitle(task))}</strong><small>${status} · ${escapeHtml(formatTime(time))}</small></span>
     </button>`;
   }).join("");
   $$('[data-teaching-id]', list).forEach((button) => button.addEventListener("click", async () => {
     try {
       await openTask(button.dataset.teachingId);
-      subjectSelect.value = state.activeTask.subject;
+      subjectSelect.value = taskSubject(state.activeTask);
       closeSidebar();
     } catch (error) {
       showToast("任务加载失败", error.message);
@@ -278,12 +311,13 @@ function renderHistory() {
 }
 
 subjectSelect.addEventListener("change", async () => {
-  const task = state.tasks.find((item) => item.subject === subjectSelect.value);
+  const task = state.tasks.find((item) => taskSubject(item) === subjectSelect.value);
   if (!task) return;
   try {
     await openTask(task.teaching_id);
     closeSidebar();
   } catch (error) {
+    if (state.activeTask) subjectSelect.value=taskSubject(state.activeTask);
     showToast("任务加载失败", error.message);
   }
 });
@@ -296,6 +330,7 @@ async function openTask(teachingId) {
   state.tasks = state.tasks.map((task) => task.teaching_id === teachingId
     ? {
         ...task,
+        ...result.task,
         session_id: state.session.id,
         session_status: state.session.status,
         started_at: state.session.started_at,
@@ -313,15 +348,18 @@ async function openTask(teachingId) {
 
 function renderTask() {
   const task = state.activeTask;
+  populateSubjects();
+  subjectSelect.value=taskSubject(task);
+  subjectSelect.title=taskSubject(task);
   $("#taskCard").hidden = false;
-  $("#subjectDot").textContent = task.subject;
-  $("#taskTitleHeader").textContent = task.title;
-  $("#teacherLabel").textContent = `${task.teacher_name}发布`;
-  $("#taskCardTitle").textContent = task.title;
+  $("#subjectDot").textContent = task.subject || '课程';
+  $("#subjectDot").title = taskSubject(task);
+  $("#taskTitleHeader").textContent = studentTaskTitle(task);
+  $("#teacherLabel").textContent = `${task.teacher_name}发布${task.task_version_number ? ` · 任务第 ${task.task_version_number} 版` : ''}`;
+  $("#taskCardTitle").textContent = studentTaskTitle(task);
   TaskMath.render($("#taskDescription"), task.task_text);
   renderTaskImages(task);
   $("#durationText").textContent = task.duration_minutes;
-  $("#taskRequirements").innerHTML = "<li>按上方任务说明完成活动与 AI 对话</li><li>成果类型和提交要求以老师的任务说明为准</li>";
   const submitted = state.session.status === "submitted";
   const reportReady = state.session.report?.status === "pushed";
   $("#submitButtonLabel").textContent = submitted ? "已提交" : "提交给老师";
@@ -351,6 +389,7 @@ function renderMessages() {
   const report = state.session?.report;
   const reportTime = report?.pushed_at ? new Date(report.pushed_at).getTime() : Number.POSITIVE_INFINITY;
   let reportInserted = false;
+  let previousVersion = null;
   const fragments = [];
   const reportCard = () => `<article class="feedback-notice" role="status">
     <span class="feedback-notice-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 11h6M9 15h6M15 3v4h4"/></svg></span>
@@ -358,6 +397,10 @@ function renderMessages() {
     <button class="secondary-button" type="button" data-open-report>查看报告</button>
   </article>`;
   items.forEach((message) => {
+    if (message.task_version_number && message.task_version_number !== previousVersion) {
+      fragments.push(`<p class="muted" role="status">任务第 ${Number(message.task_version_number)} 版${previousVersion ? ' · 以下为该版本的对话记录，之前的记录已保留' : ''}</p>`);
+      previousVersion = message.task_version_number;
+    }
     if (report && !reportInserted && new Date(message.created_at).getTime() > reportTime) {
       fragments.push(reportCard());
       reportInserted = true;
@@ -409,16 +452,27 @@ function stopReportPolling() {
 
 function startReportPolling() {
   stopReportPolling();
-  if (!state.session || state.session.status !== "submitted" || state.session.report) return;
+  if (!state.session || (state.session.status === "submitted" && state.session.report)) return;
+  const sessionId = state.session.id;
   state.reportPollId = window.setInterval(async () => {
+    if (state.typing || state.session?.id !== sessionId) return;
     try {
-      const latest = await api(`/api/student/sessions/${encodeURIComponent(state.session.id)}`);
-      if (!latest.report) return;
+      let latest = await api(`/api/student/sessions/${encodeURIComponent(sessionId)}`);
+      if (state.typing || state.session?.id !== sessionId) return;
+      // An active conversation is pinned. Polling only refreshes its feedback,
+      // never adopts a newer teacher publication or generates a new-role opening.
+      if (latest.task_version_id !== state.session.task_version_id) return;
+      const previousMessages = state.session.messages || [];
+      const savedMessages = latest.messages || [];
+      const messagesChanged = previousMessages.length !== savedMessages.length
+        || previousMessages.at(-1)?.id !== savedMessages.at(-1)?.id;
+      if (!latest.report && !messagesChanged) return;
       state.session = latest;
+      if (latest.task) state.activeTask = {...state.activeTask, ...latest.task};
       state.tasks = state.tasks.map((task) => task.teaching_id === state.activeTask.teaching_id
-        ? { ...task, report_status: "pushed", report_pushed_at: latest.report.pushed_at }
+        ? { ...task, ...(latest.task || {}), ...(latest.report ? {report_status: "pushed", report_pushed_at: latest.report.pushed_at} : {}) }
         : task);
-      stopReportPolling();
+      if (latest.status === 'submitted' && latest.report) stopReportPolling();
       renderTask();
       renderHistory();
       renderMessages();
@@ -432,9 +486,15 @@ function resizeComposer() {
   messageInput.style.height = "auto";
   messageInput.style.height = `${Math.min(messageInput.scrollHeight, 130)}px`;
   $(".send-button", messageForm).disabled = messageInput.disabled || !messageInput.value.trim() || state.typing;
+  $$('[data-open-submit]').forEach(button => {
+    button.disabled = state.typing || state.session?.status === 'submitted';
+  });
 }
 
-messageInput.addEventListener("input", resizeComposer);
+messageInput.addEventListener("input", () => {
+  messageInput.dataset.taskVersionId = state.session?.task_version_id || '';
+  resizeComposer();
+});
 messageInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
@@ -446,6 +506,8 @@ messageForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const content = messageInput.value.trim();
   if (!content || !state.session || state.typing) return;
+  const sendingSession = state.session;
+  const composerVersion = messageInput.dataset.taskVersionId || state.session.task_version_id;
   const temporary = { id: `tmp-${Date.now()}`, role: "student", content, created_at: new Date().toISOString() };
   state.session.messages.push(temporary);
   messageInput.value = "";
@@ -453,21 +515,38 @@ messageForm.addEventListener("submit", async (event) => {
   resizeComposer();
   renderMessages();
   try {
-    const result = await api(`/api/student/sessions/${encodeURIComponent(state.session.id)}/messages`, {
+    const result = await api(`/api/student/sessions/${encodeURIComponent(sendingSession.id)}/messages`, {
       method: "POST",
-      body: JSON.stringify({ content })
+      body: JSON.stringify({ content, task_version_id: composerVersion })
     });
-    state.session.messages = state.session.messages.filter((item) => item.id !== temporary.id);
-    state.session.messages.push(result.student_message, result.assistant_message);
+    sendingSession.messages = sendingSession.messages.filter((item) => item.id !== temporary.id);
+    sendingSession.messages.push(result.student_message, result.assistant_message);
+    if (state.session?.id !== sendingSession.id) return;
+    state.session.messages = sendingSession.messages;
+    if (result.task) {
+      state.activeTask = {...state.activeTask, ...result.task};
+      state.session.task_version_id = result.task.task_version_id;
+      state.session.task_version_number = result.task.task_version_number;
+      for (const message of [result.student_message, result.assistant_message]) {
+        message.task_version_number = result.task.task_version_number;
+      }
+      renderTask();
+    }
   } catch (error) {
-    state.session.messages = state.session.messages.filter((item) => item.id !== temporary.id);
-    messageInput.value = content;
+    sendingSession.messages = sendingSession.messages.filter((item) => item.id !== temporary.id);
+    if (state.session?.id !== sendingSession.id) return;
+    state.session.messages = sendingSession.messages;
+    const newDraft = messageInput.value;
+    messageInput.value = newDraft.trim() && newDraft.trim() !== content
+      ? `${content}\n\n${newDraft}` : content;
     showToast("消息发送失败", error.message);
   } finally {
-    state.typing = false;
-    resizeComposer();
-    renderMessages();
-    updateSubmissionSummary();
+    if (state.session?.id === sendingSession.id) {
+      state.typing = false;
+      resizeComposer();
+      renderMessages();
+      updateSubmissionSummary();
+    }
   }
 });
 
@@ -497,7 +576,12 @@ function startTimer() {
 
 function openSubmit() {
   if (!state.session || state.session.status === "submitted") return;
+  if (state.typing) {
+    showToast('请等待当前 AI 回复后再提交');
+    return;
+  }
   $("#submittedText").value = state.session.submitted_text || "";
+  submitDialog.dataset.taskVersionId = state.session.task_version_id || '';
   updateSubmissionSummary();
   $("#submitError").hidden = true;
   submitDialog.showModal();
@@ -523,13 +607,14 @@ function updateSubmissionSummary() {
 $("#submittedText").addEventListener("input", updateSubmissionSummary);
 
 $("#confirmSubmitButton").addEventListener("click", async () => {
+  if (state.typing) { showToast('请等待当前 AI 回复后再提交'); return; }
   const submittedText = $("#submittedText").value.trim();
   const button = $("#confirmSubmitButton");
   setBusy(button, true, "正在提交…", "确认提交给老师");
   try {
     state.session = await api(`/api/student/sessions/${encodeURIComponent(state.session.id)}/submit`, {
       method: "POST",
-      body: JSON.stringify({ submitted_text: submittedText })
+      body: JSON.stringify({ submitted_text: submittedText, task_version_id: submitDialog.dataset.taskVersionId || state.session.task_version_id })
     });
     state.tasks = state.tasks.map((task) => task.teaching_id === state.activeTask.teaching_id
       ? { ...task, session_status: "submitted", submitted_at: state.session.submitted_at }

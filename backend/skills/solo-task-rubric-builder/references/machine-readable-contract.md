@@ -17,7 +17,7 @@ task_analysis 只需记录认知要求、必要内容及其联系、任务诱发
 - relations.items：只保留关键联系，可为空；whole_structure 用简短说明呈现整体要求。若任务无法提供整体理解的观察机会，在任务限制中解释。
 - relations.alternative_pathways：可省略或为空；多种有效表达不必逐一编号。
 - abstractions：没有合理拓展机会时可为空，不为填结构而编造高阶任务。
-- task_affordance：真实记录最高合理可观察层级、限制与可选建议。
+- task_affordance：真实记录任务主动提供的观察机会、限制与可选建议；highest_reasonably_elicitable_level 仅描述预计观察机会，不是学生定级上限。
 
 定位编号仍可使用 E1、R1、A1、PATH-1 等，但仅留内部对象的 id、element_ids、relation_ids、requires_relation_ids、pathway_ids 和 trace_to 中。内部对象的含义也尽量用清楚的自然语言，不以编号代替解释。
 
@@ -28,9 +28,11 @@ levels 各级的 core_performance、decision_evidence、adjacent_boundaries、ty
 - core_performance：本任务中的主要认知特征。
 - decision_evidence：具体、可观察的学生表现与必要理由，不写“使用某些编号即达标”。
 - adjacent_boundaries：用自然语言解释相邻层级差异。
-- typical_expressions：非穷尽的假想学生表达；不是关键词表，不直接评判真实学生。
+- typical_expressions：每级至少一条贴合本任务的非穷尽假想学生表达；不是关键词表，不直接评判真实学生。
 - limitations：任务观察机会限制，用教师能直接理解的文字。
 - P/U/M/R/EA 是 SOLO 层级名称，可正常出现。
+
+新生成的五级 status 均为 defined，core_performance、decision_evidence、typical_expressions 均为非空文本列表。Schema 兼容旧数据的 not_reasonably_elicitable 和教师未完成草稿，但生成校验及教师确认不允许用该旧状态跳过三栏完整性要求。观察机会限制只放 limitations 等备注字段，不替代层级的可观察标准。
 
 ## 追溯与下游使用
 

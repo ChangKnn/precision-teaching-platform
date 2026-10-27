@@ -27,6 +27,35 @@ class RubricTeacherLanguageTest(unittest.TestCase):
         rubric['levels']['R']['decision_evidence'] = ['结合教学目标和学生表现说明方案选择理由，并解释如何检验设计效果。']
         validate_task_rubric(self.skill, rubric)
 
+    def test_generation_requires_every_cell_including_higher_level_examples(self):
+        for status in ('defined','not_reasonably_elicitable'):
+            for field in ('core_performance','decision_evidence','typical_expressions'):
+                for empty in ([],['  ']):
+                    with self.subTest(status=status,field=field,empty=empty):
+                        rubric=copy.deepcopy(self.rubric)
+                        rubric['levels']['EA']['status']=status
+                        rubric['levels']['EA'][field]=empty
+                        with patch('backend.app.services.ai._run_structured_skill',return_value=rubric):
+                            with self.assertRaisesRegex(ValueError,'EA'):
+                                run_skill(self.skill,{'diagnostic_task_design_intent':'观察学生基于理由的解释'},'openrouter')
+
+    def test_legacy_observation_status_does_not_exempt_confirmation(self):
+        from backend.app.services.manual_rubric import require_complete_levels
+        rubric=copy.deepcopy(self.rubric)
+        rubric['levels']['EA']['status']='not_reasonably_elicitable'
+        rubric['levels']['EA']['typical_expressions']=[]
+        validate_task_rubric(self.skill,rubric)  # An unfinished historical draft remains editable.
+        with self.assertRaisesRegex(ValueError,'EA'):
+            require_complete_levels(rubric)
+
+    def test_new_generation_defines_all_levels_without_task_based_ceiling(self):
+        rubric=copy.deepcopy(self.rubric)
+        rubric['task_analysis']['task_affordance']['highest_reasonably_elicitable_level']='R'
+        validate_task_rubric(self.skill,rubric,require_complete=True)
+        rubric['levels']['EA']['status']='not_reasonably_elicitable'
+        with self.assertRaisesRegex(ValueError,'完整定义'):
+            validate_task_rubric(self.skill,rubric,require_complete=True)
+
     def test_internal_codes_rejected_in_teacher_fields(self):
         for field in ('core_performance', 'decision_evidence', 'adjacent_boundaries', 'typical_expressions', 'limitations'):
             for code in ('E1', 'E2', 'R1', 'A1', 'PATH-1', 'G-R'):

@@ -106,7 +106,8 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .subject-picker { position: relative; display: block; padding: 10px 12px 8px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); border-radius: 10px; }
 .subject-picker > span { display: block; color: #84aaa4; font-size: 11px; }
 .subject-picker select { width: 100%; padding: 3px 24px 0 0; color: white; background: transparent; border: 0; outline: none; font-size: 14px; font-weight: 650; appearance: none; cursor: pointer; }
-.subject-picker option { color: var(--ink); }
+.subject-picker select { color-scheme: light; }
+.subject-picker option { color: var(--ink); background-color: #ffffff; }
 .subject-picker svg { position: absolute; right: 10px; bottom: 10px; width: 17px; pointer-events: none; }
 .student-profile { display: grid; grid-template-columns: 36px 1fr 38px; align-items: center; gap: 10px; padding: 14px 2px 0; }
 .avatar { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: var(--pine-900); background: #dff0ec; font-weight: 750; }

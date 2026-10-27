@@ -95,6 +95,14 @@ window.PlatformAPI = {
     });
   },
 
+  deleteClassroom(classroomId) {
+    return this.request(`/api/classrooms/${encodeURIComponent(classroomId)}`, {method:'DELETE'});
+  },
+
+  restoreClassroom(classroomId) {
+    return this.request(`/api/classrooms/${encodeURIComponent(classroomId)}/restore`, {method:'POST'});
+  },
+
   createTeaching(teaching) {
     return this.request("/api/precision-teachings", {
       method: "POST",

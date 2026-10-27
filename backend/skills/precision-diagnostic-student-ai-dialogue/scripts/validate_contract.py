@@ -17,16 +17,22 @@ FORBIDDEN_KEYS = {
 }
 
 VALID_ACTIONS = {
+    "challenge_argument",
+    "offer_perspective",
+    "give_feedback",
+    "provide_guidance",
+
+    "role_response",
+    "share_role_information",
+    "discuss_viewpoint",
+    "explain_with_permission",
+    "give_feedback_with_permission",
     "present_task",
     "clarify",
     "ask_reason",
     "ask_relation",
     "ask_elaboration",
     "reflect_and_probe",
-    "challenge_argument",
-    "offer_perspective",
-    "give_feedback",
-    "provide_guidance",
     "invite_initial_thought",
     "decline_answer_request",
     "decline_correctness_judgment",
@@ -127,9 +133,10 @@ def validate_output(data: dict, input_data: dict) -> list[str]:
         if record[1].get("role") != "assistant" or record[1].get("content") != reply:
             errors.append("assistant record must exactly match student_visible_reply")
     internal = data.get("internal_execution_record", {})
-    for flag in ("new_answer_content_introduced", "evaluation_or_diagnosis_given"):
-        if not isinstance(internal.get(flag), bool):
-            errors.append(f"{flag} must be boolean")
+    # These are factual audit flags, not blanket bans on teacher-authorized help.
+    for field in ("new_answer_content_introduced", "evaluation_or_diagnosis_given"):
+        if not isinstance(internal.get(field), bool):
+            errors.append(f"{field} must be boolean")
     if internal.get("contract_version") != input_data.get("ai_dialogue_contract", {}).get("contract_version"):
         errors.append("contract_version must match the teacher-confirmed contract")
     if internal.get("response_action") not in VALID_ACTIONS:

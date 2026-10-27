@@ -23,6 +23,7 @@ from .services.class_report import queue_class_report
 from .services.skills import load_skill
 from .services.student_chat import generate_student_reply
 from .services.student_dialogue_skill import freeze_dialogue_config, generate_dialogue_turn, initial_skill_message
+from .services.task_versions import get_version, published_version, session_version, version_config, version_history, version_task
 from .task_materials import canonical_task_text, image_rows, image_response, require_confirmed_materials
 
 
@@ -39,7 +40,7 @@ def login_options() -> list[dict]:
         """
         SELECT DISTINCT cs.school_name, c.id AS classroom_id, c.name AS class_name
         FROM diagnosis_assignments da
-        JOIN diagnosis_tasks d ON d.teaching_id = da.teaching_id AND d.status = 'published'
+        JOIN diagnosis_tasks d ON d.teaching_id = da.teaching_id AND (d.status = 'published' OR d.published_version_id IS NOT NULL)
         JOIN precision_teachings p ON p.id = da.teaching_id
         JOIN teacher_workspaces tw ON tw.id = p.workspace_id
         JOIN classrooms c ON c.id = da.classroom_id
@@ -64,7 +65,7 @@ def match_classroom(school_name: str, class_name: str) -> dict | None:
         JOIN classroom_schools cs ON cs.classroom_id = c.id
         WHERE EXISTS (
             SELECT 1 FROM diagnosis_assignments da
-            JOIN diagnosis_tasks d ON d.teaching_id = da.teaching_id AND d.status = 'published'
+            JOIN diagnosis_tasks d ON d.teaching_id = da.teaching_id AND (d.status = 'published' OR d.published_version_id IS NOT NULL)
             JOIN precision_teachings p ON p.id = da.teaching_id
             JOIN teacher_workspaces tw ON tw.id = p.workspace_id
             WHERE da.classroom_id = c.id AND da.is_published = 1 AND tw.school_name = cs.school_name
@@ -88,7 +89,7 @@ def match_classroom(school_name: str, class_name: str) -> dict | None:
 
 def refresh_feedback_counts(teaching_id: str) -> None:
     result = fetch_one(
-        """
+        f"""
         SELECT COUNT(*) AS submitted_count,
                COALESCE(SUM(CASE WHEN r.status IN ('confirmed', 'pushed')
                    AND r.provider != 'mock' THEN 1 ELSE 0 END), 0) AS reviewed_count
@@ -98,6 +99,7 @@ def refresh_feedback_counts(teaching_id: str) -> None:
           AND da.classroom_id = s.classroom_id AND da.is_published = 1
         LEFT JOIN student_diagnosis_reports r ON r.session_id = sts.id
         WHERE sts.teaching_id = ? AND sts.status = 'submitted'
+
         """,
         (teaching_id,),
     )
@@ -135,15 +137,15 @@ def require_student(x_student_token: str | None = Header(default=None)) -> dict:
 def task_rows(student: dict) -> list[dict]:
     rows = fetch_all(
         """
-        SELECT p.id AS teaching_id, p.title, p.subject, p.grade, p.textbook,
+        SELECT p.id AS teaching_id, p.title, p.subject, p.grade, p.textbook, p.course_name, p.education_stage,
                d.diagnosis_type, d.task_text, d.duration_minutes, d.updated_at,
                tw.teacher_name AS teacher_name,
                sts.id AS session_id, sts.status AS session_status,
-               sts.started_at, sts.submitted_at,
+               sts.started_at, sts.submitted_at, sts.task_version_id,
                sdr.status AS report_status, sdr.pushed_at AS report_pushed_at
         FROM diagnosis_assignments da
         JOIN precision_teachings p ON p.id = da.teaching_id
-        JOIN diagnosis_tasks d ON d.teaching_id = p.id AND d.status = 'published'
+        JOIN diagnosis_tasks d ON d.teaching_id = p.id AND (d.status = 'published' OR d.published_version_id IS NOT NULL)
         JOIN teacher_workspaces tw ON tw.id = p.workspace_id
         LEFT JOIN student_task_sessions sts
           ON sts.teaching_id = p.id AND sts.student_id = ?
@@ -157,7 +159,11 @@ def task_rows(student: dict) -> list[dict]:
         (student["id"], student["classroom_id"], student["school_name"]),
     )
     for row in rows:
-        row["task_text"] = canonical_task_text(row["teaching_id"])
+        version = get_version(row['task_version_id']) if row.get('task_version_id') else published_version(row['teaching_id'])
+        if version:
+            row.update(version_task(version))
+        else:
+            row["task_text"] = canonical_task_text(row["teaching_id"])
     return rows
 
 
@@ -189,15 +195,29 @@ def owned_session(session_id: str, student_id: str) -> dict:
     )
     if not session:
         raise HTTPException(status_code=404, detail="学习会话不存在")
-    session["task_text"] = canonical_task_text(session["teaching_id"])
+    if not fetch_one('''SELECT 1 FROM diagnosis_assignments da JOIN students s ON s.classroom_id=da.classroom_id
+        JOIN precision_teachings p ON p.id=da.teaching_id JOIN teacher_workspaces tw ON tw.id=p.workspace_id
+        WHERE da.teaching_id=? AND da.is_published=1 AND s.id=? AND s.school_name=tw.school_name''',
+        (session['teaching_id'],student_id)):
+        raise HTTPException(status_code=404, detail='此任务已不再分配到当前学生班级')
+    version = session_version(session)
+    if version:
+        session.update(version_task(version))
+        session['ai_role'] = version['snapshot']['task']['ai_role']
+    else:
+        session["task_text"] = canonical_task_text(session["teaching_id"])
     return session
 
 
 def serialize_session(session: dict) -> dict:
+    version = session_version(session, refresh=False)
+    latest = published_version(session['teaching_id']) if version else None
     messages = fetch_all(
         """
-        SELECT id, role, content, provider, created_at
-        FROM student_messages WHERE session_id = ? ORDER BY id
+        SELECT m.id, m.role, m.content, m.provider, m.created_at, m.task_version_id,
+               v.revision AS task_version_number
+        FROM student_messages m LEFT JOIN diagnosis_task_versions v ON v.id=m.task_version_id
+        WHERE m.session_id = ? ORDER BY m.id
         """,
         (session["id"],),
     )
@@ -224,6 +244,11 @@ def serialize_session(session: dict) -> dict:
         "started_at": session["started_at"],
         "submitted_at": session["submitted_at"],
         "submitted_text": session.get("submitted_text"),
+        "task": version_task(version) if version else None,
+        "task_version_id": version['id'] if version else None,
+        "task_version_number": version['revision'] if version else None,
+        "task_rubric_confirmed": bool((fetch_one("SELECT status FROM diagnosis_rubrics WHERE teaching_id=?", (session["teaching_id"],)) or {}).get("status") == "confirmed"),
+        "is_current_task": not version or not latest or version['id'] == latest['id'],
         "messages": messages,
         "submissions": submissions,
         "report": (
@@ -360,8 +385,8 @@ def login_student(payload: StudentLogin) -> dict:
 
     now = utc_now()
     student = fetch_one(
-        "SELECT * FROM students WHERE school_name = ? AND class_name = ? AND name = ?",
-        (school_name, class_name, name),
+        "SELECT * FROM students WHERE school_name = ? AND classroom_id = ? AND name = ?",
+        (school_name, classroom['id'], name),
     )
     if not student:
         student_id = f"stu-{uuid4().hex[:16]}"
@@ -421,7 +446,7 @@ def start_task(teaching_id: str, student: dict = Depends(require_student)) -> di
                p.title, p.subject, tw.teacher_name AS teacher_name
         FROM diagnosis_assignments da
         JOIN precision_teachings p ON p.id = da.teaching_id
-        JOIN diagnosis_tasks d ON d.teaching_id = p.id AND d.status = 'published'
+        JOIN diagnosis_tasks d ON d.teaching_id = p.id AND (d.status = 'published' OR d.published_version_id IS NOT NULL)
         JOIN teacher_workspaces tw ON tw.id = p.workspace_id
         WHERE da.teaching_id = ? AND da.classroom_id = ? AND da.is_published = 1 AND tw.school_name = ?
         """,
@@ -429,9 +454,10 @@ def start_task(teaching_id: str, student: dict = Depends(require_student)) -> di
     )
     if not task:
         raise HTTPException(status_code=404, detail="诊断任务不存在或未分配到当前班级")
-    require_confirmed_materials(teaching_id)
-    task["task_text"] = canonical_task_text(teaching_id)
-    task["task_images"] = [{"id": image["id"], "file_url": f"/api/student/tasks/{teaching_id}/images/{image['id']}"} for image in image_rows(teaching_id)]
+    version = published_version(teaching_id)
+    if not version:
+        raise HTTPException(status_code=409, detail='教师尚未发布可用的任务版本')
+    task.update(version_task(version))
     session = fetch_one(
         "SELECT * FROM student_task_sessions WHERE student_id = ? AND teaching_id = ?",
         (student["id"], teaching_id),
@@ -440,29 +466,56 @@ def start_task(teaching_id: str, student: dict = Depends(require_student)) -> di
     if not session:
         session_id = f"ses-{uuid4().hex[:20]}"
         try:
-            dialogue_config = freeze_dialogue_config(teaching_id)
+            dialogue_config = version_config(version)
             opening, execution = initial_skill_message(dialogue_config, session_id, student["id"])
         except (ValueError, RuntimeError, jsonschema.ValidationError) as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
         with database() as connection:
+            connection.execute('BEGIN IMMEDIATE')
+            current = connection.execute('SELECT published_version_id FROM diagnosis_tasks WHERE teaching_id=?', (teaching_id,)).fetchone()
+            if current['published_version_id'] != version['id']:
+                raise HTTPException(status_code=409, detail='老师刚刚更新了任务，请重新打开；未创建旧版本会话')
+            existing = connection.execute('SELECT * FROM student_task_sessions WHERE student_id=? AND teaching_id=?', (student['id'],teaching_id)).fetchone()
+            if existing:
+                raise HTTPException(status_code=409, detail='会话已在另一页面创建，请重新打开任务')
             connection.execute(
                 """
                 INSERT INTO student_task_sessions
-                (id, student_id, teaching_id, status, started_at, last_active_at, dialogue_config_json)
-                VALUES (?, ?, ?, 'in_progress', ?, ?, ?)
+                (id, student_id, teaching_id, status, started_at, last_active_at, dialogue_config_json, task_version_id)
+                VALUES (?, ?, ?, 'in_progress', ?, ?, ?, ?)
                 """,
-                (session_id, student["id"], teaching_id, now, now, json.dumps(dialogue_config, ensure_ascii=False)),
+                (session_id, student["id"], teaching_id, now, now, json.dumps(dialogue_config, ensure_ascii=False), version['id']),
             )
             connection.execute(
                 """
                 INSERT INTO student_messages
-                (session_id, role, content, provider, execution_json, created_at)
-                VALUES (?, 'assistant', ?, 'local-skill', ?, ?)
+                (session_id, role, content, provider, execution_json, created_at, task_version_id)
+                VALUES (?, 'assistant', ?, ?, ?, ?, ?)
                 """,
-                (session_id, opening, json.dumps(execution, ensure_ascii=False), now),
+                (session_id, opening, settings.student_ai_provider, json.dumps(execution, ensure_ascii=False), now, version['id']),
             )
         session = fetch_one("SELECT * FROM student_task_sessions WHERE id = ?", (session_id,))
-    return {"task": task, "session": serialize_session(session)}
+    session = owned_session(session['id'], student['id'])
+    current_version = get_version(session.get('task_version_id'))
+    if session['status'] == 'in_progress' and current_version and not fetch_one(
+        'SELECT 1 FROM student_messages WHERE session_id=? AND task_version_id=?', (session['id'],current_version['id'])
+    ):
+        try:
+            opening, execution = initial_skill_message(version_config(current_version), session['id'], student['id'])
+        except (ValueError, RuntimeError, jsonschema.ValidationError) as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
+        with database() as connection:
+            connection.execute('BEGIN IMMEDIATE')
+            active = connection.execute('''SELECT sts.status,sts.task_version_id FROM student_task_sessions sts WHERE sts.id=?''', (session['id'],)).fetchone()
+            if active['status'] != 'in_progress' or active['task_version_id'] != current_version['id']:
+                raise HTTPException(status_code=409, detail='任务已更新，请重新打开')
+            if not connection.execute('SELECT 1 FROM student_messages WHERE session_id=? AND task_version_id=?', (session['id'],current_version['id'])).fetchone():
+                connection.execute('''INSERT INTO student_messages
+                    (session_id,role,content,provider,execution_json,created_at,task_version_id)
+                    VALUES (?,'assistant',?,?,?,?,?)''',
+                    (session['id'],opening,settings.student_ai_provider,json.dumps(execution,ensure_ascii=False),utc_now(),current_version['id']))
+    serialized = serialize_session(session)
+    return {"task": serialized['task'] or task, "session": serialized}
 
 
 @router.get("/student/sessions/{session_id}")
@@ -483,6 +536,62 @@ def student_task_image(teaching_id: str, image_id: str, student: dict = Depends(
     return image_response(teaching_id, image_id)
 
 
+@router.get('/student/tasks/{teaching_id}/versions/{version_id}/images/{image_id}')
+def student_version_image(teaching_id: str, version_id: str, image_id: str, student: dict = Depends(require_student)) -> FileResponse:
+    assigned = fetch_one('''SELECT 1 FROM diagnosis_assignments da
+        JOIN precision_teachings p ON p.id=da.teaching_id JOIN teacher_workspaces tw ON tw.id=p.workspace_id
+        WHERE da.teaching_id=? AND da.classroom_id=? AND da.is_published=1 AND tw.school_name=?''',
+        (teaching_id,student['classroom_id'],student['school_name']))
+    version = get_version(version_id)
+    if not assigned or not version or version['teaching_id'] != teaching_id:
+        raise HTTPException(status_code=404, detail='题图不属于当前学生任务')
+    # Match file-attachment permissions: an assigned class alone does not grant
+    # access to every historical publication a student never received.
+    published = fetch_one('SELECT published_version_id FROM diagnosis_tasks WHERE teaching_id=?', (teaching_id,)) or {}
+    accessible = version_id == published.get('published_version_id') or fetch_one(
+        '''SELECT 1 FROM student_task_sessions WHERE teaching_id=? AND student_id=? AND task_version_id=?
+           UNION SELECT 1 FROM student_messages m JOIN student_task_sessions s ON s.id=m.session_id
+           WHERE s.teaching_id=? AND s.student_id=? AND m.task_version_id=?''',
+        (teaching_id,student['id'],version_id,teaching_id,student['id'],version_id))
+    if not accessible:
+        raise HTTPException(status_code=404, detail='题图不属于当前学生任务版本')
+    image = next((item for item in version['snapshot']['images'] if item['id'] == image_id), None)
+    if not image:
+        raise HTTPException(status_code=404, detail='此版本没有该图片')
+    from .task_materials import settings as material_settings
+    path = material_settings.upload_path / Path(image['stored_filename']).name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail='题图文件不可用')
+    return FileResponse(path, media_type=image['content_type'], headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'})
+
+
+@router.get('/student/tasks/{teaching_id}/versions/{version_id}/attachments/{attachment_id}')
+def student_version_attachment(teaching_id: str,version_id: str,attachment_id: str,student: dict=Depends(require_student)) -> FileResponse:
+    assigned=fetch_one('''SELECT 1 FROM diagnosis_assignments da JOIN precision_teachings p ON p.id=da.teaching_id
+        JOIN teacher_workspaces w ON w.id=p.workspace_id WHERE da.teaching_id=? AND da.classroom_id=?
+        AND da.is_published=1 AND w.school_name=?''',(teaching_id,student['classroom_id'],student['school_name']))
+    version=get_version(version_id)
+    if not assigned or not version or version['teaching_id']!=teaching_id:
+        raise HTTPException(status_code=404,detail='附件不属于当前学生任务')
+    # A guessed historical version must not reveal materials a student never received.
+    published=fetch_one('SELECT published_version_id FROM diagnosis_tasks WHERE teaching_id=?',(teaching_id,)) or {}
+    accessible=version['id']==published.get('published_version_id') or fetch_one(
+        '''SELECT 1 FROM student_task_sessions WHERE teaching_id=? AND student_id=? AND task_version_id=?
+           UNION SELECT 1 FROM student_messages m JOIN student_task_sessions s ON s.id=m.session_id
+           WHERE s.teaching_id=? AND s.student_id=? AND m.task_version_id=?''',
+        (teaching_id,student['id'],version_id,teaching_id,student['id'],version_id))
+    item=next((item for item in version['snapshot'].get('attachments',[]) if item['id']==attachment_id),None) if accessible and version['teaching_id']==teaching_id else None
+    if not assigned or not item:raise HTTPException(status_code=404,detail='附件不属于当前学生任务')
+    from .task_attachments import attachment_response
+    return attachment_response(item)
+
+
+def check_client_task_version(version_id: str | None, session: dict) -> None:
+    if not version_id or version_id == session.get('task_version_id'):
+        return
+    raise HTTPException(status_code=409, detail='页面与本次会话的任务版本不一致，请重新打开任务；输入内容未清除')
+
+
 @router.post("/student/sessions/{session_id}/messages")
 def create_message(
     session_id: str,
@@ -490,6 +599,7 @@ def create_message(
     student: dict = Depends(require_student),
 ) -> dict:
     session = owned_session(session_id, student["id"])
+    check_client_task_version(payload.task_version_id, session)
     pushed_report = fetch_one(
         """
         SELECT report_text, pushed_at
@@ -505,37 +615,44 @@ def create_message(
         raise HTTPException(status_code=422, detail="请先输入对话内容")
     if not pushed_report:
         try:
-            config = json.loads(session["dialogue_config_json"]) if session.get("dialogue_config_json") else freeze_dialogue_config(session["teaching_id"])
-            history = fetch_all(
-                "SELECT id, role, content FROM student_messages WHERE session_id = ? ORDER BY id",
-                (session_id,),
-            )
+            version = get_version(session.get('task_version_id'))
+            # Pre-version sessions already froze the teacher contract at start.
+            # The current task can have a different role when first migrated;
+            # do not silently replace the student's original dialogue context.
+            config = (json.loads(session['dialogue_config_json']) if session.get('dialogue_config_json')
+                      else version_config(version) if version else freeze_dialogue_config(session['teaching_id']))
+            history = version_history(session_id, version)
             result, provider, response_id = generate_dialogue_turn(config, session_id, student["id"], history, student_text)
         except (ValueError, RuntimeError, jsonschema.ValidationError) as error:
             raise HTTPException(status_code=502, detail=str(error)) from error
         now = utc_now()
         reply_time = utc_now()
         with database() as connection:
+            connection.execute('BEGIN IMMEDIATE')
+            saved_session = connection.execute('SELECT status,task_version_id FROM student_task_sessions WHERE id=?', (session_id,)).fetchone()
+            if saved_session['status'] != 'in_progress' or (version and saved_session['task_version_id'] != version['id']):
+                raise HTTPException(status_code=409, detail='任务版本或提交状态已更新，请刷新后重试；本次消息未写入')
             if not session.get("dialogue_config_json"):
                 connection.execute(
                     "UPDATE student_task_sessions SET dialogue_config_json = ? WHERE id = ?",
                     (json.dumps(config, ensure_ascii=False), session_id),
                 )
             cursor = connection.execute(
-                "INSERT INTO student_messages (session_id, role, content, provider, created_at) VALUES (?, 'student', ?, 'local', ?)",
-                (session_id, student_text, now),
+                "INSERT INTO student_messages (session_id, role, content, provider, created_at, task_version_id) VALUES (?, 'student', ?, 'local', ?, ?)",
+                (session_id, student_text, now, version['id'] if version else None),
             )
             student_message_id = cursor.lastrowid
             cursor = connection.execute(
                 """INSERT INTO student_messages
-                   (session_id, role, content, provider, external_response_id, execution_json, created_at)
-                   VALUES (?, 'assistant', ?, ?, ?, ?, ?)""",
+                   (session_id, role, content, provider, external_response_id, execution_json, created_at, task_version_id)
+                   VALUES (?, 'assistant', ?, ?, ?, ?, ?, ?)""",
                 (session_id, result["student_visible_reply"], provider, response_id,
-                 json.dumps(result["internal_execution_record"], ensure_ascii=False), reply_time),
+                 json.dumps(result["internal_execution_record"], ensure_ascii=False), reply_time, version['id'] if version else None),
             )
             assistant_message_id = cursor.lastrowid
             connection.execute("UPDATE student_task_sessions SET last_active_at = ? WHERE id = ?", (reply_time, session_id))
         return {
+            'task': version_task(version) if version else None,
             "student_message": {"id": student_message_id, "role": "student", "content": student_text, "provider": "local", "created_at": now},
             "assistant_message": {"id": assistant_message_id, "role": "assistant", "content": result["student_visible_reply"], "provider": provider, "created_at": reply_time},
         }
@@ -543,10 +660,10 @@ def create_message(
     with database() as connection:
         cursor = connection.execute(
             """
-            INSERT INTO student_messages (session_id, role, content, provider, created_at)
-            VALUES (?, 'student', ?, 'local', ?)
+            INSERT INTO student_messages (session_id, role, content, provider, created_at, task_version_id)
+            VALUES (?, 'student', ?, 'local', ?, ?)
             """,
-            (session_id, student_text, now),
+            (session_id, student_text, now, session.get('task_version_id')),
         )
         student_message_id = cursor.lastrowid
         connection.execute(
@@ -572,10 +689,10 @@ def create_message(
         cursor = connection.execute(
             """
             INSERT INTO student_messages
-            (session_id, role, content, provider, external_response_id, created_at)
-            VALUES (?, 'assistant', ?, ?, ?, ?)
+            (session_id, role, content, provider, external_response_id, created_at, task_version_id)
+            VALUES (?, 'assistant', ?, ?, ?, ?, ?)
             """,
-            (session_id, reply, provider, response_id, reply_time),
+            (session_id, reply, provider, response_id, reply_time, session.get('task_version_id')),
         )
         assistant_message_id = cursor.lastrowid
     return {
@@ -646,9 +763,14 @@ def submit_task(
     session = owned_session(session_id, student["id"])
     if session["status"] == "submitted":
         raise HTTPException(status_code=409, detail="该任务已经提交")
+    check_client_task_version(payload.task_version_id, session)
     submitted_text = payload.submitted_text.strip()
     now = utc_now()
     with database() as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        saved = connection.execute('SELECT status,task_version_id FROM student_task_sessions WHERE id=?', (session_id,)).fetchone()
+        if saved['status'] != 'in_progress' or saved['task_version_id'] != session.get('task_version_id'):
+            raise HTTPException(status_code=409, detail='会话状态已变化，请重新打开后再提交；输入内容未清除')
         connection.execute(
             """
             UPDATE student_task_sessions
@@ -754,12 +876,14 @@ def build_student_diagnosis_input(session_id: str) -> tuple[dict, dict]:
         raise HTTPException(status_code=404, detail="学生学习会话不存在")
     if context["status"] != "submitted":
         raise HTTPException(status_code=409, detail="学生尚未提交学习成果")
+    version = session_version(context, refresh=False)
+    if version:
+        snapshot = version['snapshot']
+        context.update({key:value for key,value in snapshot['teaching'].items() if key not in {'id','teacher_name'}})
+        context['task_text'] = snapshot['task_text']
     if context["rubric_status"] != "confirmed" or not context["current_json"]:
         raise HTTPException(status_code=409, detail="请先确认当前诊断任务的 SOLO 分析标准")
-    messages = fetch_all(
-        "SELECT id, role, content FROM student_messages WHERE session_id = ? ORDER BY id",
-        (session_id,),
-    )
+    messages = version_history(session_id, version)
     if not any(item["role"] == "student" for item in messages):
         raise HTTPException(status_code=422, detail="至少需要一条学生发言才能生成个体报告")
     contents = [item.strip() for item in context["content"].splitlines() if item.strip()]
@@ -774,7 +898,7 @@ def build_student_diagnosis_input(session_id: str) -> tuple[dict, dict]:
             "precision_teaching_content": contents or [context["content"]],
         },
         "diagnostic_task": {
-            "task_text": canonical_task_text(context["teaching_id"]),
+            "task_text": snapshot['task_text'] if version else canonical_task_text(context["teaching_id"]),
             "requirements": ["活动、对话和成果要求以任务原文为准", "只依据实际对话与提交内容分析，不把缺少的成果假定为已完成"],
         },
         "task_specific_solo_rubric": json.loads(context["current_json"]),
@@ -821,6 +945,10 @@ def generate_student_report(session_id: str, background_tasks: BackgroundTasks) 
         completed_at = utc_now()
         output_json = json.dumps(result, ensure_ascii=False)
         with database() as connection:
+            connection.execute('BEGIN IMMEDIATE')
+            rubric_now = connection.execute('SELECT status,current_json FROM diagnosis_rubrics WHERE teaching_id=?', (context['teaching_id'],)).fetchone()
+            if not rubric_now or rubric_now['status'] != 'confirmed' or json.loads(rubric_now['current_json']) != payload['task_specific_solo_rubric']:
+                raise ValueError('生成期间教师修改了 SOLO 标准，请按最新确认的标准重新生成；原报告未覆盖')
             connection.execute(
                 "UPDATE ai_jobs SET status = 'completed', output_json = ?, completed_at = ? WHERE id = ?",
                 (output_json, completed_at, job_id),

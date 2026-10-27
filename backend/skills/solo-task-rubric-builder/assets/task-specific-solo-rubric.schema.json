@@ -148,7 +148,7 @@
       "additionalProperties": false,
       "required": ["highest_reasonably_elicitable_level", "limitations", "revision_suggestions"],
       "properties": {
-        "highest_reasonably_elicitable_level": {"enum": ["P", "U", "M", "R", "EA"]},
+        "highest_reasonably_elicitable_level": {"enum": ["P", "U", "M", "R", "EA"], "description": "本任务预计可激发的最高层级，非学生定级上限；若较低，应在limitations写明受限层级和任务原因，无明确限制不编造备注。"},
         "limitations": {"type": "array", "items": {"type": "string"}},
         "revision_suggestions": {"type": "array", "items": {"type": "string"}}
       }
@@ -158,7 +158,7 @@
       "additionalProperties": false,
       "required": ["status", "core_performance", "decision_evidence", "adjacent_boundaries", "typical_expressions", "trace_to"],
       "properties": {
-        "status": {"enum": ["defined", "not_reasonably_elicitable"]},
+        "status": {"enum": ["defined", "not_reasonably_elicitable"], "description": "新生成的五级均为defined；旧状态仅兼容历史数据，不得用于省略任何层级标准或示例。"},
         "core_performance": {"type": "array", "items": {"type": "string"}},
         "decision_evidence": {"type": "array", "items": {"type": "string"}},
         "adjacent_boundaries": {"type": "array", "items": {"type": "string"}},

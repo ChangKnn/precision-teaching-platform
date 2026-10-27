@@ -41,7 +41,7 @@ class PrecisionTeachingCreate(PrecisionTeachingDraft):
 
 
 class PrecisionTeachingUpdate(PrecisionTeachingDraft):
-    edit_intent: Literal["wording"] | None = None
+    edit_intent: Literal["wording", "revision"] | None = None
 
 
 class CurrentTeachingUpdate(BaseModel):
@@ -55,6 +55,7 @@ class ClassroomCreate(BaseModel):
 
 
 class ClassroomUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=80)
     student_count: int = Field(ge=0, le=1000)
     background: str = Field(default="", max_length=2000)
 
@@ -111,10 +112,12 @@ class StudentLogin(BaseModel):
 
 class StudentMessageCreate(BaseModel):
     content: str = Field(min_length=1, max_length=4000)
+    task_version_id: str | None = Field(default=None, max_length=80)
 
 
 class StudentTaskSubmit(BaseModel):
     submitted_text: str = Field(default="", max_length=12000)
+    task_version_id: str | None = Field(default=None, max_length=80)
 
 
 class StudentDiagnosisReportUpdate(BaseModel):

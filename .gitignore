@@ -20,3 +20,5 @@ venv/
 *.pem
 *.key
 initial-admin*.txt
+/backups/
+/work/

@@ -149,6 +149,20 @@ def initialize_database() -> None:
         updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS diagnosis_task_attachments (
+        id TEXT PRIMARY KEY,
+        teaching_id TEXT NOT NULL REFERENCES precision_teachings(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL CHECK(kind IN ('file','link')),
+        name TEXT NOT NULL,
+        url TEXT NOT NULL DEFAULT '',
+        stored_filename TEXT NOT NULL DEFAULT '',
+        content_type TEXT NOT NULL DEFAULT '',
+        size_bytes INTEGER NOT NULL DEFAULT 0,
+        sha256 TEXT NOT NULL,
+        content_text TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS diagnosis_task_materials (
         teaching_id TEXT PRIMARY KEY REFERENCES precision_teachings(id) ON DELETE CASCADE,
         geometry_notes TEXT NOT NULL DEFAULT '',
@@ -314,6 +328,14 @@ def initialize_database() -> None:
         PRIMARY KEY (classroom_id, workspace_id)
     );
 
+    CREATE TABLE IF NOT EXISTS classroom_archives (
+        classroom_id TEXT NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE,
+        workspace_id TEXT NOT NULL REFERENCES teacher_workspaces(id) ON DELETE CASCADE,
+        assignments_json TEXT NOT NULL,
+        removed_at TEXT NOT NULL,
+        PRIMARY KEY (classroom_id, workspace_id)
+    );
+
     CREATE TABLE IF NOT EXISTS diagnosis_assignments (
         teaching_id TEXT NOT NULL REFERENCES precision_teachings(id) ON DELETE CASCADE,
         classroom_id TEXT NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE,
@@ -371,6 +393,29 @@ def initialize_database() -> None:
         stored_filename TEXT NOT NULL UNIQUE,
         content_type TEXT NOT NULL,
         size_bytes INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS diagnosis_task_versions (
+        id TEXT PRIMARY KEY,
+        teaching_id TEXT NOT NULL REFERENCES precision_teachings(id) ON DELETE CASCADE,
+        revision INTEGER NOT NULL,
+        source_hash TEXT NOT NULL,
+        evidence_hash TEXT NOT NULL,
+        snapshot_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(teaching_id, revision)
+    );
+
+    CREATE TABLE IF NOT EXISTS diagnosis_role_knowledge (
+        id TEXT PRIMARY KEY,
+        teaching_id TEXT NOT NULL REFERENCES precision_teachings(id) ON DELETE CASCADE,
+        original_filename TEXT NOT NULL,
+        stored_filename TEXT NOT NULL UNIQUE,
+        content_type TEXT NOT NULL,
+        size_bytes INTEGER NOT NULL,
+        sha256 TEXT NOT NULL,
+        content_text TEXT NOT NULL,
         created_at TEXT NOT NULL
     );
 
@@ -491,6 +536,8 @@ def initialize_database() -> None:
         diagnosis_columns = {row['name'] for row in connection.execute('PRAGMA table_info(diagnosis_tasks)').fetchall()}
         if 'design_intent' not in diagnosis_columns:
             connection.execute("ALTER TABLE diagnosis_tasks ADD COLUMN design_intent TEXT NOT NULL DEFAULT ''")
+        if 'published_version_id' not in diagnosis_columns:
+            connection.execute("ALTER TABLE diagnosis_tasks ADD COLUMN published_version_id TEXT")
         teaching_columns = {
             row["name"] for row in connection.execute("PRAGMA table_info(precision_teachings)").fetchall()
         }
@@ -528,11 +575,15 @@ def initialize_database() -> None:
             connection.execute("ALTER TABLE student_task_sessions ADD COLUMN submitted_text TEXT")
         if "dialogue_config_json" not in session_columns:
             connection.execute("ALTER TABLE student_task_sessions ADD COLUMN dialogue_config_json TEXT")
+        if "task_version_id" not in session_columns:
+            connection.execute("ALTER TABLE student_task_sessions ADD COLUMN task_version_id TEXT")
         message_columns = {
             row["name"] for row in connection.execute("PRAGMA table_info(student_messages)").fetchall()
         }
         if "execution_json" not in message_columns:
             connection.execute("ALTER TABLE student_messages ADD COLUMN execution_json TEXT")
+        if "task_version_id" not in message_columns:
+            connection.execute("ALTER TABLE student_messages ADD COLUMN task_version_id TEXT")
         report_columns = {
             row["name"] for row in connection.execute("PRAGMA table_info(student_diagnosis_reports)").fetchall()
         }
