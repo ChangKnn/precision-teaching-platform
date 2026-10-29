@@ -11,6 +11,32 @@ from backend.app.services import student_dialogue_skill as dialogue
 
 
 class StudentDialogueSkillTest(unittest.TestCase):
+    def test_claude_fenced_json_is_accepted_without_changing_transcript(self):
+        current = '这是原话'
+        payload = dialogue._payload(self.config, 'ses-1', 'student-1', [], current)
+        expected = dialogue._mock_result(payload)
+        response = io.BytesIO(json.dumps({'id': 'claude-check', 'choices': [{'message': {
+            'content': '```json\n' + json.dumps(expected, ensure_ascii=False) + '\n```'
+        }}]}).encode())
+        settings = SimpleNamespace(student_ai_provider='openrouter', student_ai_api_key='test-key',
+            student_ai_model='anthropic/claude-haiku-5.5', student_ai_base_url='https://openrouter.ai/api/v1')
+        with patch.object(dialogue, 'settings', settings), patch.object(dialogue, 'urlopen', return_value=response), patch.object(dialogue, 'record_llm_request'):
+            actual, provider, response_id = dialogue.generate_dialogue_turn(self.config, 'ses-1', 'student-1', [], current)
+        self.assertEqual(actual, expected)
+        self.assertEqual(actual['record_append'][0]['content'], current)
+        self.assertEqual(provider, 'openrouter')
+        self.assertEqual(response_id, 'claude-check')
+
+    def test_student_model_still_rejects_malformed_or_schema_invalid_json(self):
+        settings = SimpleNamespace(student_ai_provider='openrouter', student_ai_api_key='test-key',
+            student_ai_model='anthropic/claude-haiku-5.5', student_ai_base_url='https://openrouter.ai/api/v1')
+        for text in ('```json\n{"schema_version":', '```json\n{"wrong": true}\n```', 'not JSON'):
+            with self.subTest(text=text):
+                response = io.BytesIO(json.dumps({'choices': [{'message': {'content': text}}]}).encode())
+                with patch.object(dialogue, 'settings', settings), patch.object(dialogue, 'urlopen', return_value=response), patch.object(dialogue, 'record_llm_request'):
+                    with self.assertRaisesRegex(RuntimeError, '无效或不完整'):
+                        dialogue._model_result(dialogue._payload(self.config, 'ses-1', 'student-1', [], '原话'))
+
     def setUp(self):
         self.config = {
             "precision_teaching_context": {

@@ -322,9 +322,13 @@ def _model_result(payload: dict) -> tuple[dict, str | None]:
     if not isinstance(text, str) or not text.strip():
         raise RuntimeError("学生对话模型没有返回完整 JSON")
     try:
-        return json.loads(text.strip()), response_data.get("id")
-    except json.JSONDecodeError as error:
-        raise RuntimeError("学生对话模型返回了无效 JSON") from error
+        # Some OpenRouter models wrap valid JSON in a Markdown code fence even
+        # with json_object requested. Reuse the teacher parser, retaining schema
+        # validation and the subsequent transcript/teacher-contract checks.
+        from .ai import _parse_structured_json
+        return _parse_structured_json(text, schema), response_data.get("id")
+    except (ValueError, jsonschema.ValidationError) as error:
+        raise RuntimeError("学生对话模型返回了无效或不完整的 JSON") from error
 
 
 def _mock_result(payload: dict) -> dict:
