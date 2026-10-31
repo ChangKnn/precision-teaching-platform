@@ -8,6 +8,7 @@ const state = {
   activeTask: null,
   session: null,
   typing: false,
+  voiceBusy: false,
   timerId: null,
   reportPollId: null
 };
@@ -69,6 +70,15 @@ const messageInput = $("#messageInput");
 const messages = $("#messages");
 const subjectSelect = $("#subjectSelect");
 const submitDialog = $("#submitDialog");
+const studentVoice = window.StudentVoiceInput.create({
+  button: $('#voiceInputButton'), status: $('#voiceInputStatus'), input: messageInput,
+  getContext: () => ({token: state.token, sessionId: state.session?.id,
+    versionId: state.session?.task_version_id, disabled: messageInput.disabled || state.typing}),
+  request: (...args) => api(...args),
+  onBusyChange: busy => { state.voiceBusy = busy; resizeComposer(); },
+  onDraftChange: () => messageInput.dispatchEvent(new Event('input', {bubbles: true})),
+  onError: message => showToast('语音输入', message)
+});
 
 function escapeHtml(value) {
   const span = document.createElement("span");
@@ -323,6 +333,7 @@ subjectSelect.addEventListener("change", async () => {
 });
 
 async function openTask(teachingId) {
+  if (typeof studentVoice !== 'undefined') studentVoice.cancel('任务切换，语音输入已停止。');
   state.typing = false;
   const result = await api(`/api/student/tasks/${encodeURIComponent(teachingId)}/session`, { method: "POST" });
   state.activeTask = { ...state.tasks.find((task) => task.teaching_id === teachingId), ...result.task };
@@ -372,6 +383,7 @@ function renderTask() {
 }
 
 function renderNoTask() {
+  if (typeof studentVoice !== 'undefined') studentVoice.cancel();
   window.clearInterval(state.timerId);
   state.timerId = null;
   $("#elapsedTime").textContent = "尚未开始";
@@ -381,6 +393,7 @@ function renderNoTask() {
   $("#teacherLabel").textContent = "请稍后再来查看";
   $("#subjectDot").textContent = "—";
   messageInput.disabled = true;
+  if (typeof studentVoice !== 'undefined') studentVoice.refresh();
   $$("[data-open-submit]").forEach((button) => button.disabled = true);
 }
 
@@ -485,10 +498,11 @@ function startReportPolling() {
 function resizeComposer() {
   messageInput.style.height = "auto";
   messageInput.style.height = `${Math.min(messageInput.scrollHeight, 130)}px`;
-  $(".send-button", messageForm).disabled = messageInput.disabled || !messageInput.value.trim() || state.typing;
+  $(".send-button", messageForm).disabled = messageInput.disabled || !messageInput.value.trim() || state.typing || state.voiceBusy || messageInput.value.length > 4000;
   $$('[data-open-submit]').forEach(button => {
-    button.disabled = state.typing || state.session?.status === 'submitted';
+    button.disabled = state.typing || state.voiceBusy || state.session?.status === 'submitted';
   });
+  if (typeof studentVoice !== 'undefined') studentVoice.refresh();
 }
 
 messageInput.addEventListener("input", () => {
@@ -505,7 +519,7 @@ messageInput.addEventListener("keydown", (event) => {
 messageForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const content = messageInput.value.trim();
-  if (!content || !state.session || state.typing) return;
+  if (!content || !state.session || state.typing || state.voiceBusy) return;
   const sendingSession = state.session;
   const composerVersion = messageInput.dataset.taskVersionId || state.session.task_version_id;
   const temporary = { id: `tmp-${Date.now()}`, role: "student", content, created_at: new Date().toISOString() };
@@ -575,6 +589,7 @@ function startTimer() {
 }
 
 function openSubmit() {
+  if (state.voiceBusy) { showToast('请先停止语音输入并等待最后一句识别完成'); return; }
   if (!state.session || state.session.status === "submitted") return;
   if (state.typing) {
     showToast('请等待当前 AI 回复后再提交');
@@ -607,6 +622,7 @@ function updateSubmissionSummary() {
 $("#submittedText").addEventListener("input", updateSubmissionSummary);
 
 $("#confirmSubmitButton").addEventListener("click", async () => {
+  if (state.voiceBusy) { showToast('请先停止语音输入并等待最后一句识别完成'); return; }
   if (state.typing) { showToast('请等待当前 AI 回复后再提交'); return; }
   const submittedText = $("#submittedText").value.trim();
   const button = $("#confirmSubmitButton");
@@ -647,6 +663,7 @@ function showToast(title, detail) {
 }
 
 function clearLogin() {
+  if (typeof studentVoice !== 'undefined') studentVoice.cancel('已退出登录，语音输入已停止。');
   window.clearInterval(state.timerId);
   stopReportPolling();
   sessionStorage.removeItem("student_token");
@@ -661,6 +678,7 @@ function clearLogin() {
 }
 
 $("#logoutButton").addEventListener("click", async () => {
+  studentVoice.cancel('正在退出登录，语音输入已停止。');
   try {
     await api("/api/student/session", { method: "DELETE" });
   } catch (_) {

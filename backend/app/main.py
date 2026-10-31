@@ -40,6 +40,7 @@ from .diagnostic_task_design_api import router as diagnostic_task_design_router
 from .custom_analysis_api import router as custom_analysis_router, standard_for
 from .teacher_auth import current_teacher, current_account, router as teacher_auth_router, admin_auth_router
 from .admin_api import router as admin_router
+from .student_asr import router as student_asr_router
 from .task_materials import router as task_materials_router, material_state, canonical_task_text, require_confirmed_materials
 from .classroom_management import router as classroom_management_router, deleted_classrooms
 from .task_attachments import router as task_attachments_router
@@ -63,6 +64,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 app.include_router(student_router)
+app.include_router(student_asr_router)
 app.include_router(goal_path_router)
 app.include_router(activity_formative_router)
 app.include_router(intervention_integration_router)

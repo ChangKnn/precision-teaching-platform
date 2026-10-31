@@ -180,6 +180,12 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .send-button { display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 10px; color: white; background: var(--pine-700); cursor: pointer; }
 .send-button:disabled { color: #a4b2ae; background: #e6ecea; cursor: default; }
 .send-button svg { width: 19px; }
+.composer { grid-template-columns: minmax(0, 1fr) 48px 42px; }
+.voice-button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 44px; padding: 4px; border: 0; border-radius: 10px; color: var(--pine-700); background: #edf5f1; cursor: pointer; font-size: 10px; }
+.voice-button svg { width: 19px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.voice-button.is-recording { color: #a32f29; background: #fce8e5; box-shadow: 0 0 0 2px #f1c7c2; }
+.voice-button:disabled { opacity: .5; cursor: default; }
+.voice-status { margin: 7px 4px 0; color: #677e76; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 .composer-meta { display: flex; justify-content: space-between; align-items: center; padding: 7px 4px 0; color: #87938f; font-size: 11px; }
 .composer-meta button { display: inline-flex; align-items: center; gap: 5px; padding: 0; color: var(--pine-700); background: none; border: 0; cursor: pointer; }
 .composer-meta svg { width: 14px; }

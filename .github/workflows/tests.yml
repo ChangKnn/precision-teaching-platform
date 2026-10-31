@@ -33,5 +33,8 @@ jobs:
       - run: node --check frontend/notifications.js
       - run: node --check frontend/role-knowledge.js
       - run: node --check frontend/student/student.js
+      - run: node --check frontend/student/voice-input.js
+      - run: node --check frontend/student/pcm-worklet.js
       - run: node --check frontend/admin/admin.js
       - run: node --test frontend/tests/runtime-regression.test.cjs
+      - run: node --test frontend/tests/voice-input.test.cjs

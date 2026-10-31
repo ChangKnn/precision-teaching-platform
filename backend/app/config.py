@@ -33,6 +33,10 @@ class Settings:
     skills_path: Path = PROJECT_ROOT / "backend" / "skills"
     # Leave room for login/save/submit requests while a 40-student class waits on AI.
     request_thread_limit: int = max(80, int(os.getenv("REQUEST_THREAD_LIMIT", "96")))
+    dashscope_api_key: str = os.getenv("DASHSCOPE_API_KEY", "")
+    asr_model: str = "qwen-audio-3.1-asr-flash-streaming"
+    asr_max_seconds: int = max(10, min(600, int(os.getenv("ASR_MAX_SECONDS", "180"))))
+    asr_max_connections: int = max(1, min(128, int(os.getenv("ASR_MAX_CONNECTIONS", "64"))))
     ai_provider: str = _teacher_provider
     ai_base_url: str = os.getenv("AI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
     ai_api_key: str = _openrouter_api_key if _teacher_provider == "openrouter" else os.getenv("AI_API_KEY", "")
