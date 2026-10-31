@@ -36,14 +36,14 @@
       <nav class="tabs" aria-label="管理功能"><button id="accountsTab" type="button" aria-pressed="true">教师账号</button><button id="teachingsTab" type="button" aria-pressed="false">任务概览</button></nav>
       <section id="accountsPanel" class="account-layout">
         <article class="panel"><div class="panel-heading"><h2>教师账号</h2><span class="muted">停用不删除教学数据</span></div><div class="table-wrap"><table><thead><tr><th>教师与账号</th><th>学校 / 学科</th><th>状态</th><th>任务</th><th>最近登录</th><th>操作</th></tr></thead><tbody id="teacherRows"></tbody></table></div><p id="teacherEmpty" class="empty" hidden>还没有教师账号。可在右侧开通新账号，或绑定已有教师空间。</p></article>
-        <aside class="panel"><h2>开通教师账号</h2><p class="muted">账号不区分字母大小写；首次登录必须修改临时密码。</p><form id="createTeacher" class="stack">
+        <aside class="panel"><h2>开通教师账号</h2><p class="muted">账号不区分字母大小写；教师可直接使用你设置的密码登录，无需首次改密。</p><form id="createTeacher" class="stack">
           <label>教学空间<select id="workspaceChoice"><option value="">新建教学空间</option></select></label>
           <p class="field-help">已有教师的资料和任务不会删除。选择其已有空间后，将与新账号绑定。</p>
           <label>教师姓名<input id="createName" maxlength="50" required></label>
           <label>学校<input id="createSchool" maxlength="120" required></label>
           <label>学科<input id="createSubject" maxlength="50" required></label>
           <label>登录账号<input id="createUsername" minlength="3" maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9_.\-]{2,63}" autocomplete="off" autocapitalize="none" required><small>3—64位字母、数字、下划线、点或短横线</small></label>
-          <label>临时密码<input id="createPassword" type="password" minlength="10" maxlength="128" autocomplete="new-password" required><small>至少10位，请通过安全方式单独告知教师。</small></label>
+          <label>登录密码<input id="createPassword" type="password" minlength="10" maxlength="128" autocomplete="new-password" required><small>至少10位，请通过安全方式单独告知教师。</small></label>
           <button class="primary" type="submit">创建教师账号</button>
         </form></aside>
       </section>
@@ -60,6 +60,6 @@
   <dialog id="taskDialog"><div class="detail-header"><h2>任务详情 · 只读</h2><button type="button" data-close-dialog>关闭</button></div><div id="taskDetail"></div></dialog>
   <p id="notice" class="notice" role="status" hidden></p>
   <footer class="site-filing" aria-label="网站备案信息"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">京ICP备2026068374号-1</a><a href="https://beian.mps.gov.cn/#/query/webSearch?code=11010802050729" target="_blank" rel="noopener noreferrer"><img src="/assets/beian.png" alt="公安备案图标" width="20" height="20">京公网安备11010802050729号</a></footer>
-  <script src="admin.js?v=20261018-accounts"></script>
+  <script src="admin.js?v=20261031-new-account-password"></script>
 </body>
 </html>

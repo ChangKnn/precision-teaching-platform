@@ -103,7 +103,7 @@ el("adminLogin").addEventListener("submit", e => { e.preventDefault(); busy(e.ta
 el("initialPasswordForm").addEventListener("submit", e => { e.preventDefault(); busy(e.target, async () => { await changePassword(e.target,"initialCurrent","initialNew","initialRepeat"); await initialize(); }); });
 el("createTeacher").addEventListener("submit", e => { e.preventDefault(); busy(e.target, async () => {
   await api("/api/admin/teachers", "POST", {username:el("createUsername").value.trim(),password:el("createPassword").value, school_name:el("createSchool").value.trim(), subject:el("createSubject").value.trim(), teacher_name:el("createName").value.trim(), workspace_id:el("workspaceChoice").value || null});
-  e.target.reset(); syncWorkspaceFields(); await refresh(); notice("教师账号已创建，请单独告知教师临时密码");
+  e.target.reset(); syncWorkspaceFields(); await refresh(); notice("教师账号已创建，请单独告知教师登录密码，可直接登录使用");
 }); });
 el("workspaceChoice").addEventListener("change", syncWorkspaceFields);
 el("accountsTab").addEventListener("click", () => showPanel("accounts"));

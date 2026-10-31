@@ -95,8 +95,21 @@ class AccountSecurityTest(unittest.TestCase):
         with self.assertRaises(HTTPException):
             admin.list_teachers(teacher)
 
-    def test_initial_password_gate_and_required_change(self):
+    def test_admin_created_teacher_can_use_assigned_password_without_initial_change(self):
+        created = self.create()
+        teacher = self.login('teacher1')
+        self.assertFalse(auth.status(teacher,Response())['must_change_password'])
+        self.assertEqual(self.gate('/api/bootstrap',teacher).status_code,204)
+        self.assertEqual(self.gate('/api/teacher-auth/password',teacher,method='POST').status_code,204)
+        stored = db.fetch_one('SELECT * FROM user_accounts WHERE id = ?', (created['id'],))
+        self.assertEqual(stored['must_change_password'],0)
+        self.assertNotEqual(stored['password_hash'],self.password)
+        self.assertTrue(auth.verify_password(self.password,stored['password_hash']))
+
+    def test_existing_initial_password_gate_and_required_change_remains(self):
         self.create()
+        with db.database() as connection:
+            connection.execute("UPDATE user_accounts SET must_change_password=1 WHERE username='teacher1'")
         teacher = self.login('teacher1')
         self.assertEqual(self.gate('/api/bootstrap',teacher).status_code,403)
         self.assertEqual(self.gate('/api/teacher-auth/password',teacher,method='POST').status_code,204)

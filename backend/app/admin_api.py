@@ -66,7 +66,7 @@ def list_teachers(request: Request) -> dict:
 @router.post("/teachers", status_code=201)
 def create_teacher(payload: TeacherCreate, request: Request) -> dict:
     admin = require_admin(request)
-    created = provision_teacher(**payload.model_dump())
+    created = provision_teacher(**payload.model_dump(), must_change_password=False)
     write_audit("admin_create_teacher", "user_account", created["id"],
                 {"actor": admin["account_id"], "username": created["username"], "workspace_id": created["workspace_id"]})
     return created
