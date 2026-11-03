@@ -51,7 +51,7 @@ def _source(teaching_id: str) -> tuple[dict, str, str]:
     payload = {
         "precision_teaching_context": {
             **higher_education_fields(teaching),
-            "subject": teaching["subject"] or "未提供",
+            "subject": teaching["subject"] or ("" if higher_education_fields(teaching) else "未提供"),
             "grade": teaching["grade"] or "未提供",
             "textbook_version_and_chapter": teaching["textbook"] or "未提供",
             "precision_teaching_topic": teaching["title"],

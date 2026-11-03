@@ -9,7 +9,7 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
-from .activity_formative_api import _serialized as activity_serialized
+from .activity_formative_api import _serialized as activity_serialized, goal_with_activity_timing, _presentation_text
 from .config import settings
 from .database import database, fetch_one, utc_now, write_audit
 from .goal_path_api import _aliases, _replace_names, _serialized_row as goal_serialized
@@ -48,19 +48,36 @@ def _apply_teacher_overrides(result: dict, overrides: dict) -> dict:
     merged = copy.deepcopy(result)
     for activity in merged["activities"]:
         fields = overrides.get(activity["activity_id"], {})
-        if fields.get("objective_full") or fields.get("objective"):
-            activity["activity_objective"] = fields.get("objective_full") or fields["objective"]
-        if fields.get("product_full") or fields.get("product"):
-            activity["learning_product"] = fields.get("product_full") or fields["product"]
-        if fields.get("student_full") or fields.get("student"):
+        if "objective_full" in fields or "objective" in fields:
+            activity["activity_objective"] = _presentation_text(fields, "objective", "")
+        if "product_full" in fields or "product" in fields:
+            activity["learning_product"] = _presentation_text(fields, "product", "")
+        if "student_full" in fields or "student" in fields:
             student_actions = [item for item in activity["participant_actions"] if item["actor"] in {"学生", "同伴"}]
             if student_actions:
-                student_actions[0]["action"] = fields.get("student_full") or fields["student"]
+                student_actions[0]["action"] = _presentation_text(fields, "student", "")
                 activity["participant_actions"] = [
                     item for item in activity["participant_actions"]
                     if item is student_actions[0] or item["actor"] not in {"学生", "同伴"}
                 ]
+            elif _presentation_text(fields, "student", ""):
+                activity["participant_actions"].append({"actor": "学生", "action": _presentation_text(fields, "student", ""), "order": len(activity["participant_actions"]) + 1})
+            activity["student_task"] = _presentation_text(fields, "student", "")
+            for index, action in enumerate(activity["participant_actions"], 1):
+                action["order"] = index
     return merged
+
+
+def _restore_confirmed_teaching_information(source: dict, result: dict) -> dict:
+    """Basic teaching fields are source data, not content for the model to rewrite."""
+    corrected = copy.deepcopy(result)
+    basic = corrected["integrated_plan"]["basic_information"]
+    context = source["precision_teaching_context"]
+    for key in ("education_stage", "course_name", "major"):
+        if key not in context:
+            basic.pop(key, None)
+    basic.update(copy.deepcopy(context))
+    return corrected
 
 
 def _restore_confirmed_teacher_analysis(source: dict, result: dict) -> dict:
@@ -114,7 +131,8 @@ def _source(teaching_id: str, classroom_id: str) -> tuple[dict, str, str]:
     student_ids = [student["student_id"] for row in class_result["class_summary"]["distribution"] for student in row["students"]]
     id_aliases = {student_id: f"student-{index}" for index, student_id in enumerate(student_ids, 1)}
     contents = [line.strip() for line in (teaching["content"] or "").splitlines() if line.strip()]
-    teacher_context = goal["teacher_instructional_context"]
+    teacher_context = copy.deepcopy(goal["teacher_instructional_context"])
+    teacher_context["planned_duration_minutes"] = activity["result"]["activity_sequence_summary"]["total_duration_minutes"]
     source_activity = _apply_teacher_overrides(activity["result"], activity.get("presentation_overrides") or {})
     payload = {
         "schema_version": "1.2",
@@ -138,7 +156,7 @@ def _source(teaching_id: str, classroom_id: str) -> tuple[dict, str, str]:
             "source_ref": None,
         },
         "class_diagnosis_result": _replace_student_ids(_replace_names(class_result, aliases), id_aliases),
-        "goal_path_design": _replace_student_ids(_replace_names(goal["result"], aliases), id_aliases),
+        "goal_path_design": _replace_student_ids(_replace_names(goal_with_activity_timing(goal["result"], source_activity), aliases), id_aliases),
         "activity_formative_design": _replace_student_ids(_replace_names(source_activity, aliases), id_aliases),
         "integration_preferences": {
             "plan_title": f"{teaching['title']}｜精准干预方案",
@@ -323,6 +341,7 @@ def generate_integration_report(teaching_id: str, classroom_id: str) -> dict:
     result = None
     try:
         result = run_intervention_plan_integration(skill, payload, settings.ai_provider)
+        result = _restore_confirmed_teaching_information(payload, result)
         result = _restore_confirmed_teacher_analysis(payload, result)
         _validate_output(payload, result)
         now = utc_now()

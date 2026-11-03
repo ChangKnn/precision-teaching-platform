@@ -13,6 +13,7 @@ from .database import database, fetch_one, utc_now, write_audit
 from .goal_path_api import _aliases, _replace_names, _serialized_row, _student_levels
 from .services.ai import run_activity_formative_design
 from .services.skills import load_skill
+from .services.activity_scope import without_activity_rosters
 from .services.education_context import higher_education_fields
 
 
@@ -140,7 +141,6 @@ def _build_input(teaching_id: str, classroom_id: str, requirements: dict) -> tup
                                     "unit_id": unit["unit_id"], "organization_code": unit["organization_code"],
                                     "organization_name": unit["organization_name"], "activity_name": unit["activity_name"],
                                     "target_goal_ids": unit["target_goal_ids"],
-                                    "target_student_ids": [student["student_id"] for student in unit["target_students"]],
                                     "activity_summary": unit["activity_summary"],
                                 }
                                 for unit in stage["activity_units"]
@@ -185,7 +185,7 @@ def _normalize_parallel_activities(result: dict, goal: dict) -> list[str]:
             activity_id=merged_id, source_unit_ids=unit_ids, sequence_within_stage=1,
             activity_name=stage["stage_name"], duration_minutes=stage["duration_minutes"],
         )
-        for field in ("target_goal_ids", "target_student_ids", "organization_forms", "dialogue_circles", "learning_materials"):
+        for field in ("target_goal_ids", "organization_forms", "dialogue_circles", "learning_materials"):
             merged[field] = list(dict.fromkeys(value for item in activities for value in item[field]))
         for field in ("activity_objective", "student_task", "cognitive_processing", "learning_product"):
             merged[field] = "；".join(f"{item['activity_name']}：{item[field]}" for item in activities)
@@ -207,7 +207,6 @@ def _normalize_parallel_activities(result: dict, goal: dict) -> list[str]:
                 "organization_form": form,
                 "dialogue_circles": [circle for circle in item["dialogue_circles"] if circle in ALLOWED_CIRCLES[form]],
                 "target_goal_ids": source["target_goal_ids"],
-                "target_student_ids": [student["student_id"] for student in source["target_students"]],
                 "activity_objective": item["activity_objective"],
                 "learning_materials": item["learning_materials"],
                 "student_task": item["student_task"],
@@ -272,7 +271,19 @@ def _normalize_common_goal_mapping(result: dict, goal: dict) -> list[str]:
     return repaired
 
 
-def _validate(result: dict, goal: dict) -> None:
+def goal_with_activity_timing(goal: dict, result: dict) -> dict:
+    """Use teacher-edited activity timing in downstream views; keep stored path intact."""
+    view = copy.deepcopy(goal)
+    summaries = {stage["stage_id"]: stage for stage in result["activity_sequence_summary"]["stages"]}
+    for stage in view["intervention_path"]["stages"]:
+        if stage["stage_id"] in summaries:
+            stage["duration_minutes"] = summaries[stage["stage_id"]]["duration_minutes"]
+    view["intervention_path"]["total_duration_minutes"] = result["activity_sequence_summary"]["total_duration_minutes"]
+    return view
+
+
+def _validate(result: dict, goal: dict, *, teacher_edited: bool = False) -> None:
+    result = without_activity_rosters(result)
     import jsonschema
 
     skill = load_skill("precision_intervention_activity_formative_regulation")
@@ -280,9 +291,11 @@ def _validate(result: dict, goal: dict) -> None:
     jsonschema.validate(result, schema)
     if result["design_status"] != result["teacher_confirmation"]["status"]:
         raise ValueError("活动设计状态与教师确认状态不一致")
-    path = goal["intervention_path"]
+    path = (goal_with_activity_timing(goal, result) if teacher_edited else goal)["intervention_path"]
     stages = path["stages"]
     summaries = result["activity_sequence_summary"]["stages"]
+    if result["activity_sequence_summary"]["total_duration_minutes"] != sum(item["duration_minutes"] for item in summaries):
+        raise ValueError("活动摘要总时长与各阶段时长之和不一致")
     if result["activity_sequence_summary"]["total_duration_minutes"] != path["total_duration_minutes"]:
         raise ValueError("活动总时长与上游路径不一致")
     if [item["stage_id"] for item in summaries] != [item["stage_id"] for item in stages]:
@@ -296,7 +309,6 @@ def _validate(result: dict, goal: dict) -> None:
         raise ValueError("活动序列摘要与活动列表不一致")
     goal_ids = {item["goal_id"] for item in goal["progression_goals"]}
     evaluation_goal_ids = goal_ids | {"CG"}
-    all_students = {item["student_id"] for item in goal["student_goal_assignments"]}
     unit_map = {unit["unit_id"]: unit for stage in stages for unit in stage["activity_units"]}
     for stage, summary in zip(stages, summaries, strict=True):
         stage_id = stage["stage_id"]
@@ -317,15 +329,14 @@ def _validate(result: dict, goal: dict) -> None:
                 raise ValueError("活动引用了其他阶段的单元")
             source_units = [unit_map[unit_id] for unit_id in activity["source_unit_ids"]]
             allowed_goals = set().union(*(set(unit["target_goal_ids"]) for unit in source_units))
-            allowed_students = set().union(*(set(student["student_id"] for student in unit["target_students"]) for unit in source_units))
-            if set(activity["target_goal_ids"]) != allowed_goals or set(activity["target_student_ids"]) != allowed_students:
-                raise ValueError("活动的目标或学生范围与上游单元不一致")
-            if not set(activity["target_goal_ids"]) <= evaluation_goal_ids or not set(activity["target_student_ids"]) <= all_students:
-                raise ValueError("活动引用了不存在的目标或学生")
+            if set(activity["target_goal_ids"]) != allowed_goals:
+                raise ValueError("活动的目标范围与上游单元不一致")
+            if not set(activity["target_goal_ids"]) <= evaluation_goal_ids:
+                raise ValueError("活动引用了不存在的目标")
             if not set(activity["organization_forms"]) <= ORGANIZATIONS:
                 raise ValueError("活动出现非法组织形式")
             circles = set(activity["dialogue_circles"])
-            if not circles <= set().union(*(ALLOWED_CIRCLES[form] for form in activity["organization_forms"])):
+            if not teacher_edited and not circles <= set().union(*(ALLOWED_CIRCLES[form] for form in activity["organization_forms"])):
                 raise ValueError("会话圈与组织形式不匹配")
             group_tasks = activity["parallel_group_tasks"]
             if len(source_units) > 1:
@@ -335,7 +346,7 @@ def _validate(result: dict, goal: dict) -> None:
                 raise ValueError("单单元活动不应生成并行小组任务")
             for group in group_tasks:
                 source = unit_map[group["source_unit_id"]]
-                if set(group["target_goal_ids"]) != set(source["target_goal_ids"]) or set(group["target_student_ids"]) != {student["student_id"] for student in source["target_students"]}:
+                if set(group["target_goal_ids"]) != set(source["target_goal_ids"]):
                     raise ValueError("并行小组的目标或学生范围与上游单元不一致")
                 if not set(group["dialogue_circles"]) <= ALLOWED_CIRCLES[group["organization_form"]]:
                     raise ValueError("并行小组会话圈与组织形式不匹配")
@@ -348,10 +359,17 @@ def _validate(result: dict, goal: dict) -> None:
     for evaluation in evaluations:
         if not set(evaluation["after_activity_ids"]) <= set(by_id):
             raise ValueError("形成性评价引用了不存在的活动")
-        if not set(evaluation["target_goal_ids"]) <= evaluation_goal_ids or not set(evaluation["target_student_ids"]) <= all_students:
-            raise ValueError("形成性评价引用了不存在的目标或学生")
+        if not set(evaluation["target_goal_ids"]) <= evaluation_goal_ids:
+            raise ValueError("形成性评价引用了不存在的目标")
         if not {criterion["goal_id"] for criterion in evaluation["judgment_criteria"]} <= set(evaluation["target_goal_ids"]):
             raise ValueError("评价标准引用了范围外的目标")
+
+
+def _presentation_text(fields: dict, kind: str, default: str) -> str:
+    for key in (f"{kind}_full", kind):
+        if key in fields:
+            return fields[key]
+    return default
 
 
 def _markdown(result: dict, presentation_overrides: dict | None = None) -> str:
@@ -370,10 +388,10 @@ def _markdown(result: dict, presentation_overrides: dict | None = None) -> str:
             f"### 活动{index}：{activity['activity_name']}（{activity['duration_minutes']}分钟；{'、'.join(activity['organization_forms'])}）", "",
             "| 项目 | 教师活动 | 学生活动 | AI辅助 |",
             "| --- | --- | --- | --- |",
-            f"| 活动目标 | {cell(override.get('objective_full') or override.get('objective', activity['activity_objective']))} |  |  |",
-            f"| 活动过程 | {cell('；'.join(actions['教师']))} | {cell(override.get('student_full') or override.get('student') or '；'.join(student_actions + supports + group_tasks))} | {cell('；'.join(actions['AI']))} |",
+            f"| 活动目标 | {cell(_presentation_text(override, 'objective', activity['activity_objective']))} |  |  |",
+            f"| 活动过程 | {cell('；'.join(actions['教师']))} | {cell(_presentation_text(override, 'student', '；'.join(student_actions + supports + group_tasks)))} | {cell('；'.join(actions['AI']))} |",
             f"| 学习材料与资源 | {cell('、'.join(activity['learning_materials']))} |  |  |",
-            f"| 学习产出 | {cell(override.get('product_full') or override.get('product', activity['learning_product']))} |  |  |", "",
+            f"| 学习产出 | {cell(_presentation_text(override, 'product', activity['learning_product']))} |  |  |", "",
         ]
     lines += ["## 二、形成性评价", "", "| 评价时机 | 对象与目标 | 评价任务与证据 | 达成标准 | 评价结果处理 | 判断主体 |", "| --- | --- | --- | --- | --- | --- |"]
     for evaluation in result["formative_evaluation_nodes"]:
@@ -402,7 +420,7 @@ def _serialized(teaching_id: str, classroom_id: str) -> dict | None:
         "teaching_id": teaching_id, "classroom_id": classroom_id,
         "skill_key": row["skill_key"], "skill_version": row["skill_version"],
         "provider": row["provider"], "status": status,
-        "result": json.loads(row["generated_json"]), "report_text": row["report_text"],
+        "result": without_activity_rosters(json.loads(row["generated_json"])), "report_text": row["report_text"],
         "presentation_overrides": json.loads(row["presentation_overrides_json"]),
         "generated_at": row["generated_at"], "confirmed_at": row["confirmed_at"], "updated_at": row["updated_at"],
     }
@@ -491,19 +509,26 @@ def save_activity_formative(teaching_id: str, classroom_id: str, request: Activi
     if not existing or existing["status"] == "stale":
         raise HTTPException(status_code=409, detail="活动方案不存在或上游目标路径已更新，请重新生成")
     goal, _, _, _, _ = _source(teaching_id, classroom_id)
-    result = copy.deepcopy(request.result)
+    result = without_activity_rosters(request.result)
     result["design_status"] = "teacher_confirmed" if request.confirmed else "pending_teacher_confirmation"
     result["teacher_confirmation"]["status"] = result["design_status"]
     try:
-        _validate(result, goal)
+        _validate(result, goal, teacher_edited=True)
     except Exception as error:
         raise HTTPException(status_code=422, detail=f"活动方案校验失败：{error}") from error
     activity_ids = {activity["activity_id"] for activity in result["activities"]}
     overrides = {
-        activity_id: {key: value.strip() for key, value in fields.items() if key in {"objective", "student", "product", "objective_full", "student_full", "product_full"} and value.strip()}
+        activity_id: {key: value.strip() for key, value in fields.items() if key in {"objective", "student", "product", "objective_full", "student_full", "product_full"}}
         for activity_id, fields in request.presentation_overrides.items() if activity_id in activity_ids
     }
     overrides = {activity_id: fields for activity_id, fields in overrides.items() if fields}
+    if request.confirmed:
+        labels = {"objective": "活动目标", "student": "学生活动", "product": "学习产出"}
+        for index, activity in enumerate(result["activities"], 1):
+            fields = overrides.get(activity["activity_id"], {})
+            for kind, label in labels.items():
+                if any(key in fields for key in (kind, f"{kind}_full")) and not _presentation_text(fields, kind, "").strip():
+                    raise HTTPException(status_code=422, detail=f"活动{index}的{label}已清空，请补充后再确认；可先保存草稿")
     now = utc_now()
     with database() as connection:
         connection.execute(

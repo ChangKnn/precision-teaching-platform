@@ -24,12 +24,15 @@
   },
   "$defs": {
     "basicInformation": {
+      "if": {"required": ["education_stage"], "properties": {"education_stage": {"const": "高等教育"}}},
+      "then": {},
+      "else": {"properties": {"subject": {"minLength": 1, "pattern": "\\S"}}},
       "type": "object",
       "additionalProperties": false,
       "required": ["plan_title", "subject", "grade", "textbook_version_and_chapter", "class_name", "teacher_name", "precision_teaching_topic", "precision_teaching_goals", "precision_teaching_content", "total_duration_minutes"],
       "properties": {
         "plan_title": {"type": "string", "minLength": 1},
-        "subject": {"type": "string", "minLength": 1},
+        "subject": {"type": "string"},
         "grade": {"type": "string", "minLength": 1},
         "education_stage": {"type": "string", "enum": ["高等教育"]},
         "course_name": {"type": "string", "maxLength": 120},

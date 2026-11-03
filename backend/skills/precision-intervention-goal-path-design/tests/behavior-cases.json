@@ -2,27 +2,27 @@
   {
     "id": "PATH-PROGRESSIVE",
     "situation": "全班需要经历共同的前后依赖内容，后一阶段必须使用前一阶段成果。",
-    "expected_behavior": "优先选择递进推进型，把必要依赖安排为不同阶段；局部差异放入阶段内部，不把SOLO层级顺序直接当作课堂时间顺序。"
+    "expected_behavior": "依据前后认知依赖选择递进推进型，C开始及结束，中间可按H支持、X建构、I内化、A(H/X/I)迁移组织；也可按时长合并为C→H/X→X/I→C。写清后一活动如何使用前一成果，不把低起点学生排除在高阶活动外。"
   },
   {
     "id": "PATH-MAINLINE-EMBEDDED",
     "situation": "大多数学生能沿共同任务推进，少数学生存在局部且能短时补足的缺口。",
-    "expected_behavior": "优先选择主线嵌入型，用文字说明支路嵌入的阶段和活动简介，不输出评价触发或返回条件。"
+    "expected_behavior": "C启动主任务；多数学生持续推进，少数接受短时H/I支持后回归原任务；C交流提升。主线和支路并行，不让全班停课；此处只说明组织衔接，不输出量化评价阈值。"
   },
   {
     "id": "PATH-PARALLEL-TIERED",
     "situation": "学生形成多个清晰临时群体，同一内容可形成不同加工深度的等值任务。",
-    "expected_behavior": "可以选择并行分层型；并行活动共享同一阶段编号，以不同活动单元表示，之后安排共同汇聚。"
+    "expected_behavior": "采用C→{H1｜H2｜H3…}→C；共享核心目标，按当前需要临时分组，任务复杂度与支架有差异。组数可调，多个并行组共享同一阶段，不把并行任务串行化或固定为低中高。"
   },
   {
     "id": "PATH-STATION-ROTATION",
     "situation": "内容可拆为多个功能相对独立的模块，且空间、时间、材料和管理条件支持轮转。",
-    "expected_behavior": "可以选择站点轮转型；说明站点功能和服务对象，不要求所有学生机械完成全部站点。"
+    "expected_behavior": "采用C→多站并行与按需轮转→C；每站有不同功能且可用H/X/I。安排进入站和必要轮转时间槽，不要求每人完成全部站点，不让同一学生同一时间在多个站。"
   },
   {
     "id": "PATH-INDIVIDUAL-ADAPTIVE",
     "situation": "学生障碍高度个体化、难以聚合，且设备、自我管理和教师监测条件充分。",
-    "expected_behavior": "可以选择个体自驱型；不能仅因课堂使用AI就选择该路径。"
+    "expected_behavior": "采用C→{I1↔GAI｜I2↔GAI｜…}→C；个体内部表达—支持—修订—再表达，教师监测共性问题并介入困难。不将AI对话当作放任自学或代做，不强制统一轮数。"
   },
   {
     "id": "ALTERNATIVE-WHEN-CLOSE",
@@ -37,12 +37,12 @@
   {
     "id": "CROSS-LEVEL-GOAL-GUARD",
     "situation": "教师希望P学生直接面向M目标。",
-    "expected_behavior": "默认不生成跨两级目标；把该要求列为待确认，建议拆为相邻进阶。"
+    "expected_behavior": "默认建议相邻进阶；教师有诊断依据且支持条件可行时可采用跨级目标，不改变学生原始层级。仅依据不足或条件冲突时提示具体待核对项，不一概拒绝或新增必填说明。"
   },
   {
     "id": "CUSTOM-GOAL-GUARD",
     "situation": "教师选择自定义进阶目标。",
-    "expected_behavior": "要求说明标准SOLO目标不足的原因、目标认知结构和可观察表现；不得用于降低共同目标或无依据跳级。"
+    "expected_behavior": "清楚写出目标认知结构和可观察表现，结合已有教师要求与诊断判断；不要求另写标准目标为何不足，不新增固定理由表单，保留真实诊断与教师决定权。"
   },
   {
     "id": "TEACHER-PREFERENCE-CONFLICT",
@@ -55,20 +55,94 @@
     "expected_behavior": "ST2只计20分钟，不能把三条并行活动相加为60分钟；所有阶段时长之和等于45分钟。"
   },
   {
-    "id": "ONE-GROUP-PER-45-MINUTES",
-    "situation": "45分钟单课时中有五个层级的学生需要差异化任务。",
-    "expected_behavior": "默认将五组并行任务安排在同一个集中小组时段，之后用全班汇聚或个人应用承接，不再安排第二轮小组活动；教师明确要求且可实施时才说明代价并交教师确认。"
+    "id": "GROUP-TRANSITIONS-FOLLOW-LEARNING",
+    "situation": "45分钟递进课堂需要先同质支持，再异质协同；教师有稳定座位与组内转换条件。",
+    "expected_behavior": "单课时一般一次小组活动，最多两次。H支持和X建构确有不同必要功能且转换可行时可用两次，但不能再加第三次小组综合应用；可改为I迁移或交教师确认跨课时安排。"
   },
   {
     "id": "BOUNDARY-NO-DETAIL-OR-EVALUATION",
     "situation": "目标和课堂路径已经形成。",
     "expected_behavior": "止于活动内容简介、组织形式和建议时长，不生成任务题目、步骤、详细支架、师生话语、形成性评价节点或路由规则。"
-  }
-  ,
+  },
   {
-    "id": "COMPOSITE-MODE-WHEN-SEQUENTIAL",
-    "condition": "课堂存在共同定向、差异化核心学习、共同汇聚和综合应用等前后阶段，核心阶段采用并行分层",
-    "expected": "推荐递进推进型＋并行分层型，并分别说明整体递进与核心阶段并行的含义",
-    "forbidden": "只因存在分层活动而忽略课堂整体的递进结构，或叠加三个以上模式"
+    "id": "COMPOSITE-ONLY-WHEN-COGNITIVE-DEPENDENCY",
+    "condition": "课堂均有C开始与结束，核心阶段采用并行分层；可有或没有独立的前后认知进阶链。",
+    "expected": "仅首尾C不要求组合，可单独用并行分层型；确有前一成果支撑后一更复杂学习的进阶链时，才用递进推进型＋并行分层型。",
+    "forbidden": "仅因有时间先后或首尾C就强制组合；叠加三个以上模式。"
+  },
+  {
+    "id": "COLLECTIVE-START-AND-END",
+    "situation": "模型拟将完整课堂压成30分钟并行学习加15分钟全班汇总。",
+    "expected_behavior": "补足开头C的共同问题与认知起点，并保留结尾C整合提升，在原总时长内重分配；不只保留开始或结束其中一个。"
+  },
+  {
+    "id": "COUNTS-FOLLOW-PROTOTYPE",
+    "situation": "递进型可能展开为六个功能环节，而并行分层有三段整体结构。",
+    "expected_behavior": "典型路径可跨多个课时，按教师明确范围细化；单课时小组活动一般一次最多两次，不把所有路径统一凑成3—5项，也不按并行小组数、站点数或个体对话轮数计次。"
+  },
+  {
+    "id": "APPLICATION-USES-REAL-ORGANIZATION",
+    "situation": "综合迁移任务由异质小组共同完成。",
+    "expected_behavior": "A是应用功能，组织编码使用X，在活动名/简介写明综合迁移；不创建AX编码，不把A当作只能全班参加的组织方式。"
+  },
+  {
+    "id": "STATION-NOT-FIXED-GROUPING",
+    "situation": "教师指导站需要同质指导，协作站需要异质合作，GAI站需要个体对话。",
+    "expected_behavior": "S说明功能站而不限制H/X/I；多个站并行并按需轮转，以不同时间槽表示真实移动；不强制全员轮完所有站。"
+  },
+  {
+    "id": "PLUS-ONE-NOT-A-CEILING",
+    "situation": "某学生近期目标为U，本课后段有面向全班的综合迁移任务。",
+    "expected_behavior": "保留近期支持目标并提供相应支架，允许其参与高阶共同任务；不因当前起点把学生排除，也不擅自改写其正式SOLO诊断。"
+  },
+  {
+    "id": "SINGLE-LESSON-NO-THIRD-GROUP-PERIOD",
+    "situation": "一节课计划先H支持，再X协商，最后还用H合作完成迁移任务。",
+    "expected_behavior": "不生成第三个小组活动时段；说明取舍，可合并相关功能、把迁移改为I，或提出跨课时建议供教师确认。不要通过改名掩盖实际的第三次分组。"
+  },
+  {
+    "id": "MULTI-LESSON-BOUNDARIES",
+    "situation": "教师明确本次方案覆盖三个课时，需要展开完整递进路径；另一教师只填写90分钟未说明多课时。",
+    "expected_behavior": "前者分课时安排完整链，每课时一般一次最多两次；后者不按分钟数或主题课时数擅自认定多课时，按本次单课时规划并保留必要的范围核对。"
+  },
+  {
+    "id": "CORE-GOAL-USES-BOTH-BASES",
+    "situation": "课程要求学生解释案例，诊断显示主要障碍是要素之间缺少联系。",
+    "expected_behavior": "结合课程方向与真实障碍确定本课共同目标的关键关系、范围和挑战程度，而非先固定层级再仅分配补救。原始学生层级保持不变。"
+  },
+  {
+    "id": "CORE-GOAL-UPLIFT-WHEN-MOST-EA",
+    "situation": "本次能力和内容有关的可靠班级证据覆盖充分，多数学生已能概括、作有条件迁移，达到EA。",
+    "expected_behavior": "共同目标相应提升至EA内部深化，如远迁移、模型比较、适用边界检验或解释修订；不把R整合既有要素作为全班终点，不仅给少数人加拓展题。共同目标代码仍EA，分层沿用EA_DEEPENING。"
+  },
+  {
+    "id": "EA-MINORITY-NOT-WHOLE-CLASS",
+    "situation": "仅少数学生EA，多数仍需建立关键联系。",
+    "expected_behavior": "共同目标回应多数学生的实际发展需要，为少数EA提供深化目标与参与机会；不直接按少数人的高阶表现提高全班要求，也不将低起点学生排除在共同任务外。"
+  },
+  {
+    "id": "EA-REQUIRES-RELEVANT-SUFFICIENT-EVIDENCE",
+    "situation": "当前报告仅覆盖两名EA学生，或原诊断任务与本课要发展的能力和内容不对应。",
+    "expected_behavior": "不宣称全班普遍EA；保留证据范围和教师核对事项，结合可用诊断与课程方向设计目标，不编造班级能力或无依据提高目标。"
+  },
+  {
+    "id": "CONTENT-THREAD-AND-HANDOFF",
+    "situation": "路径只有共同定向、分层加工、共同汇聚三个标签。",
+    "expected_behavior": "围绕教师提供的本课内容或核心问题命名；各简介写清对象、学生动作、认识或成果，后续接用前段成果；并行分支不必互为先决条件，不扩成完整教案。"
+  },
+  {
+    "id": "TEACHER-NAMES-NOT-UNIVERSAL-TEMPLATE",
+    "situation": "历史与数学课都被命名为案例导入、案例分析、案例总结。",
+    "expected_behavior": "依内容采用分析衰亡原因、探究判定条件等简短日常表达；自然导入小结可保留，不统一套名称、不按示例猜测分组，不用换名冒充内容改变。"
+  },
+  {
+    "id": "INTERNAL-IDS-STAY-IN-FIELDS",
+    "situation": "活动简介出现ST2-H1对应PG2开展关联加工。",
+    "expected_behavior": "保留机器目标和单元映射，正文改写为学生针对具体内容实际完成的学习；不删目标字段，不改变SOLO要求与学生归属。"
+  },
+  {
+    "id": "NO-INVENTED-SOURCE-DETAILS",
+    "situation": "教师只提供课题与材料类型，没有史料原文或具体几何图形。",
+    "expected_behavior": "在轮廓说明所需材料和学习方向，将影响实施的具体缺项列入未决事项；不编造引文、出处、几何条件或实验数据，不把参考教案当成当前班级诊断。"
   }
 ]

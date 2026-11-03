@@ -69,3 +69,16 @@ class GoalPathEditingTests(TestCase):
         unit = edited["intervention_path"]["stages"][1]["activity_units"][0]
         unit["target_goal_ids"] = [destination["goal_id"]]
         _validate_design(edited, self.class_result, 45)
+
+
+    def test_teacher_can_change_common_goal_solo_and_export_is_concise(self):
+        from backend.app.goal_path_api import _markdown
+        edited = copy.deepcopy(self.result)
+        edited["common_core_goal"]["target_cognitive_structure"].update(solo_level="EA",level_name="拓展抽象结构")
+        _validate_design(edited,self.class_result,45)
+        report=_markdown(edited)
+        core=report.split("## 2.")[0]
+        self.assertIn("（EA，拓展抽象结构）",core)
+        self.assertNotIn("认知结构及理由",core)
+        self.assertNotIn("达成表现",core)
+        self.assertIn("可观察的达成表现",report.split("## 2.")[1])

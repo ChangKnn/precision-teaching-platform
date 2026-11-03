@@ -54,6 +54,18 @@ window.PlatformAPI = {
     return this.request("/api/bootstrap");
   },
 
+  createDiagnosticTask(teachingId, name) {
+    return this.request(`/api/precision-teachings/${encodeURIComponent(teachingId)}/diagnostic-tasks`, {
+      method: 'POST', body: JSON.stringify({name})
+    });
+  },
+
+  renameDiagnosticTask(teachingId, name) {
+    return this.request(`/api/precision-teachings/${encodeURIComponent(teachingId)}/diagnostic-task-name`, {
+      method: 'PUT', body: JSON.stringify({name})
+    });
+  },
+
   getTeacherAuthStatus() {
     return this.request("/api/teacher-auth/status");
   },

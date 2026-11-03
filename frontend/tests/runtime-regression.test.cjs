@@ -245,7 +245,7 @@ test("feedback stage status is independent of individual report review counts", 
 test("teaching list and intervention placeholders explicitly identify feedback stage confirmation", () => {
   const html = fs.readFileSync(path.join(frontend, "index.html"), "utf8");
   assert.match(teacherSource, /feedbackDone \? "反馈阶段已确认" : feedbackOpen \? "阶段待确认"/);
-  assert.match(html, /id="interventionEvidenceStatus">反馈阶段已确认/);
+  assert.match(html, /id="interventionEvidenceStatus">等待学生提交/);
   assert.doesNotMatch(teacherSource, /"结果已确认"|"诊断结果已确认"|"反馈已确认"/);
   assert.doesNotMatch(html, />诊断结果已确认</);
 });
@@ -299,7 +299,7 @@ test("workspace HTML starts hidden and feedback placeholders do not retain demo 
   }
   const html = fs.readFileSync(path.join(frontend, "index.html"), "utf8");
   assert.match(html, /<div class="app-shell" inert hidden>/);
-  assert.match(html, /阶段确认不会自动确认或推送个体报告/);
+  assert.doesNotMatch(html, /阶段确认不会自动确认或推送个体报告/);
 });
 
 test("teacher workspace stays hidden while bootstrap is pending", async () => {
@@ -467,7 +467,7 @@ test("a polling failure preserves previously loaded reports", async () => {
   assert.equal(document.getElementById("classEvidencePanel").innerHTML, "已有班级报告");
 });
 
-test("student app becomes visible only after a real task has loaded", async () => {
+test("student app becomes visible before the opening is ready", async () => {
   const document = fakeDocument();
   const loginView = { hidden: false };
   const studentApp = { hidden: true };
@@ -478,25 +478,195 @@ test("student app becomes visible only after a real task has loaded", async () =
     populateSubjects: () => {}, renderHistory: () => {}, openTask: () => pending
   });
   const initialization = context.enterApp({ student: { name: "测试学生", class_name: "测试班" }, tasks: [{ teaching_id: "t1", subject: "数学" }] });
-  assert.equal(studentApp.hidden, true);
-  assert.equal(loginView.hidden, false);
+  assert.equal(studentApp.hidden, false);
+  assert.equal(loginView.hidden, true);
   finish();
   await initialization;
   assert.equal(studentApp.hidden, false);
   assert.equal(loginView.hidden, true);
 });
 
-test("student task initialization failures keep the app hidden", async () => {
+test("opening failure stays in the learning space with an error instead of reporting failed login", async () => {
   const document = fakeDocument();
   const loginView = { hidden: false };
   const studentApp = { hidden: true };
   const context = loadFunctions(studentSource, ["taskSubject","enterApp"], {
     state: {}, loginView, studentApp, $: selector => document.querySelector(selector), subjectSelect: {},
-    populateSubjects: () => {}, renderHistory: () => {}, openTask: async () => { throw new Error("任务加载失败"); }
+    populateSubjects: () => {}, renderHistory: () => {}, showToast: () => {}, openTask: async () => { throw new Error("任务加载失败"); }
   });
-  await assert.rejects(context.enterApp({ student: { name: "测试学生" }, tasks: [{ teaching_id: "t1" }] }), /任务加载失败/);
-  assert.equal(studentApp.hidden, true);
-  assert.equal(loginView.hidden, false);
+  await context.enterApp({ student: { name: "测试学生" }, tasks: [{ teaching_id: "t1" }] });
+  assert.equal(studentApp.hidden, false);
+  assert.equal(loginView.hidden, true);
   const html = fs.readFileSync(path.join(frontend, "student/index.html"), "utf8");
   assert.doesNotMatch(html, /基本不等式中的模型与论证|20 米围栏|林老师发布/);
+});
+
+
+test('single-person support is a teacher notice for either grouping scheme', () => {
+  const context=loadFunctions(teacherSource,['singletonGroupingNote']);
+  for(const key of ['homogeneous_groups','heterogeneous_groups']) {
+    assert.match(context.singletonGroupingNote({[key]:[{students:[{student_id:'s1'}]}]}),/单人支持安排/);
+  }
+  assert.equal(context.singletonGroupingNote({homogeneous_groups:[{students:[{},{}]}]}),'');
+  assert.equal(context.singletonGroupingNote({}), '');
+});
+
+
+test('entering intervention does not confirm or push individual feedback', () => {
+  const start=teacherSource.indexOf('if (event.target.closest("#completeFeedbackButton"))');
+  const end=teacherSource.indexOf('const reportSection',start);
+  const handler=teacherSource.slice(start,end);
+  assert.match(handler,/showPage\("intervention"\)/);
+  assert.doesNotMatch(handler,/confirmFeedback|pushStudent|PlatformAPI/);
+  assert.doesNotMatch(teacherSource,/确认反馈阶段后开放/);
+});
+
+
+test('inline core SOLO text saves code and name without a separate control', () => {
+  const common={goal_statement:'原目标',target_cognitive_structure:{solo_level:'R',level_name:'关联结构',structure_and_rationale:'历史内容'},observable_success_criteria:['历史达成表现']};
+  const original={common_core_goal:common,progression_goals:[],student_goal_assignments:[],intervention_path:{stages:[]}};
+  const root={querySelector:selector=> {
+    if(selector==='[data-gp-common="goal_statement"]') return {value:' 新核心目标（EA，拓展抽象结构） '};
+    throw new Error('Unexpected removed selector: '+selector);
+  },querySelectorAll:()=>[]};
+  const context=loadFunctions(teacherSource,['splitCommonGoalSuffixes','parseCommonGoalText','collectGoalPathEdits'],{serverState:{goalPath:{design:{result:original}}},structuredClone,document:{getElementById:()=>root}});
+  const edited=context.collectGoalPathEdits().result;
+  assert.equal(edited.common_core_goal.goal_statement,'新核心目标');
+  assert.equal(edited.common_core_goal.target_cognitive_structure.solo_level,'EA');
+  assert.equal(edited.common_core_goal.target_cognitive_structure.level_name,'拓展抽象结构');
+  assert.equal(original.common_core_goal.target_cognitive_structure.solo_level,'R');
+  assert.doesNotMatch(teacherSource,/data-gp-criteria|data-gp-structure|同一阶段内的活动同时开展，时长只计算一次/);
+  assert.doesNotMatch(teacherSource,/data-gp-common-level/);
+});
+
+
+test('inline SOLO round trip preserves goal parentheses and legacy fields',()=>{
+  const context=loadFunctions(teacherSource,['splitCommonGoalSuffixes','parseCommonGoalText'],{structuredClone});
+  const original={solo_level:'R',level_name:'关联结构',structure_and_rationale:'历史内容'};
+  const edited=context.parseCommonGoalText('解释案例（联系理论）（M，多点结构）',original);
+  assert.equal(edited.statement,'解释案例（联系理论）');
+  assert.equal(edited.structure.solo_level,'M');
+  assert.equal(edited.structure.structure_and_rationale,'历史内容');
+  assert.equal(context.parseCommonGoalText('只改目标文本',original).structure.solo_level,'R');
+  assert.equal(context.parseCommonGoalText('解释案例 (EA)',original).statement,'解释案例');
+});
+
+
+test('SOLO suffix formatting is stable with repeated and nested labels',()=>{
+ const context=loadFunctions(teacherSource,['splitCommonGoalSuffixes','formatCommonGoalText','parseCommonGoalText'],{structuredClone});
+ const common={goal_statement:'解释案例（结合课堂观察）（EA，拓展抽象结构（深化））。（EA，拓展抽象结构（深化））',target_cognitive_structure:{solo_level:'EA',level_name:'拓展抽象结构（深化）'}};
+ const formatted=context.formatCommonGoalText(common);
+ assert.equal(formatted,'解释案例（结合课堂观察）（EA，拓展抽象结构（深化））');
+ const edited=context.parseCommonGoalText(formatted,common.target_cognitive_structure);
+ assert.equal(edited.statement,'解释案例（结合课堂观察）');
+ assert.equal(edited.structure.level_name,'拓展抽象结构（深化）');
+ assert.equal(context.formatCommonGoalText({goal_statement:edited.statement,target_cognitive_structure:edited.structure}),formatted);
+ const pathStart=teacherSource.indexOf('<h2 class="goal-path-major-title">课堂活动路径设计');
+ const detailStart=teacherSource.indexOf('<details class="goal-path-explanation">');
+ assert.ok(pathStart>=0 && detailStart>pathStart);
+ assert.doesNotMatch(teacherSource,/<details class="goal-path-explanation"[^>]*\bopen\b/);
+});
+
+test('sidebar child highlight follows the current stage and panel', () => {
+  const buttons = [
+    {page:'diagnosis',navDstep:'2'}, {page:'diagnosis',navDstep:'3'},
+    {page:'feedback',navFeedback:'class'}, {page:'feedback',navFeedback:'students'},
+    {page:'intervention',navIstep:'1'}, {page:'intervention',navIstep:'2'},
+    {page:'intervention',navIstep:'3'}, {page:'intervention',navIstep:'4'}
+  ].map(dataset => ({dataset,active:false,attributes:{},classList:{toggle(name,value){this.owner.active=value}},setAttribute(name,value){this.attributes[name]=value},removeAttribute(name){delete this.attributes[name]}}));
+  buttons.forEach(button=>button.classList.owner=button);
+  const ui={currentPage:'diagnosis',diagnosisStep:2,interventionStep:1};
+  const context=loadFunctions(teacherSource,['syncSidebarSubnavigation'],{ui,document:{querySelector:()=>({dataset:{feedbackTab:'class'}}),querySelectorAll:()=>buttons}});
+  context.syncSidebarSubnavigation();assert.deepEqual(buttons.filter(b=>b.active).map(b=>b.dataset.navDstep),['2']);
+  ui.currentPage='feedback';context.syncSidebarSubnavigation();assert.equal(buttons[2].attributes['aria-current'],'page');assert.equal(buttons[0].active,false);
+  ui.currentPage='intervention';ui.interventionStep=4;context.syncSidebarSubnavigation();assert.equal(buttons.filter(b=>b.active).length,1);assert.equal(buttons[7].active,true);
+});
+
+
+test('saving legacy path edits drops activity rosters without rebuilding them',()=>{
+  const original={common_core_goal:{goal_statement:'原目标',target_cognitive_structure:{solo_level:'R',level_name:'关联结构'}},progression_goals:[],student_goal_assignments:[],intervention_path:{stages:[{stage_id:'ST1',duration_minutes:5,activity_units:[{unit_id:'ST1-C1',organization_code:'C',target_goal_ids:['CG'],target_students:[{student_id:'old'}],target_student_ids:['old']}]}]}};
+  const root={querySelector:selector=>({value:selector.includes('data-gp-org-code')?'C':'原目标（R，关联结构）'}),querySelectorAll:selector=>selector.includes('data-gp-target-goal')?[{value:'CG'}]:[]};
+  const context=loadFunctions(teacherSource,['splitCommonGoalSuffixes','parseCommonGoalText','collectGoalPathEdits'],{serverState:{goalPath:{design:{result:original}}},structuredClone,document:{getElementById:()=>root}});
+  const edited=context.collectGoalPathEdits().result.intervention_path.stages[0].activity_units[0];
+  assert.equal(Object.hasOwn(edited,'target_students'),false);
+  assert.equal(Object.hasOwn(edited,'target_student_ids'),false);
+  assert.deepEqual(Array.from(edited.target_goal_ids),['CG']);
+  assert.equal(original.intervention_path.stages[0].activity_units[0].target_students[0].student_id,'old');
+});
+
+
+test('activity header edits update actual name, organization and summary timing',()=>{
+  const original=JSON.parse(fs.readFileSync(path.join(frontend,'../backend/skills/precision-intervention-activity-formative-regulation/tests/sample-output.json'),'utf8'));
+  const root={querySelectorAll:selector=>({
+    '[data-af-activity]':[{dataset:{afActivity:'0',afField:'activity_name'},value:'案例导入'}],
+    '[data-af-duration]':[{dataset:{afDuration:'0'},value:'8'}],
+    '[data-af-organizations]':[{dataset:{afOrganizations:'0'},value:'个体干预、同质小组干预'}]
+  }[selector]||[])};
+  const context=loadFunctions(teacherSource,['collectActivityFormativeEdits'],{serverState:{activityFormative:{design:{result:original}}},structuredClone,document:{getElementById:()=>root}});
+  const edited=context.collectActivityFormativeEdits();
+  assert.equal(edited.activities[0].activity_name,'案例导入');
+  assert.equal(edited.activities[0].duration_minutes,8);
+  assert.deepEqual(Array.from(edited.activities[0].organization_forms),['个体干预','同质小组干预']);
+  assert.equal(edited.activity_sequence_summary.total_duration_minutes,48);
+  assert.equal(edited.activity_sequence_summary.stages[0].duration_minutes,8);
+  assert.equal(original.activities[0].duration_minutes,5);
+});
+
+
+test('editing a whole teacher block replaces all its paragraphs without losing other actors',()=>{
+  const original=JSON.parse(fs.readFileSync(path.join(frontend,'../backend/skills/precision-intervention-activity-formative-regulation/tests/sample-output.json'),'utf8'));
+  const otherActors=original.activities[0].participant_actions.filter(action=>action.actor!=='教师');
+  const root={querySelectorAll:selector=>selector==="[data-af-actor-buffer][data-af-actor-dirty='1']"?[{dataset:{afActorBuffer:'0:教师'},value:'提出共同问题。\n\n组织学生比较材料。\n根据课堂表现调整支持。'}]:[]};
+  const context=loadFunctions(teacherSource,['collectActivityFormativeEdits'],{serverState:{activityFormative:{design:{result:original}}},structuredClone,document:{getElementById:()=>root}});
+  const edited=context.collectActivityFormativeEdits();
+  const teachers=edited.activities[0].participant_actions.filter(action=>action.actor==='教师');
+  assert.equal(teachers.length,1);
+  assert.equal(teachers[0].action,'提出共同问题。\n\n组织学生比较材料。\n根据课堂表现调整支持。');
+  assert.deepEqual(JSON.parse(JSON.stringify(edited.activities[0].participant_actions.filter(action=>action.actor!=='教师').map(({order,...rest})=>rest))),otherActors.map(({order,...rest})=>rest));
+  assert.notEqual(original.activities[0].participant_actions[0].action,teachers[0].action);
+});
+
+
+test('university report renders course information without a school-subject row',()=>{
+  const result=JSON.parse(fs.readFileSync(path.join(frontend,'../backend/skills/precision-intervention-plan-integration-review/tests/sample-output.json'),'utf8'));
+  Object.assign(result.integrated_plan.basic_information,{education_stage:'高等教育',subject:'',course_name:'中学教育学基础',major:'教育学'});
+  const context=loadFunctions(teacherSource,['escapeHTML','safeReportHref','buildInterventionReport'],{window:{location:{origin:'http://127.0.0.1:8001'}}});
+  const html=context.buildInterventionReport({result});
+  assert.ok(html.includes('<th>课程名称</th>'));
+  assert.ok(html.includes('中学教育学基础'));
+  assert.ok(html.includes('<th>专业</th>'));
+  assert.ok(!html.includes('<th>学科</th>'));
+});
+
+
+test('explicitly cleared activity prose survives draft collection and rendering',()=>{
+  const activity={activity_id:'A1',activity_objective:'原目标',learning_product:'原成果',participant_actions:[],parallel_group_tasks:[]};
+  const fields=[{dataset:{afPresentation:'0:objective_full',afFullDirty:'1'},value:''},{dataset:{afPresentation:'0:student_full'},value:''},{dataset:{afPresentation:'0:product_full'},value:''}];
+  const state={activityFormative:{design:{result:{activities:[activity]},presentation_overrides:{A1:{product_full:''}}}}};
+  const context=loadFunctions(teacherSource,['activityPresentationText','activityFieldText','collectActivityPresentationOverrides'],{serverState:state,document:{querySelectorAll:()=>fields}});
+  const overrides=context.collectActivityPresentationOverrides();
+  assert.equal(Object.hasOwn(overrides.A1,'objective_full'),true);
+  assert.equal(Object.hasOwn(overrides.A1,'product_full'),true);
+  assert.equal(Object.hasOwn(overrides.A1,'student_full'),false);
+  assert.equal(context.activityPresentationText(activity,'objective',overrides.A1),'');
+  assert.equal(context.activityPresentationText(activity,'product',overrides.A1),'');
+});
+
+test('adopting a diagnostic proposal replaces stale design intent and saves the whole matching proposal', () => {
+  const elements=new Map();const snapshots=[];
+  const get=id=>{if(!elements.has(id))elements.set(id,{value:'',dispatchEvent(){snapshots.push(Object.fromEntries([...elements].map(([key,e])=>[key,e.value])));}});return elements.get(id);};
+  const context=loadFunctions(teacherSource,['formatDialogueRules','applyDiagnosticRecommendation'],{
+    document:{getElementById:get},window:{TaskInput:{refreshPreview(){}}},Event:class {constructor(type,options){this.type=type;this.bubbles=options.bubbles;}}
+  });
+  get('diagnosisDesignIntent').value='Old unrelated teacher design intent';
+  const proposal={task_content:'Explain a historical cause',design_intent:'Observe how the learner links evidence and cause',ai_role:'History partner',dialogue_rules:{required:['Ask for evidence'],prohibited:['Do not give the answer']},estimated_duration_minutes:18};
+  context.applyDiagnosticRecommendation(proposal);
+  assert.equal(get('diagnosisDesignIntent').value,proposal.design_intent);
+  assert.equal(snapshots[0].diagnosisTaskText,proposal.task_content);
+  assert.match(snapshots[0].diagnosisRoleText,/History partner/);
+  assert.equal(snapshots[0].diagnosisDuration,18);
+  context.applyDiagnosticRecommendation({...proposal,design_intent:'Different proposal intent'});
+  assert.equal(get('diagnosisDesignIntent').value,'Different proposal intent');
+  get('diagnosisDesignIntent').value='Teacher can still edit this';
+  assert.equal(get('diagnosisDesignIntent').value,'Teacher can still edit this');
 });

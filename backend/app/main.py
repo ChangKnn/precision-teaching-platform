@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from anyio import to_thread
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -49,6 +49,7 @@ from .services.student_dialogue_skill import _teacher_contract
 from .role_knowledge import router as role_knowledge_router, knowledge_state
 from .services.class_teaching_suggestions import router as teaching_suggestions_router
 from .services.class_report import recover_interrupted_class_reports
+from .diagnostic_tasks import router as multiple_tasks_router, family_tasks, theme_id, SHARED_FIELDS
 
 
 @asynccontextmanager
@@ -78,6 +79,7 @@ app.include_router(task_attachments_router)
 app.include_router(classroom_management_router)
 app.include_router(role_knowledge_router)
 app.include_router(teaching_suggestions_router)
+app.include_router(multiple_tasks_router)
 
 
 @app.middleware("http")
@@ -153,22 +155,27 @@ async def protect_teacher_api(request: Request, call_next):
 TEACHING_ORDER = "CASE p.status WHEN 'active' THEN 0 WHEN 'completed' THEN 1 ELSE 2 END, p.updated_at DESC"
 
 
-def ordered_teachings(workspace_id: str | None = None) -> list[dict]:
-    return fetch_all(
+def ordered_teachings(workspace_id: str | None = None, *, include_tasks: bool = False) -> list[dict]:
+    rows = fetch_all(
         f"""
         SELECT p.*,
                COALESCE(d.status, 'draft') AS diagnosis_status,
                CASE WHEN d.status = 'published' THEN COALESCE(f.status, 'pending') ELSE 'locked' END AS feedback_status,
-               CASE WHEN f.status = 'confirmed' THEN COALESCE(i.status, 'draft') ELSE 'locked' END AS intervention_status
+               CASE WHEN d.status = 'published' AND COALESCE(f.has_data, 0) = 1 THEN COALESCE(i.status, 'draft') ELSE 'locked' END AS intervention_status
         FROM precision_teachings p
         LEFT JOIN diagnosis_tasks d ON d.teaching_id = p.id
         LEFT JOIN feedback_summaries f ON f.teaching_id = p.id
         LEFT JOIN intervention_plans i ON i.teaching_id = p.id
-        {"WHERE p.workspace_id = ?" if workspace_id else ""}
+        WHERE {"p.workspace_id = ?" if workspace_id else "1=1"}
+        {"" if include_tasks else "AND p.parent_teaching_id IS NULL"}
         ORDER BY {TEACHING_ORDER}
         """,
         (workspace_id,) if workspace_id else (),
     )
+    if not include_tasks:
+        for row in rows:
+            row['diagnostic_tasks'] = family_tasks(row['id'])
+    return rows
 
 
 def current_teaching_id(teachings: list[dict] | None = None, workspace_id: str | None = None) -> str | None:
@@ -178,6 +185,10 @@ def current_teaching_id(teachings: list[dict] | None = None, workspace_id: str |
     state = fetch_one("SELECT value FROM app_state WHERE key = ?", (f"current_teaching_id:{workspace_id}" if workspace_id else "current_teaching_id",))
     candidate = state["value"] if state else None
     valid_ids = {teaching["id"] for teaching in available}
+    if candidate not in valid_ids:
+        child = fetch_one('SELECT parent_teaching_id FROM precision_teachings WHERE id=?',(candidate,)) if candidate else None
+        if child and child['parent_teaching_id'] in valid_ids:
+            return candidate
     return candidate if candidate in valid_ids else available[0]["id"]
 
 
@@ -264,7 +275,7 @@ def refresh_feedback_counts(teaching_id: str) -> None:
 def workspace_for(teaching_id: str) -> dict:
     ensure_workspace(teaching_id)
     refresh_feedback_counts(teaching_id)
-    teaching = next((item for item in ordered_teachings() if item["id"] == teaching_id), None)
+    teaching = next((item for item in ordered_teachings(include_tasks=True) if item["id"] == teaching_id), None)
     if not teaching:
         raise HTTPException(status_code=404, detail="精准教学不存在")
     diagnosis = fetch_one("SELECT * FROM diagnosis_tasks WHERE teaching_id = ?", (teaching_id,))
@@ -276,9 +287,11 @@ def workspace_for(teaching_id: str) -> dict:
     feedback = fetch_one("SELECT * FROM feedback_summaries WHERE teaching_id = ?", (teaching_id,))
     intervention = fetch_one("SELECT * FROM intervention_plans WHERE teaching_id = ?", (teaching_id,))
     feedback_accessible = bool(diagnosis and diagnosis["status"] == "published")
-    intervention_accessible = bool(feedback and feedback["status"] == "confirmed")
+    intervention_accessible = bool(feedback_accessible and feedback and feedback["has_data"])
     return {
         "teaching": teaching,
+        "theme_id": theme_id(teaching),
+        "diagnostic_tasks": family_tasks(teaching_id),
         "diagnosis": diagnosis,
         "rubric": serialized_rubric(teaching_id),
         "task_materials": material_state(teaching_id),
@@ -535,13 +548,16 @@ def update_precision_teaching(teaching_id: str, payload: PrecisionTeachingUpdate
     existing = fetch_one("SELECT * FROM precision_teachings WHERE id = ? AND workspace_id = ?", (teaching_id, workspace_id))
     if not existing:
         raise HTTPException(status_code=404, detail="精准教学不存在")
+    requested_id = teaching_id
+    teaching_id = theme_id(existing)
+    existing = fetch_one("SELECT * FROM precision_teachings WHERE id=?", (teaching_id,))
     data = payload.model_dump(exclude={"edit_intent"})
     for field in ('education_stage','course_name','major'):
         if field not in payload.model_fields_set:
             data[field] = existing[field]
     changed = any(existing[field] != value for field, value in data.items())
     if not changed:
-        return next(item for item in ordered_teachings(workspace_id) if item["id"] == teaching_id)
+        return next(item for item in ordered_teachings(workspace_id, include_tasks=True) if item["id"] == requested_id)
     # Teacher edits create a draft; already-published student evidence keeps its
     # original snapshot. The legacy wording flag remains accepted for old clients.
     rubric_inputs_changed = payload.edit_intent != 'wording' and any(
@@ -573,12 +589,23 @@ def update_precision_teaching(teaching_id: str, payload: PrecisionTeachingUpdate
         if rubric_inputs_changed:
             connection.execute("UPDATE diagnosis_tasks SET status='draft',updated_at=? WHERE teaching_id=?",(now,teaching_id))
             connection.execute("UPDATE precision_teachings SET current_stage='diagnosis' WHERE id=?",(teaching_id,))
+        children = connection.execute('SELECT * FROM precision_teachings WHERE parent_teaching_id=?',(teaching_id,)).fetchall()
+        for child in children:
+            preserve_published_task(child['id'], connection)
+            connection.execute('UPDATE precision_teachings SET '+','.join(key+'=?' for key in SHARED_FIELDS)+',updated_at=? WHERE id=?',
+                               [*(data[key] for key in SHARED_FIELDS),now,child['id']])
+            if rubric_inputs_changed:
+                connection.execute("UPDATE diagnosis_rubrics SET status='stale',confirmed_at=NULL,updated_at=? WHERE teaching_id=?",(now,child['id']))
+                connection.execute("UPDATE diagnosis_tasks SET status='draft',updated_at=? WHERE teaching_id=?",(now,child['id']))
+                connection.execute("UPDATE precision_teachings SET current_stage='diagnosis' WHERE id=?",(child['id'],))
+                if data['goal'] != existing['goal']:
+                    connection.execute('UPDATE diagnosis_tasks SET goal=? WHERE teaching_id=? AND goal=?',(data['goal'],child['id'],existing['goal']))
     write_audit("update", "precision_teaching", teaching_id, {"before": {field: existing[field] for field in data}, "after": data, "edit_intent": payload.edit_intent})
-    return next(item for item in ordered_teachings(workspace_id) if item["id"] == teaching_id)
+    return next(item for item in ordered_teachings(workspace_id, include_tasks=True) if item["id"] == requested_id)
 
 
 @app.put("/api/precision-teachings/{teaching_id}/diagnosis")
-def update_diagnosis(teaching_id: str, payload: DiagnosisTaskUpdate) -> dict:
+def update_diagnosis(teaching_id: str, payload: DiagnosisTaskUpdate, background_tasks: BackgroundTasks = None) -> dict:
     ensure_workspace(teaching_id)
     selected_classrooms = list(dict.fromkeys(payload.classroom_ids or []))
     if payload.status == "published":
@@ -667,7 +694,10 @@ def update_diagnosis(teaching_id: str, payload: DiagnosisTaskUpdate) -> dict:
                 "UPDATE precision_teachings SET status = 'active', current_stage = 'feedback', updated_at = ? WHERE id = ?",
                 (now, teaching_id),
             )
-            preserve_published_task(teaching_id, connection, publish=True)
+            version_id = preserve_published_task(teaching_id, connection, publish=True)
+    if payload.status == 'published' and background_tasks is not None:
+        from .services.student_opening import prepare_opening
+        background_tasks.add_task(prepare_opening, version_id)
     write_audit(payload.status, "diagnosis_task", teaching_id, payload.model_dump())
     return workspace_for(teaching_id)
 
@@ -693,7 +723,7 @@ def build_rubric_input(teaching_id: str, *, require_design_intent: bool = True) 
         raise HTTPException(status_code=422, detail=f"生成量规前请补充：{'、'.join(missing)}")
     contents = [item.strip() for item in str(teaching["content"]).splitlines() if item.strip()]
     materials = material_state(teaching_id)
-    return {
+    result = {
         "precision_teaching_context": {
             **higher_education_fields(teaching),
             "subject": teaching["subject"],
@@ -710,6 +740,7 @@ def build_rubric_input(teaching_id: str, *, require_design_intent: bool = True) 
         },
         "diagnostic_task_design_intent": diagnosis.get('design_intent', '').strip(),
     }
+    return result
 
 
 @app.post("/api/precision-teachings/{teaching_id}/rubric/generate")
@@ -740,7 +771,7 @@ def generate_diagnosis_rubric(teaching_id: str) -> dict:
             latest_input = json.dumps(build_rubric_input(teaching_id), ensure_ascii=False, sort_keys=True)
             latest_hash = hashlib.sha256((latest_input + material_state(teaching_id)['source_hash']).encode('utf-8')).hexdigest()
             if latest_hash != input_hash:
-                raise HTTPException(status_code=409, detail='生成期间任务、教师意图或附件已变化，请重新生成标准；旧结果未应用')
+                raise HTTPException(status_code=409, detail='生成期间教学信息、任务、教师意图或附件已变化，请重新生成标准；旧结果未应用')
             connection.execute(
                 "UPDATE ai_jobs SET status = 'completed', output_json = ?, completed_at = ? WHERE id = ?",
                 (output_json, completed_at, job_id),
@@ -880,7 +911,7 @@ def confirm_feedback(teaching_id: str) -> dict:
 def update_intervention(teaching_id: str, payload: InterventionPlanUpdate) -> dict:
     current = workspace_for(teaching_id)
     if not current["stages"]["intervention"]["accessible"]:
-        raise HTTPException(status_code=409, detail="请先完成诊断结果反馈")
+        raise HTTPException(status_code=409, detail="请先发布诊断任务并等待学生提交")
     now = utc_now()
     with database() as connection:
         connection.execute(

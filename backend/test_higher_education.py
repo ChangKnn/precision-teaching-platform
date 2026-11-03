@@ -5,11 +5,11 @@ from unittest import TestCase
 from unittest.mock import patch
 
 import jsonschema
-from fastapi import Request
+from fastapi import Request, BackgroundTasks
 from pydantic import ValidationError
 
 from backend import test_task_materials as base
-from backend.app import database as db, main, diagnostic_task_design_api as design
+from backend.app import database as db, main, student_api, diagnostic_task_design_api as design
 from backend.app.schemas import PrecisionTeachingDraft, PrecisionTeachingUpdate
 from backend.app.services.education_context import higher_education_fields
 from backend.app.services.skills import load_skill
@@ -22,7 +22,7 @@ class HigherEducationTest(TestCase):
 
     def university(self):
         with db.database() as connection:
-            connection.execute("""UPDATE precision_teachings SET education_stage='高等教育',grade='大二',
+            connection.execute("""UPDATE precision_teachings SET education_stage='高等教育',grade='大二',subject='',
                 course_name='教育心理学',major='学前教育',textbook='课程大纲：学习动机单元',
                 title='学习动机理论在案例解释中的应用',goal='比较理论并说明案例解释依据',content='动机理论与课堂案例' WHERE id='pt'""")
         return db.fetch_one("SELECT * FROM precision_teachings WHERE id='pt'")
@@ -86,7 +86,14 @@ class HigherEducationTest(TestCase):
             context_schema=schema['properties']['precision_teaching_context']
             if '$ref' in context_schema:
                 context_schema=schema['$defs'][context_schema['$ref'].split('/')[-1]]
-            with self.subTest(skill=key):jsonschema.validate(context,context_schema)
+            with self.subTest(skill=key):
+                self.assertEqual(context['subject'], '')
+                jsonschema.validate(context,context_schema)
+                school = {k:v for k,v in context.items() if k not in ('education_stage','course_name','major')}
+                with self.assertRaises(jsonschema.ValidationError):
+                    jsonschema.validate(school, context_schema)
+                school['subject'] = '历史'
+                jsonschema.validate(school, context_schema)
 
     def test_university_prompt_reaches_teacher_and_student_models(self):
         for key in ('precision_diagnostic_task_design','solo_task_rubric_builder','solo_student_diagnosis_feedback','solo_class_diagnosis_intervention','class_teaching_suggestions','precision_intervention_goal_path_design','precision_intervention_activity_formative_regulation','precision_intervention_plan_integration_review'):
@@ -115,3 +122,28 @@ class HigherEducationTest(TestCase):
         for minutes in (50,90,100):
             context=TeacherInstructionalContext(teaching_content_and_curriculum_analysis='课程大纲：比较理论',teaching_focus_and_difficulty_analysis='证据与解释',planned_duration_minutes=minutes,teaching_environment_and_ai_support_conditions='研讨教室，个人设备')
             self.assertEqual(context.planned_duration_minutes,minutes)
+
+    def test_university_empty_subject_report_generation_entrypoint(self):
+        self.university()
+        base.TaskMaterialsTest.session(self)
+        skill = load_skill('solo_student_diagnosis_feedback')
+        sample = json.loads((skill.path.parent/'tests/sample-input.json').read_text(encoding='utf-8'))
+        with db.database() as connection:
+            now = db.utc_now()
+            connection.execute("UPDATE student_task_sessions SET status='submitted' WHERE id='session'")
+            connection.execute("INSERT INTO student_messages (session_id,role,content,created_at) VALUES ('session','student','我认为需要结合案例证据比较不同教育理论的解释。',?)", (now,))
+            rubric = json.dumps(sample['task_specific_solo_rubric'], ensure_ascii=False)
+            connection.execute("""INSERT INTO diagnosis_rubrics
+                (teaching_id,skill_key,skill_version,provider,status,input_hash,generated_json,current_json,generated_at,updated_at)
+                VALUES ('pt','solo_task_rubric_builder','1','mock','confirmed','h',?,?,?,?)""", (rubric,rubric,now,now))
+        payload, _ = student_api.build_student_diagnosis_input('session')
+        self.assertEqual(payload['precision_teaching_context']['subject'], '')
+        self.assertEqual(payload['precision_teaching_context']['course_name'], '教育心理学')
+        schema = json.loads((skill.path.parent/'assets/diagnosis-input.schema.json').read_text(encoding='utf-8'))
+        jsonschema.validate(payload, schema)
+        result = json.loads((skill.path.parent/'tests/sample-output.json').read_text(encoding='utf-8'))
+        with patch.object(student_api, 'run_student_diagnosis_report', return_value=(result,'模拟教师反馈','模拟学生反馈')) as model, patch.object(student_api,'queue_class_report'):
+            response = student_api.generate_student_report('session', BackgroundTasks())
+        model.assert_called_once()
+        self.assertEqual(model.call_args.args[1]['precision_teaching_context']['subject'], '')
+        self.assertEqual(response['report']['status'], 'draft')

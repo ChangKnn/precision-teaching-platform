@@ -19,20 +19,58 @@
     "class_summary": {
       "total_students": 4,
       "distribution": {
-        "P": {"count": 1, "student_ids": ["S-01"]},
-        "U": {"count": 0, "student_ids": []},
-        "M": {"count": 2, "student_ids": ["S-02", "S-03"]},
-        "R": {"count": 1, "student_ids": ["S-04"]},
-        "EA": {"count": 0, "student_ids": []}
+        "P": {
+          "count": 1,
+          "student_ids": [
+            "S-01"
+          ]
+        },
+        "U": {
+          "count": 0,
+          "student_ids": []
+        },
+        "M": {
+          "count": 2,
+          "student_ids": [
+            "S-02",
+            "S-03"
+          ]
+        },
+        "R": {
+          "count": 1,
+          "student_ids": [
+            "S-04"
+          ]
+        },
+        "EA": {
+          "count": 0,
+          "student_ids": []
+        }
       }
     },
     "traceability": {
       "levels_unchanged": true,
       "level_assignments": [
-        {"student_id": "S-01", "student_name": "学生甲", "level": "P"},
-        {"student_id": "S-02", "student_name": "学生乙", "level": "M"},
-        {"student_id": "S-03", "student_name": "学生丙", "level": "M"},
-        {"student_id": "S-04", "student_name": "学生丁", "level": "R"}
+        {
+          "student_id": "S-01",
+          "student_name": "学生甲",
+          "level": "P"
+        },
+        {
+          "student_id": "S-02",
+          "student_name": "学生乙",
+          "level": "M"
+        },
+        {
+          "student_id": "S-03",
+          "student_name": "学生丙",
+          "level": "M"
+        },
+        {
+          "student_id": "S-04",
+          "student_name": "学生丁",
+          "level": "R"
+        }
       ]
     },
     "class_diagnosis": "一名学生尚未进入任务，两名学生能列出多项变化但没有建立食物关系链，一名学生能够解释关系但需要检验适用条件。"
@@ -56,30 +94,49 @@
       {
         "goal_id": "PG1",
         "goal_level": "U 单点结构目标",
-        "target_student_ids": ["S-01"],
+        "target_student_ids": [
+          "S-01"
+        ],
         "goal_content": "找到一条与问题直接相关的食物关系。",
         "observable_attainment": "独立指出一种捕食关系及其涉及的两种生物。"
       },
       {
         "goal_id": "PG2",
         "goal_level": "R 关联结构目标",
-        "target_student_ids": ["S-02", "S-03"],
+        "target_student_ids": [
+          "S-02",
+          "S-03"
+        ],
         "goal_content": "把多项信息连成食物关系链并据此解释种群变化。",
         "observable_attainment": "画出至少两步关系并说明每一步如何支持结论。"
       },
       {
         "goal_id": "PG3",
         "goal_level": "EA 拓展抽象目标",
-        "target_student_ids": ["S-04"],
+        "target_student_ids": [
+          "S-04"
+        ],
         "goal_content": "改变一个条件，检验并修正原有解释。",
         "observable_attainment": "指出条件变化后原解释是否适用，并说明修正理由。"
       }
     ],
     "student_goal_assignments": [
-      {"student_id": "S-01", "goal_id": "PG1"},
-      {"student_id": "S-02", "goal_id": "PG2"},
-      {"student_id": "S-03", "goal_id": "PG2"},
-      {"student_id": "S-04", "goal_id": "PG3"}
+      {
+        "student_id": "S-01",
+        "goal_id": "PG1"
+      },
+      {
+        "student_id": "S-02",
+        "goal_id": "PG2"
+      },
+      {
+        "student_id": "S-03",
+        "goal_id": "PG2"
+      },
+      {
+        "student_id": "S-04",
+        "goal_id": "PG3"
+      }
     ],
     "intervention_path": {
       "primary": {
@@ -96,8 +153,11 @@
                 "organization_code": "C",
                 "organization_name": "全班共同活动",
                 "activity_name": "明确解释任务与证据要求",
-                "target_goal_ids": ["PG1", "PG2", "PG3"],
-                "target_student_ids": ["S-01", "S-02", "S-03", "S-04"],
+                "target_goal_ids": [
+                  "PG1",
+                  "PG2",
+                  "PG3"
+                ],
                 "activity_summary": "明确问题和证据使用要求。"
               }
             ]
@@ -112,8 +172,9 @@
                 "organization_code": "I",
                 "organization_name": "个体学习或个别支持",
                 "activity_name": "识别食物网中的直接关系",
-                "target_goal_ids": ["PG1"],
-                "target_student_ids": ["S-01"],
+                "target_goal_ids": [
+                  "PG1"
+                ],
                 "activity_summary": "在食物网图中识别一条相关关系。"
               },
               {
@@ -121,8 +182,9 @@
                 "organization_code": "H",
                 "organization_name": "同质小组活动",
                 "activity_name": "建构种群变化的关系链",
-                "target_goal_ids": ["PG2"],
-                "target_student_ids": ["S-02", "S-03"],
+                "target_goal_ids": [
+                  "PG2"
+                ],
                 "activity_summary": "把多项证据组织成关系链。"
               },
               {
@@ -130,8 +192,9 @@
                 "organization_code": "I",
                 "organization_name": "个体学习或个别支持",
                 "activity_name": "迁移检验生态解释",
-                "target_goal_ids": ["PG3"],
-                "target_student_ids": ["S-04"],
+                "target_goal_ids": [
+                  "PG3"
+                ],
                 "activity_summary": "用条件变化检验并修正解释。"
               }
             ]
@@ -146,8 +209,11 @@
                 "organization_code": "C",
                 "organization_name": "全班共同活动",
                 "activity_name": "共建种群变化解释框架",
-                "target_goal_ids": ["PG1", "PG2", "PG3"],
-                "target_student_ids": ["S-01", "S-02", "S-03", "S-04"],
+                "target_goal_ids": [
+                  "PG1",
+                  "PG2",
+                  "PG3"
+                ],
                 "activity_summary": "比较不同解释并形成共同关系图。"
               }
             ]
@@ -162,8 +228,11 @@
                 "organization_code": "A",
                 "organization_name": "综合应用",
                 "activity_name": "运用框架解释新食物网",
-                "target_goal_ids": ["PG1", "PG2", "PG3"],
-                "target_student_ids": ["S-01", "S-02", "S-03", "S-04"],
+                "target_goal_ids": [
+                  "PG1",
+                  "PG2",
+                  "PG3"
+                ],
                 "activity_summary": "在新食物网中完成一次解释。"
               }
             ]
@@ -171,14 +240,27 @@
         ]
       }
     },
-    "teacher_confirmation": {"status": "teacher_confirmed"}
+    "teacher_confirmation": {
+      "status": "teacher_confirmed"
+    }
   },
   "teacher_activity_requirements": {
-    "fixed_learning_materials": ["食物网图", "种群变化数据卡"],
-    "required_activities": ["保留共同汇聚"],
-    "prohibited_approaches": ["教师连续讲解超过5分钟"],
+    "fixed_learning_materials": [
+      "食物网图",
+      "种群变化数据卡"
+    ],
+    "required_activities": [
+      "保留共同汇聚"
+    ],
+    "prohibited_approaches": [
+      "教师连续讲解超过5分钟"
+    ],
     "ai_access": "shared",
-    "ai_use_constraints": ["学生先独立作答，AI只提供反例"],
-    "teacher_notes": ["活动说明尽量简洁"]
+    "ai_use_constraints": [
+      "学生先独立作答，AI只提供反例"
+    ],
+    "teacher_notes": [
+      "活动说明尽量简洁"
+    ]
   }
 }

@@ -12,7 +12,9 @@ from .config import settings
 from .database import database, fetch_all, fetch_one, utc_now, write_audit
 from .services.ai import run_goal_path_design, run_goal_path_teacher_analysis
 from .services.skills import load_skill
-from .services.education_context import higher_education_fields
+from .services.activity_scope import without_activity_rosters
+from .services.goal_text import strip_solo_suffixes, format_common_goal
+from .services.education_context import higher_education_fields, education_source_note
 
 
 router = APIRouter(prefix="/api")
@@ -124,6 +126,7 @@ def _build_input(teaching_id: str, classroom_id: str, teacher_context: dict) -> 
 
 
 def _validate_design(result: dict, class_result: dict, planned_minutes: int) -> None:
+    result = without_activity_rosters(result)
     skill = load_skill("precision_intervention_goal_path_design")
     try:
         import jsonschema
@@ -181,10 +184,6 @@ def _validate_design(result: dict, class_result: dict, planned_minutes: int) -> 
                 raise ValueError("并行活动单元必须共享所属阶段编号")
             if not set(unit["target_goal_ids"]) <= (set(goals) | {"CG"}):
                 raise ValueError("课堂活动引用了不存在的目标")
-            if not {student["student_id"] for student in unit["target_students"]} <= set(levels):
-                raise ValueError("课堂活动引用了不存在的学生")
-            for student in unit["target_students"]:
-                check_student(student)
     if len(unit_ids) != len(set(unit_ids)):
         raise ValueError("课堂活动单元编号重复")
 
@@ -196,17 +195,16 @@ def _markdown(result: dict) -> str:
     lines = [
         "# 精准干预目标与课堂路径设计", "",
         "## 1. 共同核心目标", "",
-        f"**核心目标：** {common['goal_statement']}", "",
-        f"- **目标认知结构及理由：** {common['target_cognitive_structure']['solo_level']}（{common['target_cognitive_structure']['level_name']}）——{common['target_cognitive_structure']['structure_and_rationale']}",
-        f"- **可观察的达成表现：** {'；'.join(common['observable_success_criteria'])}", "",
+        f"**核心目标：** {format_common_goal(common)}",
+        "",
         "## 2. 分层进阶目标", "",
         "| 目标层级 | 具体目标内容 | 相关学生姓名 | 可观察的达成表现 |",
         "|---|---|---|---|",
     ]
     for goal in result["progression_goals"]:
         lines.append(f"| {goal['target_level_name']} | {goal['goal_statement']} | {student_names(goal['target_students'])} | {goal['observable_achievement']} |")
-    lines += [
-        "", "## 3. 推荐课堂组织与推进", "",
+    explanation_lines = [
+        "", "## 4. 课堂活动路径设计说明", "",
         f"- **主要组织模式：** {path['primary_path_label']}",
         f"- **模式说明：** {path['mode_explanation']}",
         f"- **推荐理由：** {'；'.join(path['recommendation_reasons'])}",
@@ -214,9 +212,9 @@ def _markdown(result: dict) -> str:
     ]
     if path["alternative_path"]:
         alternative = path["alternative_path"]
-        lines.append(f"- **备选组织模式：** {alternative['path_label']}；适用条件：{alternative['suitable_when']}；代价：{alternative['tradeoff']}")
+        explanation_lines.append(f"- **备选组织模式：** {alternative['path_label']}；适用条件：{alternative['suitable_when']}；代价：{alternative['tradeoff']}")
     lines += [
-        "", "## 4. 课堂活动路径", "",
+        "", "## 3. 课堂活动路径设计", "",
         "| 活动名称 | 组织形式 | 活动内容简介 | 目标层级 | 建议时长 |",
         "|---|---|---|---|---:|",
     ]
@@ -230,8 +228,11 @@ def _markdown(result: dict) -> str:
                 f"| {stage['stage_name']} | {unit['organization_name']} | "
                 f"{group_name}{unit['activity_summary']} | {levels} | {stage['duration_minutes']} 分钟 |"
             )
-    lines += ["", "同一阶段的并行活动共享阶段时长，不重复相加。", "", "## 5. 请教师确认", ""]
-    lines += [f"- {item}" for item in result["teacher_confirmation"]["items_to_confirm"]]
+    lines += explanation_lines
+    pending = result["teacher_confirmation"]["unresolved_decisions"]
+    if pending:
+        lines += ["", "## 5. 请教师确认", ""]
+        lines += [f"- {item}" for item in pending]
     return "\n".join(lines)
 
 
@@ -262,8 +263,8 @@ def _serialized_row(teaching_id: str, classroom_id: str) -> dict | None:
         "teaching_id": teaching_id, "classroom_id": classroom_id,
         "skill_key": row["skill_key"], "skill_version": row["skill_version"],
         "provider": row["provider"], "status": "stale" if stale else row["status"],
-        "result": json.loads(row["generated_json"]),
-        "report_text": row["report_text"],
+        "result": without_activity_rosters(json.loads(row["generated_json"])),
+        "report_text": _markdown(without_activity_rosters(json.loads(row["generated_json"]))),
         "regeneration_request": row["regeneration_request"],
         "teacher_instructional_context": json.loads(row["teacher_context_json"]),
         "generated_at": row["generated_at"], "confirmed_at": row["confirmed_at"],
@@ -285,7 +286,7 @@ def _analysis_draft(teaching_id: str, classroom_id: str) -> dict | None:
     stale = row["class_source_hash"] != report["source_hash"]
     return {
         "content_analysis": row["content_analysis"], "focus_analysis": row["focus_analysis"],
-        "source_note": "班级报告已更新。原有教学分析已保留，请核对后重新保存。" if stale else row["source_note"],
+        "source_note": "班级报告已更新。原有教学分析已保留，请核对后重新保存。" if stale else education_source_note(fetch_one("SELECT * FROM precision_teachings WHERE id = ?", (teaching_id,)) or {}, row["source_note"]),
         "content_confirmed": bool(row["content_confirmed"]) and not stale,
         "focus_confirmed": bool(row["focus_confirmed"]) and not stale,
         "stale": stale, "provider": row["provider"],
@@ -313,6 +314,7 @@ def generate_teacher_analysis(teaching_id: str, classroom_id: str) -> dict:
     summary = class_result["class_summary"]
     payload = {
         "precision_teaching": {
+            **higher_education_fields(teaching),
             "subject": teaching["subject"], "grade": teaching["grade"],
             "textbook": teaching["textbook"], "topic": teaching["title"],
             "goal": teaching["goal"], "content": teaching["content"],
@@ -344,7 +346,7 @@ def generate_teacher_analysis(teaching_id: str, classroom_id: str) -> dict:
                 updated_at = excluded.updated_at
             """,
             (teaching_id, classroom_id, report["source_hash"], draft["content_analysis"],
-             draft["focus_analysis"], draft["source_note"], settings.ai_provider, now),
+             draft["focus_analysis"], education_source_note(teaching, draft["source_note"]), settings.ai_provider, now),
         )
     write_audit("generate", "goal_path_teacher_analysis", f"{teaching_id}:{classroom_id}", {})
     return {"teacher_analysis": _analysis_draft(teaching_id, classroom_id)}
@@ -412,13 +414,14 @@ def generate_goal_path(teaching_id: str, classroom_id: str, request: GoalPathGen
             (job_id, skill.key, skill.version, settings.ai_provider, input_json, utc_now()),
         )
     try:
-        result, report_text = run_goal_path_design(skill, payload, settings.ai_provider)
+        result, _ = run_goal_path_design(skill, payload, settings.ai_provider)
         aliases = _aliases(class_result)
         result = _replace_names(result, {alias: real for real, alias in aliases.items()})
-        report_text = _replace_names(report_text, {alias: real for real, alias in aliases.items()})
+        result["common_core_goal"]["goal_statement"] = strip_solo_suffixes(result["common_core_goal"]["goal_statement"])
         result["design_status"] = "pending_teacher_confirmation"
         result["teacher_confirmation"]["status"] = "pending_teacher_confirmation"
         _validate_design(result, class_result, teacher_context["planned_duration_minutes"])
+        report_text = _markdown(result)
         now = utc_now()
         output_json = json.dumps(result, ensure_ascii=False)
         with database() as connection:
@@ -463,7 +466,8 @@ def save_goal_path(teaching_id: str, classroom_id: str, request: GoalPathSaveReq
     if not existing or existing["status"] == "stale":
         raise HTTPException(status_code=409, detail="方案不存在或班级诊断已更新，请重新生成")
     class_result = json.loads(_source_report(teaching_id, classroom_id)["generated_json"])
-    result = copy.deepcopy(request.result)
+    result = without_activity_rosters(request.result)
+    result["common_core_goal"]["goal_statement"] = strip_solo_suffixes(result["common_core_goal"]["goal_statement"])
     result["design_status"] = "teacher_confirmed" if request.confirmed else "pending_teacher_confirmation"
     result["teacher_confirmation"]["status"] = result["design_status"]
     try:

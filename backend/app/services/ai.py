@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import re
+import ssl
+import time
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -339,14 +341,33 @@ def _post_json(url: str, body: dict[str, Any], api_key: str, timeout: int = 120,
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         method="POST",
     )
-    try:
-        with urlopen(request, timeout=timeout, context=verified_ssl_context()) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except HTTPError as error:
-        detail = error.read().decode("utf-8", errors="replace")[:800]
-        raise RuntimeError(f"模型请求失败（{error.code}）：{detail}") from error
-    except URLError as error:
-        raise RuntimeError(f"无法连接模型服务：{error.reason}") from error
+    deadline = time.monotonic() + timeout
+    for attempt in range(2):
+        try:
+            response = urlopen(request, timeout=max(1, deadline - time.monotonic()), context=verified_ssl_context())
+        except HTTPError as error:
+            detail = error.read().decode("utf-8", errors="replace")[:800]
+            raise RuntimeError(f"模型请求失败（{error.code}）：{detail}") from error
+        except (URLError, ssl.SSLError) as error:
+            reason = getattr(error, "reason", error)
+            transient_eof = isinstance(reason, ssl.SSLEOFError) or (
+                isinstance(reason, ssl.SSLError) and "UNEXPECTED_EOF_WHILE_READING" in str(reason)
+            )
+            # Retry only TLS connection setup, once and within the original
+            # timeout. Never relax certificate checks or retry HTTP rejection.
+            if attempt == 0 and transient_eof and deadline - time.monotonic() > 1:
+                time.sleep(0.25)
+                continue
+            if transient_eof:
+                raise RuntimeError("模型服务的安全连接被中途断开，重连后仍未成功，请稍后重试") from error
+            raise RuntimeError(f"无法连接模型服务：{reason}") from error
+        # A response has started: do not automatically repeat a potentially
+        # completed, billable generation if its body is interrupted.
+        try:
+            with response:
+                return json.loads(response.read().decode("utf-8"))
+        except ssl.SSLError as error:
+            raise RuntimeError("模型回复传输中断，请重新生成报告；本次未保存不完整报告") from error
 
 
 def _run_deepseek_structured_skill(
@@ -549,86 +570,63 @@ def run_student_diagnosis_report(
 
 def run_class_diagnosis_report(
     skill: SkillDefinition, payload: dict[str, Any], provider: str
-) -> tuple[dict[str, Any], str]:
+) -> tuple[dict[str, Any], None]:
     if skill.key != "solo_class_diagnosis_intervention":
         raise ValueError("此接口只用于班级诊断 Skill")
     if provider == "mock":
         raise RuntimeError("班级诊断需要真实模型；Mock AI 不生成正式班级报告")
     schema = json.loads((skill.path.parent / "assets/class-diagnosis-output.schema.json").read_text(encoding="utf-8"))
-    envelope_schema = {
-        "type": "object",
-        "additionalProperties": False,
-        "required": ["solo_class_diagnosis", "teacher_report_markdown"],
-        "properties": {
-            "solo_class_diagnosis": schema,
-            "teacher_report_markdown": {"type": "string", "minLength": 100},
-        },
-    }
-    template = (skill.path.parent / "assets/class-diagnosis-output-template.md").read_text(encoding="utf-8")
-    instructions = (
-        "\n\n平台需要在同一次分析中输出 solo_class_diagnosis 和 teacher_report_markdown 两个字段。"
-        "前者严格遵守原始 JSON Schema；后者是按模板撰写的教师可读 Markdown，"
-        "不得在 Markdown 字符串末尾附加 JSON 代码块。"
-        "只能引用输入中的个体诊断，不得重新定级，也不要设计具体课堂活动。"
-        f"\n\n{template}"
+    result = _run_structured_skill(
+        skill, payload, "class-diagnosis-output.schema.json", "solo_class_diagnosis",
+        provider, instruction_suffix=(
+            "\n\n只返回符合 Schema 的班级结构化分析，不额外生成文字报告。"
+            "教师页面与导出报告由平台根据这些字段排版。"
+            "只能引用输入中的个体诊断，不得重新定级，也不要设计具体课堂活动。"
+        ),
     )
-    envelope = _run_structured_skill(
-        skill, payload, "class-diagnosis-output.schema.json", "solo_class_diagnosis_report",
-        provider, schema_override=envelope_schema, instruction_suffix=instructions,
-    )
-    result = envelope["solo_class_diagnosis"]
-    report_text = envelope["teacher_report_markdown"].strip()
     try:
         import jsonschema
     except ImportError as error:
         raise RuntimeError("缺少 jsonschema 依赖，无法校验班级诊断报告") from error
     jsonschema.validate(result, schema)
-    return result, report_text
+    # Preserve the call signature; the caller renders the validated result locally.
+    return result, None
 
 
 def run_goal_path_design(
     skill: SkillDefinition, payload: dict[str, Any], provider: str
-) -> tuple[dict[str, Any], str]:
+) -> tuple[dict[str, Any], None]:
     if skill.key != "precision_intervention_goal_path_design":
         raise ValueError("此接口只用于目标与路径设计 Skill")
     if provider == "mock":
         raise RuntimeError("目标与路径设计需要真实模型；Mock AI 不生成正式方案")
     schema = json.loads((skill.path.parent / "assets/goal-path-output.schema.json").read_text(encoding="utf-8"))
-    envelope_schema = {
-        "type": "object",
-        "additionalProperties": False,
-        "required": ["precision_intervention_goal_path", "teacher_report_markdown"],
-        "properties": {
-            "precision_intervention_goal_path": schema,
-            "teacher_report_markdown": {"type": "string", "minLength": 100},
-        },
-    }
-    template = (skill.path.parent / "assets/goal-path-output-template.md").read_text(encoding="utf-8")
-    instructions = (
-        "\n\n平台在同一次分析中接收两份同步输出：precision_intervention_goal_path 为原始机器可读结果，"
-        "teacher_report_markdown 为按模板撰写的教师可读 Markdown。"
-        "严格保持学生上游层级、唯一目标归属和阶段时长；不要生成具体活动步骤、支架或形成性评价。"
-        "stage_name 必须是结合本课内容的共同活动名称，不是组织阶段标签；并行单元共享该名称，组别名称放活动内容简介。"
-        "每个 activity_summary 要让教师看懂学生具体做什么：写明本课已有对象或材料、可观察动作和简要产出；并行组分别写出不同做法。不要只写抽象目标，也不要虚构题目或写成完整教学步骤。"
-        "每个活动单元必须只选择一个主要目标层级，依据该活动实际认知加工判断；全班参与不等于面向全部进阶目标，也不自动等于 CG。"
-        "中小学45分钟单课时默认只安排一个连续的小组活动时段；多个并行小组同属这一时段，其他时段用全班或个体活动承接。高等教育根据教师填写的实际总时长与课程活动需要安排，不套用45分钟或一次小组活动限制。"
-        "若教师课堂构想非空，须把可实施的关键设想落实在具体活动中；冲突或舍弃的重要设想列入教师待确认。"
-        "若输入含 teacher_revision_request 和 previous_goal_path_design，按教师本轮要求修订上一版，保留未涉及的合理编辑；不能违反诊断、名单和课时约束。"
-        "teacher_report_markdown 不附加 JSON 代码块。"
-        f"\n\n{template}"
-    )
-    envelope = _run_structured_skill(
-        skill, payload, "goal-path-output.schema.json", "precision_intervention_goal_path_report",
-        provider, schema_override=envelope_schema, instruction_suffix=instructions,
-    )
-    result = envelope["precision_intervention_goal_path"]
-    report_text = envelope["teacher_report_markdown"].strip()
+    from .activity_scope import without_activity_rosters
+    payload = without_activity_rosters(payload)
+    previous = payload.get("previous_goal_path_design")
+    if previous is not None:
+        from .goal_path_revision import REVISION_SCHEMA, REVISION_INSTRUCTIONS, apply_goal_path_revision
+        revision = _run_structured_skill(
+            skill, payload, "goal-path-output.schema.json", "precision_intervention_goal_path_revision",
+            provider, schema_override=REVISION_SCHEMA, instruction_suffix=REVISION_INSTRUCTIONS,
+        )
+        import jsonschema
+        jsonschema.validate(revision, REVISION_SCHEMA)
+        result = apply_goal_path_revision(previous, revision)
+    else:
+        result = _run_structured_skill(
+            skill, payload, "goal-path-output.schema.json", "precision_intervention_goal_path",
+            provider, instruction_suffix=(
+                "\n\n只输出原始目标与路径JSON对象，教师可读报告由平台排版，不另行生成。"
+                "遵循已加载的目标、路径和输入输出规则；保留教师本轮要求及未涉及的合理编辑。"
+            ),
+        )
     try:
         import jsonschema
     except ImportError as error:
         raise RuntimeError("缺少 jsonschema 依赖，无法校验目标与路径方案") from error
     jsonschema.validate(result, schema)
-    return result, report_text
+    return result, None
 
 
 def run_goal_path_teacher_analysis(payload: dict[str, Any], provider: str) -> dict[str, str]:
@@ -646,6 +644,8 @@ def run_goal_path_teacher_analysis(payload: dict[str, Any], provider: str) -> di
         "中小学依据课程标准，高等教育依据课程大纲与课程目标。输入未提供原文时，不得编造课标或课程大纲条款、专业认证指标、教材章节或精确出处；"
         "在 source_note 明确说明哪些课程依据尚需教师核对。若教学主题、学科、年级或内容互相矛盾，也在 source_note 标明。"
     )
+    from .education_context import education_runtime_rules
+    instructions += "\n\n" + education_runtime_rules()
     body = {
         "model": settings.ai_model,
         "messages": [
@@ -694,6 +694,8 @@ def run_goal_path_teacher_analysis(payload: dict[str, Any], provider: str) -> di
 def run_activity_formative_design(
     skill: SkillDefinition, payload: dict[str, Any], provider: str
 ) -> dict[str, Any]:
+    from .activity_scope import without_activity_rosters
+    payload = without_activity_rosters(payload)
     if skill.key != "precision_intervention_activity_formative_regulation":
         raise ValueError("此接口只用于学习活动与形成性评价 Skill")
     if provider == "mock":
@@ -739,6 +741,7 @@ def run_intervention_plan_integration(
     instructions = (
         "\n\n只输出符合 plan-integration-output.schema.json 的 JSON 对象。"
         "必须逐项审查 R1—R8；保留上游目标、活动、时长、学生归属和形成性评价，不得静默改写。"
+        "basic_information中的精准教学信息逐值复制precision_teaching_context；高等教育的subject允许为空，不能补写学科、课程名或未填写说明，课程名称和专业使用各自字段。"
         "basic_information.plan_title、共同核心目标 goal_statement、每条分层目标的 goal_id/goal_statement、"
         "五层分布及路径阶段的 stage_id/duration_minutes 必须逐字或逐值复制上游输入。"
         "teaching_context_and_conditions 中的两项教师确认分析，以及教学时长、教学环境与AI支持条件、课堂构想，"

@@ -23,8 +23,11 @@
         "precision_teaching_goals",
         "precision_teaching_content"
       ],
+      "if": {"required": ["education_stage"], "properties": {"education_stage": {"const": "高等教育"}}},
+      "then": {},
+      "else": {"properties": {"subject": {"minLength": 1, "pattern": "\\S"}}},
       "properties": {
-        "subject": {"type": "string", "minLength": 1},
+        "subject": {"type": "string"},
         "grade": {"type": "string", "minLength": 1},
         "education_stage": {"type": "string", "enum": ["高等教育"]},
         "course_name": {"type": "string", "maxLength": 120},

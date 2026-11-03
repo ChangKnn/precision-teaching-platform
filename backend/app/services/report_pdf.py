@@ -71,6 +71,9 @@ def render_report_pdf(result: dict) -> bytes:
     }
     plan = result["integrated_plan"]
     basic = plan["basic_information"]
+    university = basic.get("education_stage") == "高等教育"
+    course = basic.get("course_name", "") if university else basic["subject"]
+    course_label = "课程名称" if university else "学科"
     diagnosis = plan["diagnosis_summary"]
     context = plan["teaching_context_and_conditions"]
     goals = plan["goal_design"]
@@ -112,12 +115,13 @@ def render_report_pdf(result: dict) -> bytes:
 
     flow.append(paragraph("精准干预教学方案", "subheading"))
     flow.append(paragraph(basic["plan_title"], "title"))
-    flow.append(paragraph(f'{basic["class_name"]} · {basic["subject"]} · {basic["total_duration_minutes"]} 分钟', "subtitle"))
+    flow.append(paragraph(f'{basic["class_name"]} · {course} · {basic["total_duration_minutes"]} 分钟', "subtitle"))
     field("审核结论", audit["overall_conclusion"])
 
     heading(1, "精准教学基本信息")
     table(["项目", "内容", "项目", "内容"], [
-        ["学科", basic["subject"], "年级", basic["grade"]],
+        [course_label, course, "年级", basic["grade"]],
+        *([["专业", basic.get("major", ""), "学段", "大学"]] if university else []),
         ["教材版本与章节", basic["textbook_version_and_chapter"], "班级", basic["class_name"]],
         ["精准教学主题", basic["precision_teaching_topic"], "教师", basic["teacher_name"]],
     ], [29 * mm, 62 * mm, 29 * mm, 62 * mm])

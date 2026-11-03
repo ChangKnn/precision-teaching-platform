@@ -291,7 +291,7 @@
         "group_name": {"type": "string", "minLength": 2, "maxLength": 30},
         "students": {
           "type": "array",
-          "minItems": 2,
+          "minItems": 1,
           "items": {"$ref": "#/$defs/studentRef"}
         },
         "grouping_rationale": {"type": "string", "minLength": 1},

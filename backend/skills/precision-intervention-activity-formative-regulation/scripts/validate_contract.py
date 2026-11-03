@@ -50,7 +50,7 @@ def presentation_errors():
     """Check stable teacher-facing layout invariants."""
     text = OUTPUT_TEMPLATE.read_text(encoding="utf-8")
     required = {
-        "activity title": "### 活动{{activity_order}}：{{activity_name}}（{{duration_minutes}}分钟；{{organization_forms}}）",
+        "activity title": "### 活动{{activity_order}}：{{activity_name}}",
         "objective row": "| **活动目标** |",
         "process subcolumns": "| **活动过程** | **教师活动** | **学生活动** | **AI辅助** |",
         "resources row": "| **学习材料与资源** |",
@@ -162,11 +162,8 @@ def semantic_errors(source, result):
             by_unit[source_unit_id].append(activity)
 
         expected_goals = {goal_id for item in source_units for goal_id in item["target_goal_ids"]}
-        expected_students = {student_id for item in source_units for student_id in item["target_student_ids"]}
         if set(activity["target_goal_ids"]) != expected_goals:
             errors.append(f"output.{activity['activity_id']}: 目标未覆盖且只覆盖对应上游单元")
-        if set(activity["target_student_ids"]) != expected_students:
-            errors.append(f"output.{activity['activity_id']}: 学生未覆盖且只覆盖对应上游单元")
         permitted_activity_circles = set().union(*(allowed_circles[item] for item in activity["organization_forms"]))
         if not set(activity["dialogue_circles"]).issubset(permitted_activity_circles):
             errors.append(f"output.{activity['activity_id']}: 会话圈与组织形式不匹配")
@@ -188,8 +185,6 @@ def semantic_errors(source, result):
                 _stage, unit = unit_map[group["source_unit_id"]]
                 if set(group["target_goal_ids"]) != set(unit["target_goal_ids"]):
                     errors.append(f"output.{activity['activity_id']}.{group['source_unit_id']}: 目标与上游单元不一致")
-                if set(group["target_student_ids"]) != set(unit["target_student_ids"]):
-                    errors.append(f"output.{activity['activity_id']}.{group['source_unit_id']}: 学生与上游单元不一致")
                 if not set(group["dialogue_circles"]).issubset(allowed_circles[group["organization_form"]]):
                     errors.append(f"output.{activity['activity_id']}.{group['source_unit_id']}: 会话圈与组织形式不匹配")
         elif group_tasks:
@@ -252,8 +247,6 @@ def semantic_errors(source, result):
             errors.append(f"output.{node['evaluation_id']}: 引用了未知活动")
         if not set(node["target_goal_ids"]).issubset(all_goal_ids):
             errors.append(f"output.{node['evaluation_id']}: 引用了未知目标")
-        if not set(node["target_student_ids"]).issubset(all_students):
-            errors.append(f"output.{node['evaluation_id']}: 引用了未知学生")
         for criterion in node["judgment_criteria"]:
             if criterion["goal_id"] not in node["target_goal_ids"]:
                 errors.append(f"output.{node['evaluation_id']}: 判断标准目标不在评价目标中")

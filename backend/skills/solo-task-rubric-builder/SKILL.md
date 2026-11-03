@@ -3,7 +3,7 @@ name: solo-task-rubric-builder
 description: 依据内置通用 SOLO 量规和具体诊断任务，生成教师可读的任务特定 P/U/M/R/EA 标准。用于分析标准构建与修改；内部只保留必要任务理解和机器追溯，不直接评价或分组学生。
 metadata:
   short-description: 教师可读的任务特定 SOLO 标准
-  version: 1.4.3
+  version: 1.4.5
 ---
 
 # 任务特定 SOLO 标准构建

@@ -43,7 +43,7 @@ def _snapshot(teaching_id: str, connection: sqlite3.Connection) -> dict:
     rubric = connection.execute('SELECT * FROM diagnosis_rubrics WHERE teaching_id=?', (teaching_id,)).fetchone()
     attachments=connection.execute('SELECT * FROM diagnosis_task_attachments WHERE teaching_id=? ORDER BY created_at,id',(teaching_id,)).fetchall()
     snapshot = {
-        'teaching': {key: teaching[key] for key in ('id','title','subject','grade','textbook','goal','content','education_stage','course_name','major','teacher_name')},
+        'teaching': {key: teaching[key] for key in ('id','title','subject','grade','textbook','goal','content','education_stage','course_name','major','teacher_name','task_name','parent_teaching_id')},
         'task': {key: task[key] for key in ('goal','task_text','ai_role','duration_minutes','diagnosis_type','design_intent')},
         'task_text': append_attachment_text(text,attachments), 'images': images,
         'role_knowledge': connection.execute('SELECT id,original_filename,sha256,content_text FROM diagnosis_role_knowledge WHERE teaching_id=? ORDER BY created_at,id',(teaching_id,)).fetchall(),
@@ -125,8 +125,10 @@ def session_version(session: dict, *, refresh: bool = True) -> dict | None:
 def version_task(version: dict) -> dict:
     snapshot = version['snapshot']
     teaching = snapshot['teaching']
+    label = fetch_one('SELECT task_name FROM precision_teachings WHERE id=?',(version['teaching_id'],))
     return {
         'teaching_id': version['teaching_id'], 'title': teaching['title'], 'subject': teaching['subject'],
+        'task_name':(label or {}).get('task_name') or teaching.get('task_name',''), 'theme_id':teaching.get('parent_teaching_id') or version['teaching_id'],
         'course_name':teaching.get('course_name',''),'education_stage':teaching.get('education_stage',''),
         'teacher_name': teaching['teacher_name'], 'task_text': snapshot.get('student_task_text',snapshot['task_text']),
         'duration_minutes': snapshot['task']['duration_minutes'],

@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from backend.app import database as database_module, student_api
-from backend.app.services.class_report import validate_class_result
+from backend.app.services.class_report import validate_class_result, render_class_markdown, singleton_grouping_note
 from backend.app.student_api import student_feedback_for_row
 from backend.app.schemas import StudentDiagnosisReportUpdate
 
@@ -41,6 +41,44 @@ class FeedbackPresentationTest(unittest.TestCase):
         result["grouping_recommendations"]["heterogeneous_not_recommended_reason"] = None
         with self.assertRaisesRegex(ValueError, "必须说明原因"):
             validate_class_result(result, self.payload)
+
+    def singleton_result(self, scheme):
+        result = copy.deepcopy(self.result)
+        groups = result["grouping_recommendations"][scheme]
+        result["grouping_recommendations"][scheme] = [
+            {**copy.deepcopy(group), "group_id": f"{group['group_id'][0]}{i * 100 + j + 1}", "students": [copy.deepcopy(student)]}
+            for i, group in enumerate(groups) for j, student in enumerate(group["students"])
+        ]
+        return result
+
+    def test_singleton_support_is_accepted_with_notice_in_both_schemes(self):
+        import jsonschema
+        schema = json.loads((ROOT.parent / "assets/class-diagnosis-output.schema.json").read_text(encoding="utf-8"))
+        for scheme in ("homogeneous_groups", "heterogeneous_groups"):
+            with self.subTest(scheme=scheme):
+                result = self.singleton_result(scheme)
+                jsonschema.validate(result, schema)
+                validate_class_result(result, self.payload)
+                self.assertIn("单人支持安排", singleton_grouping_note(result["grouping_recommendations"]))
+                self.assertIn("单人支持安排", render_class_markdown(result))
+
+    def test_singleton_support_still_rejects_duplicate_unknown_and_empty_groups(self):
+        for scheme in ("homogeneous_groups", "heterogeneous_groups"):
+            for kind in ("duplicate", "unknown", "empty"):
+                with self.subTest(scheme=scheme, kind=kind):
+                    result = self.singleton_result(scheme)
+                    groups = result["grouping_recommendations"][scheme]
+                    if kind == "duplicate":
+                        groups.append(copy.deepcopy(groups[0]))
+                    elif kind == "unknown":
+                        groups[0]["students"][0]["student_id"] = "not-a-student"
+                    else:
+                        groups.append({**copy.deepcopy(groups[0]), "students": []})
+                    with self.assertRaises(ValueError):
+                        validate_class_result(result, self.payload)
+
+    def test_regular_groups_do_not_show_singleton_notice(self):
+        self.assertEqual(singleton_grouping_note(self.result["grouping_recommendations"]), "")
 
     def test_legacy_teacher_report_is_not_sent_to_students(self):
         result = self.payload["student_diagnosis_results"][0]

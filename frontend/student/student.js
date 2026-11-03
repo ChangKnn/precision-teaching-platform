@@ -9,11 +9,13 @@ const state = {
   session: null,
   typing: false,
   voiceBusy: false,
+  taskLoading: false,
   timerId: null,
   reportPollId: null
 };
 let taskImageUrls = [];
 let imageLoadVersion = 0;
+let taskOpenRequest = 0;
 
 async function renderTaskImages(task) {
   const version = ++imageLoadVersion;
@@ -62,6 +64,14 @@ async function renderTaskImages(task) {
 
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
+function syncStudentViewport() {
+  if (window.visualViewport && window.visualViewport.scale > 1) return;
+  const height = window.visualViewport?.height || window.innerHeight;
+  document.documentElement.style.setProperty('--student-viewport-height', `${Math.round(height)}px`);
+}
+syncStudentViewport();
+window.addEventListener('resize', syncStudentViewport);
+window.visualViewport?.addEventListener('resize', syncStudentViewport);
 const loginView = $("#loginView");
 const studentApp = $("#studentApp");
 const loginForm = $("#loginForm");
@@ -255,15 +265,16 @@ async function enterApp(payload) {
   $("#studentAvatar").textContent = state.student.name.slice(-1);
   populateSubjects();
   renderHistory();
+  loginView.hidden = true;
+  studentApp.hidden = false;
   if (state.tasks.length) {
     const preferred = state.tasks.find((task) => task.session_status === "in_progress") || state.tasks[0];
     subjectSelect.value = taskSubject(preferred);
-    await openTask(preferred.teaching_id);
+    try { await openTask(preferred.teaching_id); }
+    catch (error) { showToast("任务加载失败", error.message); }
   } else {
     renderNoTask();
   }
-  loginView.hidden = true;
-  studentApp.hidden = false;
 }
 
 function taskSubject(task) {
@@ -285,6 +296,7 @@ function populateSubjects() {
 }
 
 function studentTaskTitle(task) {
+  if (task.task_name) return task.task_name;
   const text = String(task.task_text || '');
   const growthCase = text.match(/学生([^，。；\n\s]{1,6})的成长困境/);
   if (growthCase && /分析.*原因/s.test(text) && /教育措施|教育建议/.test(text)) {
@@ -333,28 +345,52 @@ subjectSelect.addEventListener("change", async () => {
 });
 
 async function openTask(teachingId) {
+  const request = ++taskOpenRequest;
   if (typeof studentVoice !== 'undefined') studentVoice.cancel('任务切换，语音输入已停止。');
+  stopReportPolling();
+  window.clearInterval(state.timerId);
   state.typing = false;
-  const result = await api(`/api/student/tasks/${encodeURIComponent(teachingId)}/session`, { method: "POST" });
-  state.activeTask = { ...state.tasks.find((task) => task.teaching_id === teachingId), ...result.task };
-  state.session = result.session;
-  state.tasks = state.tasks.map((task) => task.teaching_id === teachingId
-    ? {
-        ...task,
-        ...result.task,
-        session_id: state.session.id,
-        session_status: state.session.status,
-        started_at: state.session.started_at,
-        report_status: state.session.report?.status || task.report_status,
-        report_pushed_at: state.session.report?.pushed_at || task.report_pushed_at
-      }
-    : task);
-  renderTask();
+  state.taskLoading = true;
+  state.session = null;
+  state.activeTask = state.tasks.find(task => task.teaching_id === teachingId);
+  if (state.activeTask) renderTask();
   renderHistory();
-  renderMessages();
-  updateSubmissionSummary();
-  startTimer();
-  startReportPolling();
+  messages.innerHTML = '<p role="status">正在准备 AI 对话，您可以先阅读任务。</p>';
+  $('#elapsedTime').textContent = '正在准备';
+  try {
+    const result = await api(`/api/student/tasks/${encodeURIComponent(teachingId)}/session`, { method: "POST" });
+    if (request !== taskOpenRequest || !state.token) return;
+    state.taskLoading = false;
+    state.activeTask = { ...state.tasks.find((task) => task.teaching_id === teachingId), ...result.task };
+    state.session = result.session;
+    state.tasks = state.tasks.map((task) => task.teaching_id === teachingId
+      ? {
+          ...task,
+          ...result.task,
+          session_id: state.session.id,
+          session_status: state.session.status,
+          started_at: state.session.started_at,
+          report_status: state.session.report?.status || task.report_status,
+          report_pushed_at: state.session.report?.pushed_at || task.report_pushed_at
+        }
+      : task);
+    renderTask();
+    renderHistory();
+    renderMessages();
+    updateSubmissionSummary();
+    startTimer();
+    startReportPolling();
+  } catch (error) {
+    if (request !== taskOpenRequest || !state.token) return;
+    messages.innerHTML = '<p role="alert">对话准备失败，请重试。</p><button class="secondary-button" id="retryTaskOpening">重试</button>';
+    $('#retryTaskOpening').addEventListener('click', () => openTask(teachingId).catch(error => showToast('任务加载失败', error.message)));
+    throw error;
+  } finally {
+    if (request === taskOpenRequest) {
+      state.taskLoading = false;
+      resizeComposer();
+    }
+  }
 }
 
 function renderTask() {
@@ -371,11 +407,11 @@ function renderTask() {
   TaskMath.render($("#taskDescription"), task.task_text);
   renderTaskImages(task);
   $("#durationText").textContent = task.duration_minutes;
-  const submitted = state.session.status === "submitted";
-  const reportReady = state.session.report?.status === "pushed";
+  const submitted = state.session?.status === "submitted";
+  const reportReady = state.session?.report?.status === "pushed";
   $("#submitButtonLabel").textContent = submitted ? "已提交" : "提交给老师";
   $$("[data-open-submit]").forEach((button) => button.disabled = submitted);
-  messageInput.disabled = submitted && !reportReady;
+  messageInput.disabled = state.taskLoading || !state.session || (submitted && !reportReady);
   messageInput.placeholder = reportReady
     ? "结合老师的反馈，说说你现在的理解……"
     : submitted ? "等待老师推送反馈报告" : "说说你现在的想法……";
@@ -500,7 +536,7 @@ function resizeComposer() {
   messageInput.style.height = `${Math.min(messageInput.scrollHeight, 130)}px`;
   $(".send-button", messageForm).disabled = messageInput.disabled || !messageInput.value.trim() || state.typing || state.voiceBusy || messageInput.value.length > 4000;
   $$('[data-open-submit]').forEach(button => {
-    button.disabled = state.typing || state.voiceBusy || state.session?.status === 'submitted';
+    button.disabled = state.taskLoading || !state.session || state.typing || state.voiceBusy || state.session?.status === 'submitted';
   });
   if (typeof studentVoice !== 'undefined') studentVoice.refresh();
 }
@@ -663,6 +699,8 @@ function showToast(title, detail) {
 }
 
 function clearLogin() {
+  taskOpenRequest++;
+  state.taskLoading = false;
   if (typeof studentVoice !== 'undefined') studentVoice.cancel('已退出登录，语音输入已停止。');
   window.clearInterval(state.timerId);
   stopReportPolling();

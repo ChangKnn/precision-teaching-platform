@@ -1,6 +1,6 @@
 ---
 name: precision-diagnostic-task-design
-version: 1.1.0
+version: 1.1.2
 description: 根据学科、年级、教材章节、精准教学主题、目标与内容，结合可选的教师设计想法与要求，生成 3 个具有实质差异的生机会话式精准诊断任务，并输出方案对照、任务文本、配套设计意图、AI角色与对话规则及预计时长。用于精准教学诊断任务设计或改写；不评价学生、不建构 SOLO 量规、不限制对话次数，也不规定对话结束条件。
 metadata:
   short-description: 精准诊断任务与生机会话设计

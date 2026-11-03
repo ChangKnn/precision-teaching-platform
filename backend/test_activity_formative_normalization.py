@@ -19,8 +19,6 @@ class ActivityFormativeNormalizationTest(unittest.TestCase):
         goal["intervention_path"] = goal["intervention_path"]["primary"]
         for stage, summary in zip(goal["intervention_path"]["stages"], result["activity_sequence_summary"]["stages"]):
             stage["stage_name"] = summary["stage_name"]
-            for unit in stage["activity_units"]:
-                unit["target_students"] = [{"student_id": student_id} for student_id in unit["target_student_ids"]]
         goal["intervention_path"]["stages"][0]["activity_units"][0]["target_goal_ids"] = ["CG"]
         result["activities"][0]["target_goal_ids"] = ["CG"]
         _validate(result, goal)
@@ -32,8 +30,6 @@ class ActivityFormativeNormalizationTest(unittest.TestCase):
         goal["intervention_path"] = goal["intervention_path"]["primary"]
         for stage, summary in zip(goal["intervention_path"]["stages"], result["activity_sequence_summary"]["stages"]):
             stage["stage_name"] = summary["stage_name"]
-            for unit in stage["activity_units"]:
-                unit["target_students"] = [{"student_id": student_id} for student_id in unit["target_student_ids"]]
         activity = result["activities"][-1]
         activity["target_goal_ids"].append("CG")
         evaluation = result["formative_evaluation_nodes"][-1]
@@ -63,8 +59,6 @@ class ActivityFormativeNormalizationTest(unittest.TestCase):
         goal["intervention_path"] = goal["intervention_path"]["primary"]
         for stage, summary in zip(goal["intervention_path"]["stages"], result["activity_sequence_summary"]["stages"]):
             stage["stage_name"] = summary["stage_name"]
-            for unit in stage["activity_units"]:
-                unit["target_students"] = [{"student_id": student_id} for student_id in unit["target_student_ids"]]
 
         original = result["activities"][1]
         split = []
@@ -74,7 +68,7 @@ class ActivityFormativeNormalizationTest(unittest.TestCase):
                 activity_id=f"ACT-ST2-{index}", source_unit_ids=[group["source_unit_id"]],
                 sequence_within_stage=index, activity_name=group["group_name"],
                 activity_objective=group["activity_objective"],
-                target_goal_ids=group["target_goal_ids"], target_student_ids=group["target_student_ids"],
+                target_goal_ids=group["target_goal_ids"],
                 organization_forms=[group["organization_form"]], dialogue_circles=group["dialogue_circles"],
                 duration_minutes=[7, 7, 6][index - 1], learning_materials=group["learning_materials"],
                 student_task=group["student_task"], cognitive_processing=group["cognitive_processing"],

@@ -21,8 +21,9 @@ from .services.ai import run_student_diagnosis_report
 from .services.education_context import higher_education_fields
 from .services.class_report import queue_class_report
 from .services.skills import load_skill
+from .services.student_opening import shared_opening
 from .services.student_chat import generate_student_reply
-from .services.student_dialogue_skill import freeze_dialogue_config, generate_dialogue_turn, initial_skill_message
+from .services.student_dialogue_skill import freeze_dialogue_config, generate_dialogue_turn
 from .services.task_versions import get_version, published_version, session_version, version_config, version_history, version_task
 from .task_materials import canonical_task_text, image_rows, image_response, require_confirmed_materials
 
@@ -138,6 +139,7 @@ def task_rows(student: dict) -> list[dict]:
     rows = fetch_all(
         """
         SELECT p.id AS teaching_id, p.title, p.subject, p.grade, p.textbook, p.course_name, p.education_stage,
+               p.task_name, COALESCE(p.parent_teaching_id,p.id) AS theme_id,
                d.diagnosis_type, d.task_text, d.duration_minutes, d.updated_at,
                tw.teacher_name AS teacher_name,
                sts.id AS session_id, sts.status AS session_status,
@@ -159,9 +161,11 @@ def task_rows(student: dict) -> list[dict]:
         (student["id"], student["classroom_id"], student["school_name"]),
     )
     for row in rows:
+        current_task_name = row.get('task_name','')
         version = get_version(row['task_version_id']) if row.get('task_version_id') else published_version(row['teaching_id'])
         if version:
             row.update(version_task(version))
+            row['task_name'] = current_task_name or row.get('task_name','')
         else:
             row["task_text"] = canonical_task_text(row["teaching_id"])
     return rows
@@ -467,7 +471,7 @@ def start_task(teaching_id: str, student: dict = Depends(require_student)) -> di
         session_id = f"ses-{uuid4().hex[:20]}"
         try:
             dialogue_config = version_config(version)
-            opening, execution = initial_skill_message(dialogue_config, session_id, student["id"])
+            opening, execution = shared_opening(version, session_id, student["id"])
         except (ValueError, RuntimeError, jsonschema.ValidationError) as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
         with database() as connection:
@@ -501,7 +505,7 @@ def start_task(teaching_id: str, student: dict = Depends(require_student)) -> di
         'SELECT 1 FROM student_messages WHERE session_id=? AND task_version_id=?', (session['id'],current_version['id'])
     ):
         try:
-            opening, execution = initial_skill_message(version_config(current_version), session['id'], student['id'])
+            opening, execution = shared_opening(current_version, session['id'], student['id'])
         except (ValueError, RuntimeError, jsonschema.ValidationError) as error:
             raise HTTPException(status_code=502, detail=str(error)) from error
         with database() as connection:

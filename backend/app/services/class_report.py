@@ -215,19 +215,27 @@ def validate_class_result(result: dict, payload: dict) -> None:
         raise ValueError("同质分组必须覆盖所有参与诊断的学生")
     for key in ("homogeneous_groups", "heterogeneous_groups"):
         groups = grouping[key]
+        if any(not group["students"] for group in groups):
+            raise ValueError(f"{key} 中有空小组")
         members = [student["student_id"] for group in groups for student in group["students"]]
         if len(members) != len(set(members)) or not set(members) <= source_ids:
             raise ValueError(f"{key} 中有重复或未知学生")
         if groups and set(members) != source_ids:
             raise ValueError(f"{key} 未覆盖所有参与诊断的学生")
-        if len(source_ids) > 1 and any(len(group["students"]) < 2 for group in groups):
-            raise ValueError(f"{key} 中存在非必要的单人小组")
     if grouping["heterogeneous_groups"] and grouping["heterogeneous_not_recommended_reason"]:
         raise ValueError("已有异质分组时不应同时写不建议的理由")
     if not grouping["heterogeneous_groups"] and not grouping["heterogeneous_not_recommended_reason"]:
         raise ValueError("不建议异质分组时必须说明原因")
     result["traceability"]["level_assignments"] = expected["level_assignments"]
     result["traceability"]["input_student_count"] = expected["total_students"]
+
+
+def singleton_grouping_note(grouping: dict) -> str:
+    if any(len(group.get("students", [])) == 1
+           for scheme in ("homogeneous_groups", "heterogeneous_groups")
+           for group in grouping.get(scheme, [])):
+        return "分组中含单人支持安排，请结合学生需要决定保留、并组或调整；合作活动需另行安排同伴。"
+    return ""
 
 
 def render_class_markdown(result: dict) -> str:
@@ -279,6 +287,9 @@ def render_class_markdown(result: dict) -> str:
             f"- 教学目标依据：{'；'.join(item['goal_basis'])}", "",
         ]
     lines += ["## 5. 分组建议", "", f"{grouping['usage_note']}", "", "### 同质分组", ""]
+    note = singleton_grouping_note(grouping)
+    if note:
+        lines += [note, ""]
     if grouping["homogeneous_groups"]:
         for group in grouping["homogeneous_groups"]:
             lines += [

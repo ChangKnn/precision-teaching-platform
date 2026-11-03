@@ -325,3 +325,48 @@ class TaskVersionRuntimeTest(TestCase):
         self.assertEqual(payload['diagnostic_task']['task_text'],first['task']['task_text'])
         self.assertEqual(payload['task_specific_solo_rubric'],updated['rubric']['rubric'])
         self.assertNotEqual(payload['task_specific_solo_rubric'],versions.get_version(first['task']['task_version_id'])['snapshot']['rubric'])
+    def test_published_opening_is_shared_without_per_student_model_calls(self):
+        from backend.app.services.student_opening import shared_opening
+        version = versions.published_version('pt')
+        original = dialogue.initial_skill_message
+        with patch.object(dialogue, 'initial_skill_message', wraps=original) as generate:
+            first = shared_opening(version, 'session-a', 'student-a')
+            second = shared_opening(version, 'session-b', 'student-b')
+        self.assertEqual(generate.call_count, 1)
+        self.assertEqual(first, second)
+        first[1]['role_applied'] = 'mutated'
+        self.assertNotEqual(first[1], shared_opening(version, 'session-c', 'student-c')[1])
+        self.save(ai_role='AI role: new teacher role')
+        new_version = versions.published_version('pt')
+        self.assertNotEqual(version['id'], new_version['id'])
+        with patch.object(dialogue, 'initial_skill_message', wraps=original) as generate:
+            newer = shared_opening(new_version, 'session-d', 'student-d')
+        self.assertEqual(generate.call_count, 1)
+        self.assertNotEqual(newer[0], second[0])
+
+    def test_existing_first_turn_can_seed_shared_opening_without_model(self):
+        from backend.app.services.student_opening import shared_opening
+        first = self.start()
+        with db.database() as connection:
+            connection.execute('DELETE FROM student_task_openings')
+        with patch.object(dialogue, 'initial_skill_message', side_effect=AssertionError('model must not run')):
+            reply, _ = shared_opening(versions.published_version('pt'), 'fresh', 'another-student')
+        self.assertEqual(reply, first['session']['messages'][0]['content'])
+
+    def test_publish_schedules_shared_opening_without_waiting(self):
+        from fastapi import BackgroundTasks
+        task = db.fetch_one("SELECT * FROM diagnosis_tasks WHERE teaching_id='pt'")
+        jobs = BackgroundTasks()
+        main.update_diagnosis('pt', DiagnosisTaskUpdate(**{**task, 'classroom_ids':['class']}), jobs)
+        self.assertEqual(len(jobs.tasks), 1)
+        self.assertEqual(jobs.tasks[0].func.__name__, 'prepare_opening')
+    def test_concurrent_students_prepare_only_one_opening(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from backend.app.services.student_opening import shared_opening
+        version = versions.published_version('pt')
+        original = dialogue.initial_skill_message
+        with patch.object(dialogue, 'initial_skill_message', wraps=original) as generate:
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                results = list(pool.map(lambda i: shared_opening(version, f'session-{i}', f'student-{i}'), range(16)))
+        self.assertEqual(generate.call_count, 1)
+        self.assertTrue(all(item == results[0] for item in results))

@@ -247,8 +247,6 @@ def validate_goal_and_path_links(source, result, roster):
         duration_by_stage[activity["source_stage_id"]] += activity["duration_minutes"]
         if not set(activity["target_goal_ids"]).issubset(goal_ids):
             fail(f"{activity['activity_id']} references an unknown goal.")
-        if not set(activity["target_student_ids"]).issubset(roster):
-            fail(f"{activity['activity_id']} references an unknown student.")
         allowed_union = set().union(*(ALLOWED_CIRCLES[form] for form in activity["organization_forms"]))
         if not set(activity["dialogue_circles"]).issubset(allowed_union):
             fail(f"{activity['activity_id']} has a dialogue circle incompatible with its organization forms.")

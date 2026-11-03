@@ -18,9 +18,15 @@
       "goal_id": "PG1",
       "target_level_code": "U",
       "target_level_name": "U 单点结构目标",
-      "source_levels": ["P"],
+      "source_levels": [
+        "P"
+      ],
       "target_students": [
-        {"student_id": "S-01", "student_name": "陈晨", "current_level": "P"}
+        {
+          "student_id": "S-01",
+          "student_name": "陈晨",
+          "current_level": "P"
+        }
       ],
       "goal_statement": "从实验记录中自主识别一个能够用于判断结论的有效条件或观察结果。",
       "observable_achievement": "能够独立指出一条实验条件或观察结果，并说明它与实验问题相关。",
@@ -30,10 +36,20 @@
       "goal_id": "PG2",
       "target_level_code": "R",
       "target_level_name": "R 关联结构目标",
-      "source_levels": ["M"],
+      "source_levels": [
+        "M"
+      ],
       "target_students": [
-        {"student_id": "S-02", "student_name": "李明", "current_level": "M"},
-        {"student_id": "S-03", "student_name": "王芳", "current_level": "M"}
+        {
+          "student_id": "S-02",
+          "student_name": "李明",
+          "current_level": "M"
+        },
+        {
+          "student_id": "S-03",
+          "student_name": "王芳",
+          "current_level": "M"
+        }
       ],
       "goal_statement": "建立改变条件、控制条件、观察结果和实验结论之间的完整证据关系。",
       "observable_achievement": "能够完成关系图，并用完整推理说明观察差异为什么支持结论。",
@@ -43,9 +59,15 @@
       "goal_id": "PG3",
       "target_level_code": "EA",
       "target_level_name": "EA 拓展抽象结构目标",
-      "source_levels": ["R"],
+      "source_levels": [
+        "R"
+      ],
       "target_students": [
-        {"student_id": "S-04", "student_name": "赵宇", "current_level": "R"}
+        {
+          "student_id": "S-04",
+          "student_name": "赵宇",
+          "current_level": "R"
+        }
       ],
       "goal_statement": "把控制变量证据解释迁移到改变容器或湿度的新实验，并判断原结论的适用条件。",
       "observable_achievement": "能够预测新情境中的结果，指出保持和改变的条件，并说明原结论是否仍适用。",
@@ -53,13 +75,36 @@
     }
   ],
   "student_goal_assignments": [
-    {"student_id": "S-01", "student_name": "陈晨", "original_level": "P", "primary_goal_id": "PG1"},
-    {"student_id": "S-02", "student_name": "李明", "original_level": "M", "primary_goal_id": "PG2"},
-    {"student_id": "S-03", "student_name": "王芳", "original_level": "M", "primary_goal_id": "PG2"},
-    {"student_id": "S-04", "student_name": "赵宇", "original_level": "R", "primary_goal_id": "PG3"}
+    {
+      "student_id": "S-01",
+      "student_name": "陈晨",
+      "original_level": "P",
+      "primary_goal_id": "PG1"
+    },
+    {
+      "student_id": "S-02",
+      "student_name": "李明",
+      "original_level": "M",
+      "primary_goal_id": "PG2"
+    },
+    {
+      "student_id": "S-03",
+      "student_name": "王芳",
+      "original_level": "M",
+      "primary_goal_id": "PG2"
+    },
+    {
+      "student_id": "S-04",
+      "student_name": "赵宇",
+      "original_level": "R",
+      "primary_goal_id": "PG3"
+    }
   ],
   "intervention_path": {
-    "primary_path_types": ["递进推进型", "并行分层型"],
+    "primary_path_types": [
+      "递进推进型",
+      "并行分层型"
+    ],
     "primary_path_label": "递进推进型＋并行分层型",
     "mode_explanation": "课堂整体按照共同定向、分层探究、共同汇聚和综合应用逐步推进，核心探究阶段由三个临时学习单元同时开展不同深度的学习。",
     "recommendation_reasons": [
@@ -67,10 +112,13 @@
       "同一实验材料可以支持不同加工深度，三个活动单元可以在同一时段开展。",
       "45分钟及现有纸笔和平板资源能够支持三路短时并行并共同汇聚。"
     ],
-    "teacher_facing_path": "全班共同定向（C）→ 分层活动同时开展〔个体学习（I）｜同质小组活动（H）｜个体学习（I）〕→ 全班汇聚（C）→ 综合应用（A）",
-    "topology_notation": "C → {I1 | H1 | I2} → C → A",
+    "teacher_facing_path": "辨析实验记录（C）→分组解释实验〔个体学习（I）｜同质小组活动（H）｜个体学习（I）〕→交流实验解释（C）→解释新的实验（I）→总结解释方法（C）",
+    "topology_notation": "C → {I1 | H1 | I2} → C → I → C",
     "alternative_path": {
-      "path_types": ["递进推进型", "主线嵌入型"],
+      "path_types": [
+        "递进推进型",
+        "主线嵌入型"
+      ],
       "path_label": "递进推进型＋主线嵌入型",
       "mode_explanation": "全班沿共同任务逐步推进，在核心学习阶段为少数有需要的学生嵌入短时支持。",
       "suitable_when": "教师难以同时管理三个活动单元，且P学生的缺口能够通过短时巡视补足时。",
@@ -79,20 +127,16 @@
     "stages": [
       {
         "stage_id": "ST1",
-        "stage_name": "辨析实验条件，明确解释所需证据",
+        "stage_name": "辨析实验记录",
         "duration_minutes": 5,
         "activity_units": [
           {
             "unit_id": "ST1-C1",
             "organization_code": "C",
             "organization_name": "全班共同活动（C）",
-            "activity_name": "辨析实验条件，明确解释所需证据",
-            "target_goal_ids": ["CG"],
-            "target_students": [
-              {"student_id": "S-01", "student_name": "陈晨"},
-              {"student_id": "S-02", "student_name": "李明"},
-              {"student_id": "S-03", "student_name": "王芳"},
-              {"student_id": "S-04", "student_name": "赵宇"}
+            "activity_name": "辨析实验记录",
+            "target_goal_ids": [
+              "CG"
             ],
             "activity_summary": "对照本课实验记录，指出改变了什么、保持了什么、观察到什么，并说出哪项结果能支持结论。"
           }
@@ -100,17 +144,16 @@
       },
       {
         "stage_id": "ST2",
-        "stage_name": "围绕实验记录建构证据解释",
+        "stage_name": "分组解释实验",
         "duration_minutes": 20,
         "activity_units": [
           {
             "unit_id": "ST2-I1",
             "organization_code": "I",
             "organization_name": "个体学习或个别支持（I）",
-            "activity_name": "提取可用的实验依据",
-            "target_goal_ids": ["PG1"],
-            "target_students": [
-              {"student_id": "S-01", "student_name": "陈晨"}
+            "activity_name": "找出实验依据",
+            "target_goal_ids": [
+              "PG1"
             ],
             "activity_summary": "在实验记录中圈出一条与问题有关的条件或结果，写一句话说明它为什么可作证据。"
           },
@@ -118,11 +161,9 @@
             "unit_id": "ST2-H1",
             "organization_code": "H",
             "organization_name": "同质小组活动（H）",
-            "activity_name": "建构条件与结论的关系",
-            "target_goal_ids": ["PG2"],
-            "target_students": [
-              {"student_id": "S-02", "student_name": "李明"},
-              {"student_id": "S-03", "student_name": "王芳"}
+            "activity_name": "说明条件与结果",
+            "target_goal_ids": [
+              "PG2"
             ],
             "activity_summary": "把改变条件、保持不变的条件、观察结果和结论连成关系图，并用图解释结果差异。"
           },
@@ -130,10 +171,9 @@
             "unit_id": "ST2-I2",
             "organization_code": "I",
             "organization_name": "个体学习或个别支持（I）",
-            "activity_name": "迁移检验证据解释框架",
-            "target_goal_ids": ["PG3"],
-            "target_students": [
-              {"student_id": "S-04", "student_name": "赵宇"}
+            "activity_name": "检验结论适用性",
+            "target_goal_ids": [
+              "PG3"
             ],
             "activity_summary": "对照改变容器或湿度的新实验记录，指出哪些条件变了，预测原结论是否仍成立并写出理由。"
           }
@@ -141,43 +181,52 @@
       },
       {
         "stage_id": "ST3",
-        "stage_name": "汇集不同证据，形成实验解释框架",
+        "stage_name": "交流实验解释",
         "duration_minutes": 10,
         "activity_units": [
           {
             "unit_id": "ST3-C1",
             "organization_code": "C",
             "organization_name": "全班共同活动（C）",
-            "activity_name": "汇集不同证据，形成实验解释框架",
-            "target_goal_ids": ["CG"],
-            "target_students": [
-              {"student_id": "S-01", "student_name": "陈晨"},
-              {"student_id": "S-02", "student_name": "李明"},
-              {"student_id": "S-03", "student_name": "王芳"},
-              {"student_id": "S-04", "student_name": "赵宇"}
+            "activity_name": "交流实验解释",
+            "target_goal_ids": [
+              "CG"
             ],
-            "activity_summary": "对比各组的证据句、关系图和迁移判断，找出解释结论时不可缺少的条件与结果，合成一条证据链。"
+            "activity_summary": "对照上一活动各组找出的依据、关系图和判断，比较哪些条件与结果能支持结论，共同整理解释实验的方法。"
           }
         ]
       },
       {
         "stage_id": "ST4",
-        "stage_name": "运用证据框架解释新实验",
-        "duration_minutes": 10,
+        "stage_name": "解释新的实验",
+        "duration_minutes": 7,
         "activity_units": [
           {
-            "unit_id": "ST4-A1",
-            "organization_code": "A",
-            "organization_name": "综合应用（A）",
-            "activity_name": "运用证据框架解释新实验",
-            "target_goal_ids": ["CG"],
-            "target_students": [
-              {"student_id": "S-01", "student_name": "陈晨"},
-              {"student_id": "S-02", "student_name": "李明"},
-              {"student_id": "S-03", "student_name": "王芳"},
-              {"student_id": "S-04", "student_name": "赵宇"}
+            "unit_id": "ST4-I1",
+            "organization_code": "I",
+            "organization_name": "综合应用·个体学习（I）",
+            "activity_name": "解释新的实验",
+            "target_goal_ids": [
+              "CG"
             ],
-            "activity_summary": "阅读另一份控制变量实验记录，指出关键条件和结果，用刚形成的证据链写出结论及依据。"
+            "activity_summary": "使用刚整理的方法阅读另一份实验记录，联系条件与结果，写出实验结论及理由。"
+          }
+        ]
+      },
+      {
+        "stage_id": "ST5",
+        "stage_name": "总结解释方法",
+        "duration_minutes": 3,
+        "activity_units": [
+          {
+            "unit_id": "ST5-C1",
+            "organization_code": "C",
+            "organization_name": "全班共同活动（C）",
+            "activity_name": "总结解释方法",
+            "target_goal_ids": [
+              "CG"
+            ],
+            "activity_summary": "交流个人对新实验的解释，比较依据是否充分，归纳哪些方法可以继续使用、哪些判断还需核对。"
           }
         ]
       }
@@ -192,20 +241,14 @@
   },
   "teacher_confirmation": {
     "status": "pending_teacher_confirmation",
-    "items_to_confirm": [
-      "共同核心目标及其R关联结构定位。",
-      "PG1至PG3的目标表述和学生归属。",
-      "并行分层型作为主要路径，主线嵌入型作为条件性备选。",
-      "ST2三个活动单元同时开展。",
-      "各阶段建议时长合计45分钟。"
-    ],
+    "items_to_confirm": [],
     "unresolved_decisions": [
       "教师能否同时管理ST2的三个活动单元。"
     ]
   },
   "handoff": {
     "for_activity_design": [
-      "依据ST1至ST4和各活动单元细化任务、支架、材料与师生互动。",
+      "依据ST1至ST5和各活动单元细化任务、支架、材料与师生互动。",
       "保持ST2三个单元同时开展及各自20分钟的共同时间边界。"
     ],
     "for_evaluation_design": [

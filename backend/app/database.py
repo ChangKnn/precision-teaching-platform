@@ -138,6 +138,14 @@ def initialize_database() -> None:
         updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS ability_solo_frameworks (
+        teaching_id TEXT PRIMARY KEY REFERENCES precision_teachings(id) ON DELETE CASCADE,
+        ability_name TEXT NOT NULL DEFAULT '',
+        levels_json TEXT NOT NULL DEFAULT '{}',
+        revision INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS diagnosis_tasks (
         teaching_id TEXT PRIMARY KEY REFERENCES precision_teachings(id) ON DELETE CASCADE,
         diagnosis_type TEXT NOT NULL DEFAULT 'pre',
@@ -407,6 +415,13 @@ def initialize_database() -> None:
         UNIQUE(teaching_id, revision)
     );
 
+    CREATE TABLE IF NOT EXISTS student_task_openings (
+        task_version_id TEXT PRIMARY KEY REFERENCES diagnosis_task_versions(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        execution_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS diagnosis_role_knowledge (
         id TEXT PRIMARY KEY,
         teaching_id TEXT NOT NULL REFERENCES precision_teachings(id) ON DELETE CASCADE,
@@ -541,6 +556,13 @@ def initialize_database() -> None:
         teaching_columns = {
             row["name"] for row in connection.execute("PRAGMA table_info(precision_teachings)").fetchall()
         }
+        if 'parent_teaching_id' not in teaching_columns:
+            connection.execute('ALTER TABLE precision_teachings ADD COLUMN parent_teaching_id TEXT REFERENCES precision_teachings(id) ON DELETE CASCADE')
+        if 'task_name' not in teaching_columns:
+            connection.execute("ALTER TABLE precision_teachings ADD COLUMN task_name TEXT NOT NULL DEFAULT ''")
+        if 'task_order' not in teaching_columns:
+            connection.execute('ALTER TABLE precision_teachings ADD COLUMN task_order INTEGER NOT NULL DEFAULT 1')
+        connection.execute('CREATE INDEX IF NOT EXISTS idx_teaching_task_parent ON precision_teachings(parent_teaching_id)')
         if "content" not in teaching_columns:
             connection.execute("ALTER TABLE precision_teachings ADD COLUMN content TEXT NOT NULL DEFAULT ''")
         for column in ('education_stage', 'course_name', 'major'):

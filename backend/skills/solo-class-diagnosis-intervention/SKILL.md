@@ -2,7 +2,7 @@
 name: solo-class-diagnosis-intervention
 description: 聚合全班由 solo-student-diagnosis-feedback 生成的个体 SOLO 诊断结果，统计 P/U/M/R/EA 分布，形成班级整体与分层分析、教学重难点、分组建议及供下游方案设计使用的干预设计依据。用于教师需要把个体诊断转化为班级教学决策输入时；不重新定级学生，也不设计具体课堂活动或完整教案。
 metadata:
-  version: 1.1.0
+  version: 1.1.2
 ---
 
 # 班级 SOLO 聚合诊断与精准教学建议
@@ -74,7 +74,7 @@ python scripts/aggregate_distribution.py <input.json>
 
 完整阅读 `references/grouping-rules.md`。同质分组用于集中补救或相近目标进阶；异质分组只在互补思维能够支持共同任务时提供，不能按层级机械配额。两种分组是相互独立的备选方案，不要求同时实施。每个小组必须有反映本轮共同需要或协作任务的简短组名，不用层级或能力高低给学生贴标签；名单置于组名之下，随后简述共同点或互补依据及教学建议。
 
-同质方案必须恰好覆盖本次参与诊断的全部学生。若提出异质方案，也必须恰好覆盖同一批学生；若不能形成有教学价值的全员异质方案，则不输出异质小组，并简要说明本轮不建议的理由。两个方案内部均不得重复或遗漏学生；只有全班仅一人时可形成单人支持安排。
+同质方案必须恰好覆盖本次参与诊断的全部学生。若提出异质方案，也必须恰好覆盖同一批学生；若不能形成有教学价值的全员异质方案，则不输出异质小组，并简要说明本轮不建议的理由。两个方案内部均不得重复或遗漏学生；优先将共同需要相近的学生安排在一起；确有独特支持需要时可保留单人支持安排，说明依据，供教师决定保留、并组或调整。单人安排不视为同伴合作，不能因此阻断班级整体与分层分析。
 
 教师端呈现遵循以下压缩规则：
 
@@ -95,7 +95,7 @@ python scripts/aggregate_distribution.py <input.json>
 
 ### 8. 输出并自检
 
-先按 `assets/class-diagnosis-output-template.md` 输出教师可读 Markdown，再输出一个标记为 `json solo_class_diagnosis` 的有效 JSON 代码块。JSON 必须符合 `assets/class-diagnosis-output.schema.json`。
+只输出符合 `assets/class-diagnosis-output.schema.json` 的一个完整 JSON 对象，不输出 Markdown、代码围栏或另附文字报告。教师页面与导出报告由平台根据校验后的字段排版。`assets/class-diagnosis-output-template.md` 仅说明平台展示结构，不要求模型重复撰写。
 
 交付前检查：
 

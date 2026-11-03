@@ -13,14 +13,12 @@ from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[1]
 LEVELS = ["P", "U", "M", "R", "EA"]
-NEXT_LEVEL = {
-    "P": "U",
-    "U": "M",
-    "M": "R",
-    "R": "EA",
-    "EA": "EA_DEEPENING",
-}
 EXPECTED_BEHAVIOR_CASES = {
+    "CONTENT-THREAD-AND-HANDOFF",
+    "TEACHER-NAMES-NOT-UNIVERSAL-TEMPLATE",
+    "INTERNAL-IDS-STAY-IN-FIELDS",
+    "NO-INVENTED-SOURCE-DETAILS",
+
     "PATH-PROGRESSIVE",
     "PATH-MAINLINE-EMBEDDED",
     "PATH-PARALLEL-TIERED",
@@ -32,9 +30,20 @@ EXPECTED_BEHAVIOR_CASES = {
     "CUSTOM-GOAL-GUARD",
     "TEACHER-PREFERENCE-CONFLICT",
     "PARALLEL-DURATION",
-    "ONE-GROUP-PER-45-MINUTES",
+    "GROUP-TRANSITIONS-FOLLOW-LEARNING",
     "BOUNDARY-NO-DETAIL-OR-EVALUATION",
-    "COMPOSITE-MODE-WHEN-SEQUENTIAL",
+    "COLLECTIVE-START-AND-END",
+    "COUNTS-FOLLOW-PROTOTYPE",
+    "APPLICATION-USES-REAL-ORGANIZATION",
+    "STATION-NOT-FIXED-GROUPING",
+    "PLUS-ONE-NOT-A-CEILING",
+    "SINGLE-LESSON-NO-THIRD-GROUP-PERIOD",
+    "MULTI-LESSON-BOUNDARIES",
+    "CORE-GOAL-USES-BOTH-BASES",
+    "CORE-GOAL-UPLIFT-WHEN-MOST-EA",
+    "EA-MINORITY-NOT-WHOLE-CLASS",
+    "EA-REQUIRES-RELEVANT-SUFFICIENT-EVIDENCE",
+    "COMPOSITE-ONLY-WHEN-COGNITIVE-DEPENDENCY",
 }
 REMOVED_OUTPUT_KEYS = {
     "evidence_checkpoints",
@@ -146,8 +155,6 @@ def validate_goals(sample_input, sample_output, roster):
                 fail(f"Goal current_level reclassifies {sid}.")
             if student["current_level"] not in goal["source_levels"]:
                 fail(f"{goal['goal_id']} source_levels omits {sid}'s current level.")
-            if target_code != "CUSTOM" and NEXT_LEVEL[student["current_level"]] != target_code:
-                fail(f"{goal['goal_id']} is not adjacent progression for {sid}.")
             if sid in goal_student_map:
                 fail(f"Student {sid} appears in more than one progression goal.")
             goal_student_map[sid] = goal["goal_id"]
@@ -182,6 +189,13 @@ def validate_path(sample_input, sample_output, roster, goal_map):
     if len(path["primary_path_types"]) == 2 and "递进推进型" not in path["primary_path_types"]:
         fail("A two-mode combination must use progressive sequencing plus one differentiation mode.")
     stages = path["stages"]
+    # Reference generation checks; teacher editing remains governed by the
+    # existing platform contract, without new stage/group-count restrictions.
+    if len(stages) < 3:
+        fail("A complete reference lesson needs collective opening, core learning and collective closing.")
+    for stage in (stages[0], stages[-1]):
+        if len(stage["activity_units"]) != 1 or stage["activity_units"][0]["organization_code"] != "C":
+            fail("A complete reference lesson must start and end with C.")
     stage_ids = [stage["stage_id"] for stage in stages]
     if len(set(stage_ids)) != len(stage_ids):
         fail("Stage IDs must be unique.")
@@ -203,14 +217,6 @@ def validate_path(sample_input, sample_output, roster, goal_map):
             for goal_id in unit["target_goal_ids"]:
                 if goal_id != "CG" and goal_id not in goal_map:
                     fail(f"Activity unit {uid} references unknown goal {goal_id}.")
-            for student in unit["target_students"]:
-                sid = student["student_id"]
-                if sid not in roster:
-                    fail(f"Activity unit {uid} references unknown student {sid}.")
-                if student["student_name"] != roster[sid]["student_name"]:
-                    fail(f"Activity unit {uid} has a mismatched name for {sid}.")
-            if unit["organization_code"] == "H" and len(unit["target_students"]) < 2:
-                fail(f"Single-student unit {uid} must use I rather than H.")
             if unit["activity_name"] in {"活动一", "活动二", "分层活动", "完成任务"}:
                 fail(f"Activity unit {uid} has a generic activity name.")
             if len(stage["activity_units"]) == 1 and unit["activity_name"] != stage["stage_name"]:
@@ -221,13 +227,10 @@ def validate_path(sample_input, sample_output, roster, goal_map):
     if stage_total != planned or path["total_duration_minutes"] != planned:
         fail("Distinct stage durations must sum to planned_duration_minutes.")
 
-    parallel_stages = [stage for stage in stages if len(stage["activity_units"]) > 1]
-    if not parallel_stages:
-        fail("Sample output must demonstrate simultaneous activity units within one stage.")
-    if planned == 45:
-        group_stages = [stage for stage in stages if any(unit["organization_code"] in {"H", "X", "S"} for unit in stage["activity_units"])]
-        if len(group_stages) > 1:
-            fail("45-minute sample should contain only one concentrated group-work stage.")
+    for stage in stages:
+        for unit in stage["activity_units"]:
+            if "target_students" in unit or "target_student_ids" in unit:
+                fail("Activity units must not contain student rosters.")
 
     alternative = path["alternative_path"]
     if alternative and alternative["path_types"] == path["primary_path_types"]:
@@ -289,16 +292,29 @@ def validate_boundaries(sample_output):
     required_skill_phrases = [
         "precision_teaching_context",
         "不重新诊断",
-        "不得显示课程依据",
         "形成性评价",
         "备选路径",
         "活动内容简介",
         "主要组织模式",
         "课堂推进安排",
+        "基本顺序",
+        "中间如何组织",
+        "哪些部分可调整",
     ]
     for phrase in required_skill_phrases:
         if phrase not in skill_text:
             fail(f"SKILL.md is missing required rule language: {phrase}")
+
+
+def validate_teacher_writing(sample_output):
+    texts = [sample_output["common_core_goal"]["goal_statement"]]
+    texts.extend(goal["goal_statement"] for goal in sample_output["progression_goals"])
+    for stage in sample_output["intervention_path"]["stages"]:
+        texts.append(stage["stage_name"])
+        for unit in stage["activity_units"]:
+            texts.extend([unit["activity_name"], unit["activity_summary"]])
+    if any(re.search(r"PG[0-9]+|ST[0-9]+-[CHXISA][0-9]+", text) for text in texts):
+        fail("Internal goal/unit IDs must stay in machine fields, not teacher-facing prose.")
 
 
 def validate_behavior_cases():
@@ -332,13 +348,16 @@ def main() -> int:
 
     roster = roster_from_input(sample_input)
     goal_map = validate_goals(sample_input, sample_output, roster)
-    print("PASS: roster preservation and adjacent progression goals")
+    print("PASS: roster preservation and teacher-adjustable progression goals")
 
     validate_path(sample_input, sample_output, roster, goal_map)
     print("PASS: stage-unit path structure, parallel timing, and alternative path")
 
     validate_boundaries(sample_output)
     print("PASS: teacher-facing simplification and Skill 1 responsibility boundary")
+
+    validate_teacher_writing(sample_output)
+    print("PASS: teacher-facing prose keeps internal IDs in machine fields")
 
     validate_behavior_cases()
     print("PASS: behavior-case inventory")

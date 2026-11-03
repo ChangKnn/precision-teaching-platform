@@ -4,11 +4,13 @@
 
 ## 一、学习活动设计
 
-### 活动{{activity_order}}：{{activity_name}}（{{duration_minutes}}分钟；{{organization_forms}}）
+### 活动{{activity_order}}：{{activity_name}}
+
+活动时长：{{duration_minutes}}分钟；教学组织形式：{{organization_forms}}
 
 |  |  |  |  |
 | --- | --- | --- | --- |
-| **活动目标** | {{activity_objective_or_group_objectives_with_solo_progression}} |  |  |
+| **活动目标** | {{concrete_student_learning_performance}} |  |  |
 | **活动过程** | **教师活动** | **学生活动** | **AI辅助** |
 |  | {{teacher_activities}} | {{student_activities_with_group_tasks_and_scaffolds_if_parallel}} | {{ai_support_or_blank}} |
 | **学习材料与资源** | {{learning_materials_and_tools}} |  |  |
@@ -16,7 +18,7 @@
 
 > 排版要求：本表不设置整表表头。“教师活动、学生活动、AI辅助”只作为“活动过程”的二级栏目。生成支持合并单元格的Word或HTML时，合并“活动目标”“学习材料与资源”“学习产出”三行的右侧三个单元格，并纵向合并“活动过程”左侧两个单元格。AI无必要作用时，AI辅助单元格留空。
 
-> 对其余顺序活动重复上述结构。同一阶段有多个并行小组时，不另编活动序号，在活动目标、学生活动和学习产出中逐组说明。
+> 对其余顺序活动重复上述结构。同一阶段有多个并行小组时，不另编活动序号，在学生活动中按任务名称说明差别，共同材料、要求和产出格式只写一次。原定安排不限制学生继续挑战，教师可根据课堂表现调整支持。
 
 ## 二、形成性评价
 
@@ -25,7 +27,7 @@
 
 | 评价时机 | 对象与目标 | 评价任务与证据 | 达成标准 | 评价结果处理 | 判断主体 |
 | --- | --- | --- | --- | --- | --- |
-| 活动{{activity_order}}之后 | {{target_students_and_goal}} | {{evidence_task_and_source}} | {{goal_based_observable_criteria}} | **达到：** {{if_goal_reached}}<br>**尚未达到：** {{if_not_yet}}<br>**个人证据不清：** {{if_evidence_not_individual}} | {{decision_by}} |
+| 活动{{activity_order}}之后 | {{target_learning_need_and_goal}} | {{evidence_task_and_source}} | {{goal_based_observable_criteria}} | **达到：** {{if_goal_reached}}<br>**尚未达到：** {{if_not_yet}}<br>**个人证据不清：** {{if_evidence_not_individual}} | {{decision_by}} |
 
 ## 三、请教师确认
 

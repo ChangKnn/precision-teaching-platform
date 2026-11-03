@@ -6,7 +6,7 @@
   <meta name="description" content="支持教师开展精准诊断、反馈与课堂干预设计的研究原型。">
   <title>思阶｜AI 精准教学工作台</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="styles.css?v=20261027-all-attachments-v1">
+  <link rel="stylesheet" href="styles.css?v=20261102-merged-main-v1">
   <link rel="stylesheet" href="/filing.css?v=20261018">
   <link rel="stylesheet" href="notifications.css?v=20261018-persistent">
   <link rel="stylesheet" href="vendor/mathlive/mathlive-fonts.css">
@@ -55,9 +55,29 @@
         </button>
 
         <p class="nav-label">工作阶段</p>
-        <button class="nav-item" data-page="diagnosis"><span>1</span>精准诊断任务设计与发布</button>
-        <button class="nav-item" data-page="feedback"><span>2</span>诊断结果反馈</button>
-        <button class="nav-item" data-page="intervention"><span>3</span>精准干预设计</button>
+        <div class="nav-stage" data-nav-stage="diagnosis">
+          <button class="nav-item" data-page="diagnosis"><span>1</span>学情诊断</button>
+          <div class="nav-stage-children" aria-label="学情诊断">
+            <button type="button" class="nav-subitem" data-page="diagnosis" data-nav-dstep="2">诊断任务</button>
+            <button type="button" class="nav-subitem" data-page="diagnosis" data-nav-dstep="3">分析标准</button>
+          </div>
+        </div>
+        <div class="nav-stage" data-nav-stage="feedback">
+          <button class="nav-item" data-page="feedback"><span>2</span>诊断结果</button>
+          <div class="nav-stage-children" aria-label="诊断结果">
+            <button type="button" class="nav-subitem" data-page="feedback" data-nav-feedback="class">班级群体</button>
+            <button type="button" class="nav-subitem" data-page="feedback" data-nav-feedback="students">学生个体</button>
+          </div>
+        </div>
+        <div class="nav-stage" data-nav-stage="intervention">
+          <button class="nav-item" data-page="intervention"><span>3</span>教学设计</button>
+          <div class="nav-stage-children" aria-label="教学设计">
+            <button type="button" class="nav-subitem" data-page="intervention" data-nav-istep="1">设计依据</button>
+            <button type="button" class="nav-subitem" data-page="intervention" data-nav-istep="2">目标设计与活动路径</button>
+            <button type="button" class="nav-subitem" data-page="intervention" data-nav-istep="3">学习活动设计</button>
+            <button type="button" class="nav-subitem" data-page="intervention" data-nav-istep="4">方案总览与导出</button>
+          </div>
+        </div>
       </nav>
 
     </aside>
@@ -166,13 +186,20 @@
 约束模型建立
 取等条件与最值结论的完整论证</textarea>
               </div>
+
               <div class="form-footer"><button type="button" class="button" id="saveBlockDraftButton">保存草稿</button><button type="button" class="button primary" id="createBlockButton">保存并进入诊断设计</button></div>
             </form>
           </div>
         </section>
 
         <section class="page" id="page-diagnosis">
-          <div class="page-heading"><div><h1>精准诊断任务设计与发布</h1><p>设计一项能够促进学生思维外显、为后续教学提供依据的诊断任务。</p></div><button class="button" id="saveDiagnosisDraftButton">保存草稿</button></div>
+          <div class="page-heading"><div><h1>学情诊断</h1><p>设计一项能够促进学生思维外显、为后续教学提供依据的诊断任务。</p></div><button class="button" id="saveDiagnosisDraftButton">保存草稿</button></div>
+          <div class="card diagnostic-task-switcher">
+            <label>当前诊断任务<select id="diagnosticTaskSelect" aria-label="选择诊断任务"></select></label>
+            <button type="button" class="button" id="addDiagnosticTaskButton">＋ 新增诊断任务</button>
+            <label>任务名称<input id="diagnosticTaskName" maxlength="120" placeholder="例如：教育案例分析"></label>
+            <button type="button" class="button" id="saveDiagnosticTaskName">保存名称</button>
+          </div>
           <div class="workflow-tabs four" id="diagnosisSteps">
             <button class="active" data-dstep="1"><i>1</i>诊断时间</button><button data-dstep="2"><i>2</i>诊断任务</button><button data-dstep="3"><i>3</i>分析标准</button><button data-dstep="4"><i>4</i>发布</button>
           </div>
@@ -245,6 +272,7 @@
 
           <div class="workflow-panel" data-dpanel="3">
             <div class="card panel-card"><div class="panel-heading"><span class="step-index">03</span><div><h2>分析标准</h2></div></div>
+
               <details class="solo-framework-panel" id="soloFrameworkDetails">
                 <summary><span>什么是SOLO？</span><span class="solo-framework-summary-note">点击了解五级分类及其教学用途</span></summary>
                 <div class="framework-intro"><p>SOLO（Structure of the Observed Learning Outcome，学习结果的结构）是 Biggs 和 Collis 于 1982 年提出的一种学习结果分类框架，其理论基础与人的一般认知发展密切相关。它关注的不是学生“会不会”，而是学生对一个知识或问题的认识是如何逐步发展的：从关注单一要素，到认识多个要素，再到建立要素之间的联系、形成整体理解，并进一步抽象、迁移和生成新的认识。<a class="solo-source-link" href="https://www.sciencedirect.com/book/monograph/9780120975525/evaluating-the-quality-of-learning" target="_blank" rel="noopener noreferrer">参考原著：Biggs &amp; Collis（1982）</a></p></div>
@@ -299,13 +327,13 @@
         </section>
 
         <section class="page" id="page-feedback">
-          <div class="page-heading"><div><h1>诊断结果反馈</h1><p>查看班级与学生的思维结构，核对诊断结果并向学生推送反馈。</p></div><button class="button primary" id="completeFeedbackButton">确认反馈阶段并进入干预设计</button></div>
-          <article class="card stage-empty-state" id="feedbackEmptyState" hidden><span>等待学生作答</span><h2>当前精准教学还没有诊断结果</h2><p>诊断任务已经发布，但尚未收到学生提交。获得作答、会话与作品证据后，才能确认反馈阶段并开放精准干预设计。</p><button class="button" data-page="diagnosis">返回诊断任务</button></article>
+          <div class="page-heading"><div><h1>诊断结果</h1><p>查看班级与学生的思维结构，核对诊断结果并向学生推送反馈。</p></div><button class="button primary" id="completeFeedbackButton">进入精准干预设计</button></div>
+          <div class="card diagnostic-task-switcher"><label>当前诊断任务<select id="feedbackDiagnosticTaskSelect" aria-label="选择要分析的诊断任务"></select></label></div>
+          <article class="card stage-empty-state" id="feedbackEmptyState" hidden><span>等待学生作答</span><h2>当前诊断任务还没有作答结果</h2><p>本任务尚未收到学生提交。获得作答、会话与作品证据后，才能确认反馈阶段并开放精准干预设计。</p><button class="button" data-page="diagnosis">返回诊断任务</button></article>
           <div id="feedbackWorkspaceContent">
-          <div class="filter-bar card"><label>班级<select id="feedbackClassSelect"></select></label><label>精准教学<select id="feedbackTeachingName" disabled><option>基本不等式中的模型与论证</option></select></label><label>诊断任务<select id="feedbackTaskName" disabled><option>课前 · 围绳面积最大方案论证</option></select></label><span class="status success" id="feedbackSubmissionStatus">40/40 已提交</span></div>
+          <div class="filter-bar card"><label>班级<select id="feedbackClassSelect"></select></label><label>精准教学<select id="feedbackTeachingName" disabled><option>基本不等式中的模型与论证</option></select></label><label>诊断任务<select id="feedbackTaskName"><option>课前 · 围绳面积最大方案论证</option></select></label><span class="status success" id="feedbackSubmissionStatus">40/40 已提交</span></div>
 
           <div class="analysis-process card"><div class="done"><i>1</i><span>证据整理<small>对话＋文字成果</small></span></div><div id="analysisRubricStep"><i>2</i><span>AI 分析<small id="analysisRubricStatus">等待量规确认</small></span></div><div class="current"><i>3</i><span>个体报告审核<small id="analysisReviewStatus">等待学生报告</small></span></div><div><i>4</i><span>反馈阶段确认<small id="feedbackProgressStatus">阶段待确认</small></span></div></div>
-          <p class="feedback-stage-note">反馈阶段确认用于进入干预设计；个体报告需单独审核后推送给学生，阶段确认不会自动确认或推送个体报告。</p>
 
           <div class="feedback-tabs"><button data-feedback-tab="students">学生会话记录与分析结果</button><button class="active" data-feedback-tab="class">班级学生思维结构情况</button></div>
 
@@ -379,12 +407,13 @@
         </section>
 
         <section class="page" id="page-intervention">
-          <div class="page-heading"><div><h1>精准干预设计</h1></div><div><span class="autosave-state">草稿自动保存</span><button class="button primary" id="previewInterventionPlan">预览教学方案</button></div></div>
+          <div class="card diagnostic-task-switcher"><label>诊断依据<select id="interventionDiagnosticTaskSelect" aria-label="选择干预设计依据的诊断任务"></select></label></div>
+          <div class="page-heading"><div><h1>教学设计</h1></div><div><span class="autosave-state">草稿自动保存</span><button class="button primary" id="previewInterventionPlan">预览教学方案</button></div></div>
           <div class="filter-bar intervention-filter-bar card">
             <label>班级<select id="interventionClassSelect"><option>高一（3）班</option><option>高一（5）班</option></select></label>
             <label>精准教学<select id="interventionTeachingName" disabled><option>基本不等式中的模型与论证</option></select></label>
             <label>诊断依据任务<select id="interventionTaskName" disabled><option>课前 · 围绳面积最大方案论证</option></select></label>
-            <span class="status success" id="interventionEvidenceStatus">反馈阶段已确认</span>
+            <span class="status success" id="interventionEvidenceStatus">等待学生提交</span>
           </div>
           <div class="workflow-tabs intervention-tabs four" id="interventionSteps"><button class="active" data-istep="1"><i>1</i>设计依据</button><button data-istep="2"><i>2</i>目标设计与活动路径</button><button data-istep="3"><i>3</i>学习活动设计</button><button data-istep="4"><i>4</i>方案总览与导出</button></div>
 
@@ -406,10 +435,10 @@
 
           <div class="intervention-panel" data-ipanel="2">
             <article class="card intervention-section-card goal-path-skill-card" id="goalPathSkillPanel">
-              <div class="intervention-section-heading"><div><h2>目标设计与活动路径</h2></div><span class="status neutral" id="goalPathStatus">等待班级报告</span></div>
+              <div class="intervention-section-heading"><div><h2 class="goal-path-major-title">目标设计</h2></div><div class="goal-guide-heading-actions"><button type="button" class="help-dot" data-goal-guide="goal-rules" aria-haspopup="dialog" aria-controls="goalPathGuideDialog" aria-label="查看目标设计基本规则">?</button></div></div>
               <div id="goalPathPrerequisite"></div>
               <div id="goalPathGeneratedContent"></div>
-              <div class="goal-path-ai-dialogue" id="goalPathAiDialogue" hidden><label for="goalPathRevisionRequest">告诉 AI 你希望怎样调整目标与活动路径</label><p id="goalPathPreviousRequest" hidden></p><textarea id="goalPathRevisionRequest" rows="3" maxlength="2000" placeholder="例如：保留分层目标，但让小组活动更贴合我前面填写的课堂构想；共同活动只对应共同核心目标。"></textarea><div><button class="button ai" id="generateGoalPath">发送要求并重新生成</button></div></div>
+              <div class="goal-path-ai-dialogue" id="goalPathAiDialogue" hidden><label for="goalPathRevisionRequest">告诉 AI 你希望怎样调整目标与活动路径</label><textarea id="goalPathRevisionRequest" rows="3" maxlength="2000" placeholder="例如：保留分层目标，但让小组活动更贴合我前面填写的课堂构想；共同活动只对应共同核心目标。"></textarea><div><button class="button ai" id="generateGoalPath">发送要求并重新生成</button></div></div>
               <div class="panel-actions spread"><button class="button" data-istep-target="1">上一步</button><div><span class="goal-path-autosave-state" id="goalPathAutosaveState" aria-live="polite"></span><button class="button primary" id="nextFromGoalPath" disabled>下一步：学习活动设计</button></div></div>
             </article>
             <div id="legacyGoalPathEditor" hidden>
@@ -604,7 +633,7 @@
     <a href="https://beian.mps.gov.cn/#/query/webSearch?code=11010802050729" target="_blank" rel="noopener noreferrer"><img src="/assets/beian.png" alt="公安备案图标" width="20" height="20">京公网安备11010802050729号</a>
   </footer>
   <script src="notifications.js?v=20261019-error-only-v1"></script>
-  <script src="api-client.js?v=20261027-classroom-management-v1"></script>
+  <script src="api-client.js?v=20261102-merged-main-v1"></script>
   <script src="llm-debug.js?v=20260925-llm2"></script>
   <dialog id="taskFormulaDialog" class="task-math-dialog" aria-labelledby="taskFormulaTitle"><div class="task-dialog-heading"><h2 id="taskFormulaTitle">插入或编辑数学公式</h2><button type="button" class="button" id="taskFormulaCancel">关闭</button></div><p>用数学键盘输入公式，也可粘贴 LaTeX；插入后会在预览中显示。</p><math-field id="taskFormulaField" math-virtual-keyboard-policy="manual" aria-label="数学公式输入"></math-field><div class="task-formula-shortcuts"><button type="button" class="button" data-task-formula="\frac{#0}{#?}">分式</button><button type="button" class="button" data-task-formula="\sqrt{#0}">根号</button><button type="button" class="button" data-task-formula="#0^{#?}">上标</button><button type="button" class="button" data-task-formula="#0_{#?}">下标</button><button type="button" class="button" data-task-formula="\overrightarrow{#0}">向量</button><button type="button" class="button" data-task-formula="\begin{cases}#0\end{cases}">分段式</button></div><div id="taskFormulaKeyboard"></div><div class="panel-actions right"><button type="button" class="button primary" id="taskFormulaInsert">插入任务</button></div></dialog>
   <dialog id="taskRecognitionDialog" class="task-math-dialog" aria-labelledby="taskRecognitionTitle"><div class="task-dialog-heading"><h2 id="taskRecognitionTitle">题目识别草稿 · 待教师核对</h2><button type="button" class="button" id="cancelTaskRecognition">取消</button></div><p>核对后将题目附在完整任务之后，保留你写好的活动说明、对话要求和成果要求。</p><label for="recognizedTaskText">识别出的题目与公式</label><textarea id="recognizedTaskText" rows="7"></textarea><label for="recognizedGeometryNotes">图形条件</label><textarea id="recognizedGeometryNotes" rows="3"></textarea><h3>需要核对</h3><ul id="recognizedUncertainties"></ul><div class="panel-actions right"><button type="button" class="button primary" id="applyTaskRecognition">将题目插入诊断任务</button></div></dialog>
@@ -613,6 +642,8 @@
   <dialog id="taskWebLinkDialog" class="task-math-dialog" aria-labelledby="taskWebLinkTitle"><form id="taskWebLinkForm"><div class="task-dialog-heading"><h2 id="taskWebLinkTitle">添加网页链接</h2><button type="button" class="button" id="taskWebLinkCancel">取消</button></div><label>网页地址<input id="taskWebLinkUrl" type="url" maxlength="2000" placeholder="https://" required></label><label>标题（选填）<input id="taskWebLinkName" maxlength="180"></label><label>网页内容（选填）<textarea id="taskWebLinkContent" rows="3" maxlength="12000" placeholder="如需AI分析网页内容，可粘贴相关正文"></textarea></label><div class="panel-actions right"><button type="submit" class="button primary">添加</button></div></form></dialog>
   <script src="task-editor.js?v=20261027-role-save-v1"></script>
   <script src="role-knowledge.js?v=20261027-concise-v1"></script>
-  <script src="app.js?v=20261027-classroom-qa-v1"></script>
+  <dialog id="goalPathGuideDialog" class="goal-path-guide-dialog" aria-labelledby="goalPathGuideTitle"><header class="goal-guide-dialog-heading"><h2 id="goalPathGuideTitle"></h2><button type="button" class="button small" data-close-goal-guide aria-label="关闭设计帮助" autofocus>关闭</button></header><div id="goalPathGuideBody"></div></dialog>
+  <script src="goal-path-guides.js?v=20261101-concise-v1"></script>
+  <script src="app.js?v=20261103-adopt-intent-v1"></script>
 </body>
 </html>
