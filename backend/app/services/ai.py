@@ -370,6 +370,94 @@ def _post_json(url: str, body: dict[str, Any], api_key: str, timeout: int = 120,
             raise RuntimeError("模型回复传输中断，请重新生成报告；本次未保存不完整报告") from error
 
 
+def _rubric_transport_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Keep shape constraints small; the original schema remains authoritative."""
+    def shape(node: dict, depth: int = 0) -> dict:
+        if depth > 32:
+            raise ValueError('量规结构嵌套过深')
+        if '$ref' in node:
+            if not node['$ref'].startswith('#/'):
+                raise ValueError('量规仅支持本地结构引用')
+            return {'$ref': node['$ref']}
+        result = {}
+        kind = node.get('type')
+        if kind is None:
+            example = node.get('const', (node.get('enum') or [None])[0])
+            kind = 'string' if isinstance(example, str) else None
+        if kind is not None:
+            result['type'] = kind
+        if 'properties' in node:
+            result['properties'] = {key: shape(value, depth + 1) for key, value in node['properties'].items()}
+            result['additionalProperties'] = False
+        if 'required' in node:
+            result['required'] = node['required']
+        if 'items' in node:
+            result['items'] = shape(node['items'], depth + 1)
+        return result
+    result = shape(schema)
+    if '$defs' in schema:
+        result['$defs'] = {key: shape(value) for key, value in schema['$defs'].items()}
+    return result
+
+
+def _rubric_format_rejected(error: Exception) -> bool:
+    message = str(error).lower()
+    if not re.search(r'模型请求失败（(?:400|422)）', message):
+        return False
+    return ('compiled grammar is too large' in message or
+            ('grammar' in message and ('too complex' in message or 'complexity' in message)) or
+            (any(word in message for word in ('response_format', 'json_schema', 'json schema', 'structured output'))
+             and any(word in message for word in ('not supported', 'unsupported', 'not available'))))
+
+
+def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
+                           output_name: str, instruction_suffix: str) -> dict:
+    """At most four requests: two format fallbacks and one validation repair."""
+    body = {
+        'model': settings.ai_model, 'max_tokens': 16000, 'stream': False,
+        'messages': [
+            {'role': 'system', 'content': _skill_runtime_instructions(skill) + instruction_suffix +
+             '\n只输出完整JSON对象。以下完整规则用于平台校验，所有必填字段和教学要求都必须满足：\n' +
+             json.dumps(schema, ensure_ascii=False)},
+            {'role': 'user', 'content': '请根据以下输入生成量规JSON：\n' + json.dumps(payload, ensure_ascii=False)},
+        ],
+        'response_format': {'type': 'json_schema', 'json_schema': {
+            'name': output_name, 'strict': False, 'schema': _rubric_transport_schema(schema)}},
+    }
+    deadline, mode, repaired = time.monotonic() + 180, 0, False
+    for _ in range(4):
+        remaining = deadline - time.monotonic()
+        if remaining <= 1:
+            raise RuntimeError('量规生成及格式修正已超时，原量规已保留，请稍后重试')
+        try:
+            response = _post_json(f'{settings.ai_base_url}/chat/completions', body, settings.ai_api_key,
+                                  timeout=min(120, remaining), purpose=skill.key)
+        except RuntimeError as error:
+            if mode < 2 and _rubric_format_rejected(error):
+                mode += 1
+                if mode == 1:
+                    body['response_format'] = {'type': 'json_object'}
+                else:
+                    body.pop('response_format', None)
+                continue
+            raise
+        text = ''
+        try:
+            text = _extract_chat_completion_text(response)
+            result = _parse_structured_json(text, schema)
+            validate_task_rubric(skill, result, require_complete=True)
+            return result
+        except (ValueError, RuntimeError) as error:
+            if repaired:
+                raise RuntimeError('量规输出校验及一次修正仍未通过，原量规已保留，请重试') from error
+            repaired = True
+            body['messages'] += [
+                {'role': 'assistant', 'content': text[:48000] or '（未返回有效JSON）'},
+                {'role': 'user', 'content': '请修正以下校验问题，重新输出完整量规JSON，不降低原规则要求：\n' + str(error)[:1200]},
+            ]
+    raise RuntimeError('量规生成已达到格式兼容及修正次数上限，原量规已保留，请重试')
+
+
 def _run_deepseek_structured_skill(
     skill: SkillDefinition,
     payload: dict[str, Any],
@@ -431,6 +519,8 @@ def _run_structured_skill(
         raise RuntimeError(f"真实模型尚未配置 {key_name} 或 AI_MODEL")
     schema_path = skill.path.parent / "assets" / schema_filename
     schema = schema_override or json.loads(schema_path.read_text(encoding="utf-8"))
+    if provider == 'openrouter' and skill.key == 'solo_task_rubric_builder':
+        return _run_rubric_compatible(skill, payload, schema, output_name, instruction_suffix)
     if provider in {"deepseek", "openrouter"}:
         return _run_deepseek_structured_skill(skill, payload, schema, output_name, instruction_suffix, provider)
     body = json.dumps(
