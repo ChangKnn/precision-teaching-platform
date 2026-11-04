@@ -3,6 +3,7 @@
   let hooks, materials = null, busy = false, changed = false, savedRange = null, editingFormula = null;
   let dirty = false, readingDirty = false, polling = null, workspaceId = null, readingKey = '', readingImageHash = '';
   let needsWorkspaceReload = false;
+  let activeOperation = null, busyKind = '';
   let savedIdeas = '';
   const el = id => document.getElementById(id);
   const editor = el('diagnosisTaskEditor');
@@ -198,7 +199,7 @@
     }
   }
   function render() {
-    el('taskMaterialStatus').textContent = busy ? '正在保存…' : materials?.images?.length ? `已附 ${materials.images.length} 张图片` : '';
+    el('taskMaterialStatus').textContent = busy ? (busyKind === 'text' ? '正在保存文字…' : '正在处理附件…') : materials?.images?.length ? `已附 ${materials.images.length} 张图片` : '';
     el('taskImageUploadButton').disabled = busy;
     renderImages(el('taskImageGallery'), true);
     renderAttachments(el('taskFileGallery'),true);
@@ -261,11 +262,25 @@
     if (state.source_hash !== materials?.source_hash) needsWorkspaceReload = true;
     materials = state; hooks?.onMaterials(state); render();
   }
+  async function waitForIdle(id) {
+    while (activeOperation) await activeOperation;
+    if (!current(id)) throw new Error('当前精准教学已切换，请在原项目继续');
+  }
+  async function runOperation(operation, kind) {
+    const id = currentId();
+    if (!id) throw new Error('请先选择精准教学任务');
+    await waitForIdle(id);
+    // Recheck after yielding: another save may have started in the same turn.
+    while (activeOperation) await waitForIdle(id);
+    busy = true; busyKind = kind; render();
+    const task = Promise.resolve().then(() => operation(id));
+    activeOperation = task;
+    try { return await task; }
+    finally {activeOperation = null; busy = false; busyKind = ''; if (current(id)) render();}
+  }
   async function perform(operation) {
-    const id = currentId(); if (!id || busy) return;
-    busy = true; render();
-    try { await operation(id); } catch(error) { if (current(id)) notify(error.message); }
-    finally {busy = false; if (current(id)) render();}
+    try { await runOperation(operation, 'attachment'); }
+    catch(error) { notify(error.message); }
   }
   async function saveText(id) {
     if (!current(id)) throw new Error('当前精准教学已切换，请在原项目继续');
@@ -364,6 +379,8 @@
     requiresConfirmation,canonicalText,
     refreshPreview() {dirty=true;loadEditor();render();},
     async prepareAnalysis() {
+      const id = currentId();
+      await waitForIdle(id);
       if (materials?.images?.length && readingDirty) throw new Error('附件内容尚未保存，请先核对并保存识别内容');
       await saveIdeas();
       if (dirty) await this.saveDraft();
@@ -373,9 +390,7 @@
       }
     },
     async saveDraft() {
-      if (busy) throw new Error('图片正在处理，请稍后保存');
-      const id=currentId();busy=true;
-      try {await saveText(id);await hooks.reload(id);} finally {busy=false;render();}
+      await runOperation(async id => {await saveText(id);await hooks.reload(id);}, 'text');
     },
     saveGenerationIdeas: saveIdeas,
     renderPublish() {TaskMath.render(el('publishTaskPreviewText'),canonicalText(false) || '尚未填写任务内容，请返回诊断任务步骤补充。');renderImages(el('publishTaskImages'),false);renderAttachments(el('publishTaskFiles'),false);},

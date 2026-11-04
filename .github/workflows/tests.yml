@@ -38,4 +38,5 @@ jobs:
       - run: node --check frontend/admin/admin.js
       - run: node --test frontend/tests/runtime-regression.test.cjs
       - run: node --test frontend/tests/student-login.test.cjs
+      - run: node --test frontend/tests/task-save.test.cjs
       - run: node --test frontend/tests/voice-input.test.cjs

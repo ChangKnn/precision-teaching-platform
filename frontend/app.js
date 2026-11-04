@@ -4052,7 +4052,12 @@ document.addEventListener("click", async event => {
       }
     }
     if (targetStep === 3) {
-      await openRubricStep();
+      if (diagnosisStep.disabled) return;
+      const label = diagnosisStep.textContent;
+      diagnosisStep.disabled = true;
+      diagnosisStep.textContent = '正在保存，请稍候…';
+      try { await openRubricStep(); }
+      finally { diagnosisStep.disabled = false; diagnosisStep.textContent = label; }
       return;
     }
     if (targetStep === 4 && serverState.current_workspace?.rubric?.status !== "confirmed") {
