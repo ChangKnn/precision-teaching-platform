@@ -802,7 +802,7 @@ function renderStudentResultDetail(result) {
     </article>`  : report.report_kind === 'brief' ? `<article class="card individual-report-card"><h2>${escapeHTML(result.student.name)}的简短诊断</h2><p><b>SOLO：</b>${escapeHTML(report.result.diagnosis.level_name)}</p><p><b>关键依据：</b>${escapeHTML(report.result.diagnosis.rationale)}</p><p><b>主要障碍：</b>${escapeHTML(report.result.progression.main_obstacle)}</p><button class="button primary" data-generate-student-report="${escapeHTML(result.id)}">生成详细个体分析与反馈</button></article>` : `<article class="card individual-report-card">
       <div class="card-heading"><div><span class="section-kicker">个体反馈</span><h2>${escapeHTML(result.student.name)}的诊断重点</h2></div><span class="status ${reportStatusClass}">${report.provider === 'mock' ? '流程预览' : reportStatus}</span></div>
       <div class="individual-feedback-overview">${renderIndividualFeedbackOverview(report)}</div>
-      <details class="student-facing-card"><summary>预览学生反馈</summary><div class="student-feedback-preview-body"><textarea id="studentFeedbackEditor" rows="14" aria-label="学生反馈内容">${escapeHTML(report.student_feedback_text || "")}</textarea><button class="button" id="saveStudentFeedback">保存学生反馈</button></div></details>
+      <details class="student-facing-card" open><summary>详细个体分析与学生反馈</summary><div class="student-feedback-preview-body"><textarea id="studentFeedbackEditor" rows="14" aria-label="学生反馈内容">${escapeHTML(report.student_feedback_text || "")}</textarea><button class="button" id="saveStudentFeedback">保存学生反馈</button></div></details>
       <div class="report-footer"><span class="autosave-state" id="feedbackAutosaveState">${report._saveError ? "保存失败，请再次编辑重试" : report._saving ? "正在自动保存…" : report.status === "stale" ? "上游内容已变化" : "已保存"}</span><div><button class="button" data-generate-student-report="${escapeHTML(result.id)}">重新生成</button><button class="button primary" id="pushStudentFeedback" data-report-status="${report.status === "confirmed" ? "pushed" : "confirmed"}" ${report.provider === "mock" || report.status === "stale" || report.status === "pushed" || report._saveError || report._saving ? "disabled" : ""}>${report.provider === "mock" ? "Mock 报告不可确认" : report.status === "confirmed" ? "推送给学生" : report.status === "pushed" ? "已推送" : "确认报告"}</button></div></div>
     </article>`;
   panel.innerHTML = `<article class="card learning-record-card">
@@ -815,6 +815,12 @@ function renderStudentResultDetail(result) {
     </section>
     <section class="submitted-work"><div class="record-section-heading"><div><h3>最终作答文本</h3><p>${result.submitted_text ? "学生提交的成果原文。" : "学生未填写，可依据对话记录继续分析。"}</p></div></div>${submittedWork}</section>
   </article>${reportCard}${renderCustomIndividualReport(result)}`;
+  if (result._generating) {
+    panel.querySelectorAll('[data-generate-student-report]').forEach(button => {
+      button.disabled = true;
+      button.textContent = '正在生成详细反馈，请稍候…';
+    });
+  }
   window.TaskMath.typeset(panel);
 }
 
@@ -4332,16 +4338,22 @@ document.addEventListener("click", async event => {
   const generateStudentReportButton = event.target.closest("[data-generate-student-report]");
   if (generateStudentReportButton) {
     const result = (serverState.studentResults?.results || []).find(item => item.id === generateStudentReportButton.dataset.generateStudentReport);
-    if (!result) return;
+    if (!result || result._generating) return;
+    result._generating = true;
     generateStudentReportButton.disabled = true;
     generateStudentReportButton.textContent = "正在生成…";
     try {
       await generateReportForResult(result);
+      result._generating = false;
       await loadStudentResults(serverState.current_teaching_id);
+      showToast('详细个体分析与反馈已生成', '可在展开的详细反馈中查看和编辑。');
+      if (currentStudentResult()?.id === result.id) {
+        document.getElementById('studentFeedbackEditor')?.scrollIntoView({behavior:'smooth',block:'center'});
+      }
     } catch (error) {
+      result._generating = false;
       showToast(`报告生成失败：${error.message}`);
-      generateStudentReportButton.disabled = false;
-      generateStudentReportButton.textContent = result.report ? "重新生成" : "生成报告";
+      if (currentStudentResult()?.id === result.id) renderStudentResultDetail(result);
     }
     return;
   }
