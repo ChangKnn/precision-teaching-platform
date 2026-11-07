@@ -446,6 +446,8 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
         'response_format': {'type': 'json_schema', 'json_schema': {
             'name': output_name, 'strict': False, 'schema': _rubric_transport_schema(schema)}},
     }
+    if skill.key == 'solo_class_diagnosis_intervention' and settings.ai_model.startswith('anthropic/claude-haiku-5.5'):
+        body['max_tokens'] = 32000
     deadline, mode, repaired = time.monotonic() + 180, 0, False
     for _ in range(4):
         remaining = deadline - time.monotonic()
@@ -468,6 +470,8 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
             text = _extract_chat_completion_text(response)
             result = _parse_structured_json(text, schema)
             if is_rubric:
+                from .compact_outputs import expand_rubric
+                result = expand_rubric(result)
                 validate_task_rubric(skill, result, require_complete=True)
             if output_name == 'student_brief':
                 _validate_student_brief_evidence(result, payload)
@@ -730,14 +734,18 @@ def run_class_diagnosis_report(
     if provider == "mock":
         raise RuntimeError("班级诊断需要真实模型；Mock AI 不生成正式班级报告")
     schema = json.loads((skill.path.parent / "assets/class-diagnosis-output.schema.json").read_text(encoding="utf-8"))
+    from .compact_outputs import class_transport_schema, expand_class
     result = _run_structured_skill(
         skill, payload, "class-diagnosis-output.schema.json", "solo_class_diagnosis",
-        provider, instruction_suffix=(
+        provider, schema_override=class_transport_schema(schema), instruction_suffix=(
             "\n\n只返回符合 Schema 的班级结构化分析，不额外生成文字报告。"
             "教师页面与导出报告由平台根据这些字段排版。"
             "只能引用输入中的个体诊断，不得重新定级，也不要设计具体课堂活动。"
+            "本轮不输出class_summary、traceability或level_analyses内的students/count；这些统计和完整名单由程序据全体输入生成。其他字段保持完整但简洁，每层只选1—2条典型证据，避免重复复述。"
         ),
     )
+    if payload.get('student_diagnosis_results'):
+        result = expand_class(result, payload)
     try:
         import jsonschema
     except ImportError as error:
@@ -924,23 +932,26 @@ def run_skill(skill: SkillDefinition, payload: dict[str, Any], provider: str) ->
             raise RuntimeError(f"当前干预设计尚未配置 Provider：{provider}")
         return _design_intervention(payload)
     if skill.key == "solo_task_rubric_builder":
+        from .compact_outputs import RUBRIC_SCHEMA, expand_rubric
         intent = payload.get('diagnostic_task_design_intent')
         if not isinstance(intent, str) or not intent.strip():
             raise ValueError('生成 SOLO 分析标准前请补充诊断任务设计意图。')
         result = _mock_task_rubric(payload) if provider == "mock" else _run_structured_skill(
             skill, payload, "task-specific-solo-rubric.schema.json", "solo_task_rubric", provider,
+            schema_override=RUBRIC_SCHEMA,
             instruction_suffix=(
                 "\n教师界面将 core_performance 显示为主要认知特征，decision_evidence 显示为学生表现，"
                 "typical_expressions 显示为示例。typical_expressions 中只写符合当前具体任务的假想学生表达，"
                 "先依据内置通用SOLO标准确定边界，任务分析只保留必要内容与关系，不强制枚举要素和路径。"
-                "全部 levels 自然语言字段禁止内部要素、关系、路径或锚点编号；编号仅可出现在 task_analysis 定位字段和 trace_to。"
+                "只输出五级levels的三栏和必要notes；不得输出任务拆解、编号、追溯字段或来源版本信息。"
                 "使用学生第一人称的实际句子，不写层级定义、判定提醒、边界说明或真实学生诊断；"
-                "层级边界和限制仍分别保留在 adjacent_boundaries、limitations 字段。"
+                "相邻层级边界融入学生表现，任务观察限制只写notes。"
                 "五级 status 均为 defined；每级 core_performance、decision_evidence、typical_expressions 必须有具体内容，任何一栏不得留空。"
                 "即使任务未主动要求概括或迁移，也要定义学生自主展示该结构时的标准及假想示例，不增加原题隐藏要求。"
                 "不得在表格标准中使用‘当前任务难以引出’或以任务未要求替代学生表现；观察机会限制只写备注，不能作为学生定级上限。"
             ),
         )
+        result = expand_rubric(result)
         validate_task_rubric(skill, result, require_complete=True)
         return result
     if skill.key == "solo_student_diagnosis_feedback":

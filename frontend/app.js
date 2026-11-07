@@ -2128,6 +2128,10 @@ function fitRubricColumns() {
 function rubricObservationText(record) {
   if (!record?.rubric || record.status==='stale' || record.provider==='teacher') return '';
   const rubric=record.rubric;
+  if (!rubric.task_analysis && rubric.usage_notes?.boundary_risks) {
+    const notes=(rubric.usage_notes?.boundary_risks || []).filter(note=>typeof note==='string' && note.trim());
+    return notes.length ? `备注：${notes.join('；')}` : '';
+  }
   const levels=Object.keys(rubricLevelNames);
   const affordance=rubric.task_analysis?.task_affordance || {};
   const highest=levels.indexOf(affordance.highest_reasonably_elicitable_level);

@@ -7,7 +7,6 @@
   "required": [
     "schema_version",
     "source_basis",
-    "task_analysis",
     "levels",
     "usage_notes"
   ],

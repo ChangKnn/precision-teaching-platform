@@ -5,6 +5,13 @@ from dataclasses import replace
 from unittest.mock import patch
 
 from backend.app.services import ai
+from backend.app.services.compact_outputs import class_transport_schema
+def compact(value):
+    result=copy.deepcopy(value)
+    result.pop("class_summary",None);result.pop("traceability",None)
+    for row in result["level_analyses"]:
+        row.pop("students",None);row.pop("count",None)
+    return result
 from backend.app.services.skills import load_skill
 
 
@@ -13,10 +20,10 @@ class ClassReportFormatRecoveryTest(unittest.TestCase):
         skill=load_skill('solo_class_diagnosis_intervention')
         sample=json.loads((skill.path.parent/'tests/sample-output.json').read_text(encoding='utf-8'))
         responses=[{'choices':[{'message':{'content':'{"class_summary":'},'finish_reason':'length'}]},
-                   {'choices':[{'message':{'content':json.dumps(sample,ensure_ascii=False)}}]}]
+                   {'choices':[{'message':{'content':json.dumps(compact(sample),ensure_ascii=False)}}]}]
         with patch.object(ai,'settings',replace(ai.settings,ai_api_key='test-key',ai_model='test-model')), patch.object(ai,'_post_json',side_effect=responses) as post:
-            result,_=ai.run_class_diagnosis_report(skill,{},'openrouter')
-        self.assertEqual(result,sample)
+            result,_=ai.run_class_diagnosis_report(skill,json.loads((skill.path.parent/'tests/sample-input.json').read_text()),'openrouter')
+        self.assertEqual(result["overall_diagnosis"],sample["overall_diagnosis"])
         messages=post.call_args_list[1].args[1]['messages']
         self.assertFalse(any(message['role']=='assistant' for message in messages))
         self.assertIn('重新生成一个完整JSON',messages[-1]['content'])
@@ -27,7 +34,7 @@ class ClassReportFormatRecoveryTest(unittest.TestCase):
         response = {'choices':[{'message':{'content':json.dumps({'student':secret})}}]}
         with patch.object(ai,'settings',replace(ai.settings,ai_api_key='test-key',ai_model='test-model')), patch.object(ai,'_post_json',return_value=response):
             with self.assertRaises(RuntimeError) as error:
-                ai.run_class_diagnosis_report(skill,{},'openrouter')
+                ai.run_class_diagnosis_report(skill,json.loads((skill.path.parent/'tests/sample-input.json').read_text()),'openrouter')
         self.assertIn('格式规则',str(error.exception))
         self.assertNotIn(secret,str(error.exception))
 
@@ -49,10 +56,10 @@ class ClassReportFormatRecoveryTest(unittest.TestCase):
             calls.append(copy.deepcopy(body))
             if len(calls) == 1:
                 raise RuntimeError('模型请求失败（400）：The compiled grammar is too large')
-            return {'choices':[{'message':{'content':json.dumps(sample,ensure_ascii=False)}}]}
+            return {'choices':[{'message':{'content':json.dumps(compact(sample),ensure_ascii=False)}}]}
         with patch.object(ai,'settings',replace(ai.settings,ai_api_key='test-key',ai_model='test-model')), patch.object(ai,'_post_json',side_effect=post):
-            result, text = ai.run_class_diagnosis_report(skill,{},'openrouter')
-        self.assertEqual(result,sample)
+            result, text = ai.run_class_diagnosis_report(skill,json.loads((skill.path.parent/'tests/sample-input.json').read_text()),'openrouter')
+        self.assertEqual(result["overall_diagnosis"],sample["overall_diagnosis"])
         self.assertIsNone(text)
         self.assertEqual(calls[1]['response_format'],{'type':'json_object'})
 
@@ -60,5 +67,5 @@ class ClassReportFormatRecoveryTest(unittest.TestCase):
         skill = load_skill('solo_class_diagnosis_intervention')
         with patch.object(ai,'settings',replace(ai.settings,ai_api_key='test-key',ai_model='test-model')), patch.object(ai,'_post_json',side_effect=RuntimeError('模型请求失败（401）：bad key')) as post:
             with self.assertRaisesRegex(RuntimeError,'401'):
-                ai.run_class_diagnosis_report(skill,{},'openrouter')
+                ai.run_class_diagnosis_report(skill,json.loads((skill.path.parent/'tests/sample-input.json').read_text()),'openrouter')
             self.assertEqual(post.call_count,1)
