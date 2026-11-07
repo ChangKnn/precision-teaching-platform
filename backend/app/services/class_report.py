@@ -51,7 +51,7 @@ def recover_interrupted_class_reports() -> int:
     """
     with _task_lock:
         rows = fetch_all(
-            "SELECT teaching_id, classroom_id, source_hash FROM class_diagnosis_reports WHERE status IN ('queued', 'running')"
+            "SELECT teaching_id, classroom_id, source_hash FROM class_diagnosis_reports WHERE status IN ('preparing', 'queued', 'running')"
         )
         orphaned = [row for row in rows if _task_key(row["teaching_id"], row["classroom_id"]) not in _report_tasks]
         active_tokens = {task.token for task in _report_tasks.values()} | set(_running_tasks.values())
@@ -66,7 +66,7 @@ def recover_interrupted_class_reports() -> int:
         with database() as connection:
             for row in orphaned:
                 connection.execute(
-                    "UPDATE class_diagnosis_reports SET status = 'failed', error = ?, updated_at = ? WHERE teaching_id = ? AND classroom_id = ? AND status IN ('queued', 'running')",
+                    "UPDATE class_diagnosis_reports SET status = 'failed', error = ?, updated_at = ? WHERE teaching_id = ? AND classroom_id = ? AND status IN ('preparing', 'queued', 'running')",
                     (_INTERRUPTED, now, row["teaching_id"], row["classroom_id"]),
                 )
             for job_id in interrupted_jobs:
@@ -95,6 +95,10 @@ def class_report_input(teaching_id: str, classroom_id: str) -> tuple[dict | None
         (teaching_id, classroom_id),
     )
     if not rows:
+        return None, None, {}
+    submitted_ids = {row['student_id'] for row in fetch_all('''SELECT sts.student_id FROM student_task_sessions sts
+        JOIN students s ON s.id=sts.student_id WHERE sts.teaching_id=? AND s.classroom_id=? AND sts.status='submitted' ''', (teaching_id,classroom_id))}
+    if {row['student_id'] for row in rows} != submitted_ids:
         return None, None, {}
     results = [json.loads(row["generated_json"]) for row in rows]
     names = {row["student_id"]: row["student_name"] for row in rows}
@@ -464,7 +468,7 @@ def generate_class_report(
             try:
                 with database() as connection:
                     connection.execute(
-                        "UPDATE class_diagnosis_reports SET status = 'failed', error = ?, updated_at = ? WHERE teaching_id = ? AND classroom_id = ? AND source_hash = ? AND updated_at = ? AND status IN ('queued', 'running')",
+                        "UPDATE class_diagnosis_reports SET status = 'failed', error = ?, updated_at = ? WHERE teaching_id = ? AND classroom_id = ? AND source_hash = ? AND updated_at = ? AND status IN ('preparing', 'queued', 'running')",
                         (str(error)[:1000], utc_now(), teaching_id, classroom_id, expected_hash, task.stamp),
                     )
             finally:

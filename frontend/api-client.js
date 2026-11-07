@@ -256,8 +256,8 @@ window.PlatformAPI = {
     });
   },
 
-  generateStudentReport(sessionId) {
-    return this.request(`/api/student-results/${encodeURIComponent(sessionId)}/report/generate`, {
+  generateStudentReport(sessionId, lightweight = false) {
+    return this.request(`/api/student-results/${encodeURIComponent(sessionId)}/report/generate${lightweight ? '?lightweight=true' : ''}`, {
       method: "POST"
     });
   },

@@ -799,7 +799,7 @@ function renderStudentResultDetail(result) {
   const reportCard = !report ? `<article class="card individual-report-card report-empty-card">
       <div class="card-heading"><div><span class="section-kicker">2 · 个体反馈报告</span><h2>${escapeHTML(result.student.name)}的个体反馈报告</h2><p>依据已确认量规和完整会话${result.submitted_text ? "，结合文字成果" : ""}生成。</p></div><span class="status neutral">尚未生成</span></div>
       <div class="stage-empty-state"><span>SOLO 个体诊断</span><h2>生成学生报告</h2>${rubricReady ? "" : '<p>请先返回诊断设计，在“分析标准”步骤确认当前任务量规。</p>'}<button class="button primary" data-generate-student-report="${escapeHTML(result.id)}" ${rubricReady ? "" : "disabled"}>${rubricReady ? "生成报告" : "等待量规确认"}</button></div>
-    </article>` : `<article class="card individual-report-card">
+    </article>`  : report.report_kind === 'brief' ? `<article class="card individual-report-card"><h2>${escapeHTML(result.student.name)}的简短诊断</h2><p><b>SOLO：</b>${escapeHTML(report.result.diagnosis.level_name)}</p><p><b>关键依据：</b>${escapeHTML(report.result.diagnosis.rationale)}</p><p><b>主要障碍：</b>${escapeHTML(report.result.progression.main_obstacle)}</p><button class="button primary" data-generate-student-report="${escapeHTML(result.id)}">生成详细个体分析与反馈</button></article>` : `<article class="card individual-report-card">
       <div class="card-heading"><div><span class="section-kicker">个体反馈</span><h2>${escapeHTML(result.student.name)}的诊断重点</h2></div><span class="status ${reportStatusClass}">${report.provider === 'mock' ? '流程预览' : reportStatus}</span></div>
       <div class="individual-feedback-overview">${renderIndividualFeedbackOverview(report)}</div>
       <details class="student-facing-card"><summary>预览学生反馈</summary><div class="student-feedback-preview-body"><textarea id="studentFeedbackEditor" rows="14" aria-label="学生反馈内容">${escapeHTML(report.student_feedback_text || "")}</textarea><button class="button" id="saveStudentFeedback">保存学生反馈</button></div></details>
@@ -883,12 +883,12 @@ function renderClassReport(payload) {
   const report = payload.class_reports?.[ui.activeClassroomId];
   const panel = document.getElementById("classEvidencePanel");
   if (!classrooms.length || !report) {
-    panel.innerHTML = '<article class="card stage-empty-state"><span>等待个体报告</span><h2>尚无班级 SOLO 诊断报告</h2><p>学生提交成果并生成个体报告后，这里会自动汇总更新。</p></article>' + renderCustomClassReport(payload);
+    panel.innerHTML = '<article class="card stage-empty-state"><span>全体已提交学生分析</span><h2>生成班级 SOLO 诊断报告</h2><p>先并行生成每名学生的简短诊断，再汇总班级报告；无需先生成详细个体反馈。</p><button class="button primary" id="retryClassReport">分析全体已提交学生并生成班级报告</button></article>' + renderCustomClassReport(payload);
     return;
   }
-  const stateText = { queued: "等待生成", running: "正在生成", failed: "生成失败", ready: "AI 初判 · 教师核对" }[report.status] || "等待生成";
+  const stateText = { preparing: "正在分析全体已提交学生", queued: "等待生成", running: "正在生成", failed: "生成失败", ready: "AI 初判 · 教师核对" }[report.status] || "等待生成";
   if (!report.result) {
-    panel.innerHTML = `<article class="card stage-empty-state"><span>SOLO 班级分析</span><h2>${stateText}</h2><p>${report.error ? escapeHTML(report.error) : "基于已有学生个体报告，正在汇总班级思维结构与教学决策依据。"}</p>${report.status === "failed" ? '<button class="button primary" id="retryClassReport">重新生成班级报告</button>' : ""}</article>` + renderCustomClassReport(payload);
+    panel.innerHTML = `<article class="card stage-empty-state"><span>SOLO 班级分析</span><h2>${stateText}</h2><p>${report.error ? escapeHTML(report.error) : "正在准备全部已提交学生的诊断并汇总班级报告；失败项目可重试，已成功结果会复用。"}</p>${report.status === "failed" ? '<button class="button primary" id="retryClassReport">重新生成班级报告</button>' : ""}</article>` + renderCustomClassReport(payload);
     return;
   }
   const data = report.result;
@@ -908,7 +908,7 @@ function renderClassReport(payload) {
   panel.innerHTML = `<article class="card class-report-card">
     <div class="card-heading"><div><span class="section-kicker">班级诊断 · ${data.class_summary.total_students} 份个体报告</span><h2>班级学生思维结构情况</h2></div><span class="status ${report.status === "ready" ? "warning" : "neutral"}">${stateText}</span></div>
     ${report.status === "failed" ? `<p class="class-report-warning">本次自动更新失败：${escapeHTML(report.error || "未知错误")}。下方为上一次报告。</p><button class="button" id="retryClassReport">重新生成</button>` : ""}
-    ${["queued", "running"].includes(report.status) ? '<p class="class-report-warning">正在更新报告；下方暂显示上一版本。</p>' : ""}
+    ${["preparing", "queued", "running"].includes(report.status) ? '<p class="class-report-warning">正在更新报告；下方暂显示上一版本。</p>' : ""}
     <div class="class-distribution">${distribution.map(item => `<section class="solo-step level-${item.level.toLowerCase()}"><header><span>${item.level}</span><b>${escapeHTML(item.level_name)}</b><strong>${item.count} 人 · ${Math.round(item.proportion * 100)}%</strong></header><p>${studentNames(item.students)}</p><small>${escapeHTML(item.level_meaning)}</small></section>`).join("")}</div>
     <p class="solo-note">SOLO 层级只表示学生在本次任务中的思维结构，不是固定能力标签。</p>
   </article>
@@ -936,7 +936,7 @@ function renderStudentResults(payload) {
   }
   ui.activeStudentResultIndex = Math.min(ui.activeStudentResultIndex, results.length - 1);
   const rubricReady = results.some(result => result.task_rubric_confirmed ?? (serverState.current_workspace?.rubric?.status === "confirmed"));
-  studentPanel.innerHTML = `<div class="card student-feedback-toolbar"><div><b>个体报告生成</b><span>${generatedCount}/${results.length} 份已生成 · ${pushableCount} 份已确认待推送</span></div><div class="student-feedback-actions"><button class="button" id="generateAllStudentReports" ${rubricReady ? "" : "disabled"}>${rubricReady ? "生成全部待分析报告" : "请先确认任务量规"}</button>${serverState.current_workspace?.custom_analysis_standard?.individual_enabled ? '<button class="button" id="generateAllCustomReports">生成全部个人补充反馈</button>' : ""}<button class="button primary" id="pushConfirmedStudentReports" ${pushableCount ? "" : "disabled"}>一键推送已确认报告</button></div></div><div class="student-review-layout">
+  studentPanel.innerHTML = `<div class="card student-feedback-toolbar"><div><b>个体诊断与按需反馈</b><span>${generatedCount}/${results.length} 份已生成 · ${pushableCount} 份已确认待推送</span></div><div class="student-feedback-actions"><button class="button" id="generateAllStudentReports" ${rubricReady ? "" : "disabled"}>${rubricReady ? "生成全部简短诊断" : "请先确认任务量规"}</button>${serverState.current_workspace?.custom_analysis_standard?.individual_enabled ? '<button class="button" id="generateAllCustomReports">生成全部个人补充反馈</button>' : ""}<button class="button primary" id="pushConfirmedStudentReports" ${pushableCount ? "" : "disabled"}>一键推送已确认报告</button></div></div><div class="student-review-layout">
     <aside class="card student-list" id="studentResultList"><div class="list-header"><b>${results.length} 名学生</b><span>学生提交</span></div>${results.map((result, index) => `<button class="${index === ui.activeStudentResultIndex ? "active" : ""}" data-result-index="${index}"><span><b>${escapeHTML(result.student.name)}</b><small class="student-result-meta"><span class="student-solo-label">${escapeHTML(studentSOLOLabel(result.report))}</span><span title="按学生发言次数统计">对话 ${result.messages.filter(message => message.role === 'student').length} 次</span><span>${result.submitted_text?.trim() ? '成果已交' : '成果未交'}</span></small></span><em>${result.report?.provider === 'mock' ? '预览' : result.report ? ({ draft: "待确认", confirmed: "已确认", pushed: "已推送", stale: "需重生成" }[result.report.status]) : "待生成"}</em></button>`).join("")}</aside>
     <div class="student-review-main" id="studentResultDetail"></div>
   </div>`;
@@ -1640,8 +1640,8 @@ function currentStudentResult() {
   )[ui.activeStudentResultIndex] || null;
 }
 
-async function generateReportForResult(result, { rerender = true } = {}) {
-  const payload = await window.PlatformAPI.generateStudentReport(result.id);
+async function generateReportForResult(result, { rerender = true, lightweight = false } = {}) {
+  const payload = await window.PlatformAPI.generateStudentReport(result.id, lightweight);
   result.report = payload.report;
   if (rerender) renderStudentResults(serverState.studentResults);
   return payload.report;
@@ -4355,7 +4355,7 @@ document.addEventListener("click", async event => {
     try {
       for (const result of pending) {
         button.textContent = `正在生成 ${completed + 1}/${pending.length}`;
-        await generateReportForResult(result, { rerender: false });
+        await generateReportForResult(result, { rerender: false, lightweight: true });
         completed += 1;
       }
       renderStudentResults(serverState.studentResults);
@@ -5013,7 +5013,7 @@ initializeTeacherAuth();
 window.setInterval(() => {
   if (ui.currentPage !== "feedback" || !document.querySelector('[data-feedback-tab="class"]').classList.contains("active")) return;
   const report = serverState?.studentResults?.class_reports?.[ui.activeClassroomId];
-  if (report && ["queued", "running"].includes(report.status) && serverState.current_teaching_id) {
+  if (report && ["preparing", "queued", "running"].includes(report.status) && serverState.current_teaching_id) {
     loadStudentResults(serverState.current_teaching_id);
   }
 }, 7000);

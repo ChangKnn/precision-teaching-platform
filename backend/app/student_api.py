@@ -355,6 +355,7 @@ def serialize_student_report(session_id: str) -> dict | None:
         return None
     return {
         "session_id": report["session_id"],
+        "report_kind": report.get('report_kind', 'detailed'),
         "skill_key": report["skill_key"],
         "skill_version": report["skill_version"],
         "provider": report["provider"],
@@ -837,7 +838,9 @@ def student_results(teaching_id: str, background_tasks: BackgroundTasks) -> dict
     )
     class_reports = {}
     for classroom in classrooms:
-        class_reports[classroom["id"]] = queue_class_report(teaching_id, classroom["id"], background_tasks)
+        from .services.class_report import report_row
+        existing_class = report_row(teaching_id, classroom['id'])
+        class_reports[classroom['id']] = existing_class if existing_class and existing_class['status'] == 'preparing' else queue_class_report(teaching_id, classroom["id"], background_tasks)
     custom_class_reports = {
         classroom["id"]: custom_report_for(teaching_id, "class", classroom["id"])
         for classroom in classrooms
@@ -855,10 +858,8 @@ def regenerate_class_report(teaching_id: str, classroom_id: str, background_task
     )
     if not assignment:
         raise HTTPException(status_code=404, detail="该精准教学未发布到所选班级")
-    report = queue_class_report(teaching_id, classroom_id, background_tasks, force=True)
-    if not report:
-        raise HTTPException(status_code=409, detail="该班级还没有可用的学生个体报告")
-    return {"report": report}
+    from .services.class_analysis import prepare_class
+    return prepare_class(teaching_id, classroom_id, background_tasks)
 
 
 def build_student_diagnosis_input(session_id: str) -> tuple[dict, dict]:
@@ -920,7 +921,13 @@ def build_student_diagnosis_input(session_id: str) -> tuple[dict, dict]:
 
 
 @router.post("/student-results/{session_id}/report/generate")
-def generate_student_report(session_id: str, background_tasks: BackgroundTasks) -> dict:
+def generate_student_report(session_id: str, background_tasks: BackgroundTasks, lightweight: bool = False) -> dict:
+    from .services.class_analysis import student_lock
+    with student_lock(session_id):
+        return _generate_student_report(session_id, background_tasks, lightweight)
+
+
+def _generate_student_report(session_id: str, background_tasks: BackgroundTasks, lightweight: bool = False) -> dict:
     skill = load_skill("solo_student_diagnosis_feedback")
     payload, context = build_student_diagnosis_input(session_id)
     try:
@@ -932,6 +939,10 @@ def generate_student_report(session_id: str, background_tasks: BackgroundTasks) 
         raise HTTPException(status_code=422, detail=f"学生报告输入校验失败：{error}") from error
     input_json = json.dumps(payload, ensure_ascii=False, sort_keys=True)
     input_hash = hashlib.sha256(input_json.encode("utf-8")).hexdigest()
+    if lightweight:
+        cached = fetch_one('SELECT * FROM student_diagnosis_reports WHERE session_id=?', (session_id,))
+        if cached and cached['input_hash'] == input_hash and cached['status'] != 'stale' and cached['provider'] != 'mock':
+            return {'report': serialize_student_report(session_id)}
     job_id = f"job-{uuid4().hex}"
     created_at = utc_now()
     with database() as connection:
@@ -944,7 +955,22 @@ def generate_student_report(session_id: str, background_tasks: BackgroundTasks) 
             (job_id, skill.key, skill.version, settings.ai_provider, input_json, created_at),
         )
     try:
-        result, report_text, student_feedback_text = run_student_diagnosis_report(skill, payload, settings.ai_provider)
+        if lightweight:
+            from .services.ai import run_student_brief
+            result, report_text, student_feedback_text = run_student_brief(skill, payload, settings.ai_provider)
+        else:
+            cached = fetch_one('SELECT * FROM student_diagnosis_reports WHERE session_id=?', (session_id,))
+            if cached and cached.get('report_kind') == 'brief' and cached['input_hash'] == input_hash and cached['status'] != 'stale' and cached['provider'] != 'mock':
+                from .services.ai import _run_structured_skill
+                result = json.loads(cached['generated_json'])
+                feedback = _run_structured_skill(skill, {**payload, 'verified_diagnosis': result},
+                    'diagnosis-output.schema.json', 'student_feedback', settings.ai_provider,
+                    schema_override={'type':'object','additionalProperties':False,'required':['feedback'],
+                        'properties':{'feedback':{'type':'string','minLength':500,'maxLength':4000}}},
+                    instruction_suffix='本次仅将verified_diagnosis扩展为面向学生的详细反馈，约800—1500字；保留已核验层级、证据及障碍，结合原话解释具体问题和可执行建议，不重新定级，不套用SOLO模板。只返回feedback字段。')
+                report_text, student_feedback_text = cached['report_text'], feedback['feedback']
+            else:
+                result, report_text, student_feedback_text = run_student_diagnosis_report(skill, payload, settings.ai_provider)
         report_text = report_text.replace(payload["student"]["student_name"], context["student_name"])
         completed_at = utc_now()
         output_json = json.dumps(result, ensure_ascii=False)
@@ -981,10 +1007,12 @@ def generate_student_report(session_id: str, background_tasks: BackgroundTasks) 
                 (session_id, context["teaching_id"], skill.key, skill.version, settings.ai_provider,
                  input_hash, output_json, report_text, student_feedback_text, completed_at, completed_at),
             )
+            connection.execute('UPDATE student_diagnosis_reports SET report_kind=? WHERE session_id=?',
+                               ('brief' if lightweight else 'detailed', session_id))
         write_audit("generate", "student_diagnosis_report", session_id, {"job_id": job_id, "skill": skill.key})
         refresh_feedback_counts(context["teaching_id"])
         classroom = fetch_one("SELECT classroom_id FROM students WHERE id = ?", (context["student_id"],))
-        if classroom:
+        if classroom and not lightweight:
             try:
                 queue_class_report(context["teaching_id"], classroom["classroom_id"], background_tasks)
             except Exception as class_error:
@@ -1004,6 +1032,8 @@ def update_student_report(session_id: str, payload: StudentDiagnosisReportUpdate
     report = fetch_one("SELECT * FROM student_diagnosis_reports WHERE session_id = ?", (session_id,))
     if not report:
         raise HTTPException(status_code=404, detail="请先生成学生个体报告")
+    if report.get('report_kind') == 'brief' and payload.status != 'draft':
+        raise HTTPException(status_code=409, detail='请先生成详细个体反馈，再确认或推送')
     if report["provider"] == "mock" and payload.status != "draft":
         raise HTTPException(status_code=409, detail="Mock AI 报告只能用于预览，配置真实模型并重新生成后才能确认或推送")
     now = utc_now()

@@ -420,7 +420,7 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
                            output_name: str, instruction_suffix: str) -> dict:
     """At most four requests: two format fallbacks and one validation repair."""
     is_rubric = skill.key == 'solo_task_rubric_builder'
-    label = '量规' if is_rubric else '班级分析'
+    label = '量规' if is_rubric else '诊断分析'
     retained = '原量规已保留' if is_rubric else '原班级报告已保留'
     body = {
         'model': settings.ai_model, 'max_tokens': 16000, 'stream': False,
@@ -529,7 +529,7 @@ def _run_structured_skill(
         raise RuntimeError(f"真实模型尚未配置 {key_name} 或 AI_MODEL")
     schema_path = skill.path.parent / "assets" / schema_filename
     schema = schema_override or json.loads(schema_path.read_text(encoding="utf-8"))
-    if provider == 'openrouter' and skill.key in {'solo_task_rubric_builder', 'solo_class_diagnosis_intervention'}:
+    if provider == 'openrouter' and skill.key in {'solo_task_rubric_builder', 'solo_class_diagnosis_intervention', 'solo_student_diagnosis_feedback'}:
         return _run_rubric_compatible(skill, payload, schema, output_name, instruction_suffix)
     if provider in {"deepseek", "openrouter"}:
         return _run_deepseek_structured_skill(skill, payload, schema, output_name, instruction_suffix, provider)
@@ -670,6 +670,29 @@ def run_student_diagnosis_report(
         raise RuntimeError("缺少 jsonschema 依赖，无法校验学生诊断报告") from error
     jsonschema.validate(result, schema)
     return result, report_text, student_feedback_text
+
+
+def run_student_brief(skill, payload, provider):
+    """Compact structured evidence, without generating a student-facing essay."""
+    if provider == 'mock':
+        result = _mock_student_diagnosis(payload)
+    else:
+        result = _run_structured_skill(skill, payload, 'diagnosis-output.schema.json', 'student_brief', provider,
+            instruction_suffix='只输出结构化诊断，不生成面向学生的反馈长文。判断依据、主要障碍各用1—2句；保留1—3条学生原话证据。进阶目标一句，策略只写两条简短行动。主要障碍必须说明本题中学生具体误解了什么、遗漏了哪条依据或在哪一步解释不清，并引用学生实际表达；不能把SOLO定义或“缺少关联”直接当作障碍。原因没有证据时明确尚需了解，不猜测学生态度、心理或知识缺陷。')
+    import jsonschema
+    schema = json.loads((skill.path.parent/'assets/diagnosis-output.schema.json').read_text())
+    jsonschema.validate(result, schema)
+    if provider != 'mock':
+        if result['student']['student_id'] != payload['student']['student_id']:
+            raise ValueError('诊断引用了其他学生，结果未保存')
+        if len({result['diagnosis']['level'],result['progression']['current_level'],result['traceability']['rubric_level']}) != 1:
+            raise ValueError('诊断层级不一致，结果未保存')
+        student_texts = [m['content'] for m in payload['human_ai_dialogue'] if m['role']=='student']
+        for evidence in result['diagnosis']['evidence']:
+            sources = student_texts if evidence['source']=='dialogue' else [payload.get('submitted_text','')]
+            if not evidence['quote'].strip() or not any(evidence['quote'] in source for source in sources):
+                raise ValueError('诊断证据不是学生原话，结果未保存，请重试')
+    return result, student_diagnosis_report_text(result), ''
 
 
 def run_class_diagnosis_report(

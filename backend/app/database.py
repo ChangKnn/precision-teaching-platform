@@ -611,6 +611,8 @@ def initialize_database() -> None:
         }
         if "student_feedback_text" not in report_columns:
             connection.execute("ALTER TABLE student_diagnosis_reports ADD COLUMN student_feedback_text TEXT NOT NULL DEFAULT ''")
+        if 'report_kind' not in report_columns:
+            connection.execute("ALTER TABLE student_diagnosis_reports ADD COLUMN report_kind TEXT NOT NULL DEFAULT 'detailed'")
         activity_columns = {
             row["name"] for row in connection.execute("PRAGMA table_info(activity_formative_designs)").fetchall()
         }
