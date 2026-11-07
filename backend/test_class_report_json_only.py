@@ -17,7 +17,7 @@ class ClassReportJsonOnlyTest(TestCase):
         self.payload = json.loads((self.assets/"tests/sample-input.json").read_text(encoding="utf-8"))
         self.result = json.loads((self.assets/"tests/sample-output.json").read_text(encoding="utf-8"))
 
-    def test_actual_request_only_contains_original_class_schema(self):
+    def test_actual_request_uses_simplified_schema_and_full_prompt_rules(self):
         response={"choices":[{"message":{"content":json.dumps(self.result)}}]}
         with patch.object(ai,"settings",replace(ai.settings,ai_api_key="isolated-test-key",ai_model="test-model")), patch.object(ai,"_post_json",return_value=response) as post:
             result,text = ai.run_class_diagnosis_report(self.skill,self.payload,"openrouter")
@@ -27,7 +27,8 @@ class ClassReportJsonOnlyTest(TestCase):
         body=post.call_args.args[1]
         schema=body["response_format"]["json_schema"]["schema"]
         expected=json.loads((self.assets/"assets/class-diagnosis-output.schema.json").read_text(encoding="utf-8"))
-        self.assertEqual(schema,expected)
+        self.assertEqual(schema,ai._rubric_transport_schema(expected))
+        self.assertIn(json.dumps(expected,ensure_ascii=False),body['messages'][0]['content'])
         self.assertNotIn("teacher_report_markdown",schema["properties"])
         self.assertNotIn("solo_class_diagnosis",schema["properties"])
         self.assertNotIn("输出教师可读 Markdown，再输出",body["messages"][0]["content"])

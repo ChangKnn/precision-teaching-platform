@@ -1,0 +1,32 @@
+import copy
+import json
+import unittest
+from dataclasses import replace
+from unittest.mock import patch
+
+from backend.app.services import ai
+from backend.app.services.skills import load_skill
+
+
+class ClassReportFormatRecoveryTest(unittest.TestCase):
+    def test_grammar_error_retries_json_and_validates_full_schema(self):
+        skill = load_skill('solo_class_diagnosis_intervention')
+        sample = json.loads((skill.path.parent/'tests/sample-output.json').read_text(encoding='utf-8'))
+        calls = []
+        def post(url, body, key, **kwargs):
+            calls.append(copy.deepcopy(body))
+            if len(calls) == 1:
+                raise RuntimeError('模型请求失败（400）：The compiled grammar is too large')
+            return {'choices':[{'message':{'content':json.dumps(sample,ensure_ascii=False)}}]}
+        with patch.object(ai,'settings',replace(ai.settings,ai_api_key='test-key',ai_model='test-model')), patch.object(ai,'_post_json',side_effect=post):
+            result, text = ai.run_class_diagnosis_report(skill,{},'openrouter')
+        self.assertEqual(result,sample)
+        self.assertIsNone(text)
+        self.assertEqual(calls[1]['response_format'],{'type':'json_object'})
+
+    def test_auth_error_is_not_retried(self):
+        skill = load_skill('solo_class_diagnosis_intervention')
+        with patch.object(ai,'settings',replace(ai.settings,ai_api_key='test-key',ai_model='test-model')), patch.object(ai,'_post_json',side_effect=RuntimeError('模型请求失败（401）：bad key')) as post:
+            with self.assertRaisesRegex(RuntimeError,'401'):
+                ai.run_class_diagnosis_report(skill,{},'openrouter')
+            self.assertEqual(post.call_count,1)

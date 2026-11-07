@@ -413,13 +413,16 @@ def _rubric_format_rejected(error: Exception) -> bool:
 def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
                            output_name: str, instruction_suffix: str) -> dict:
     """At most four requests: two format fallbacks and one validation repair."""
+    is_rubric = skill.key == 'solo_task_rubric_builder'
+    label = '量规' if is_rubric else '班级分析'
+    retained = '原量规已保留' if is_rubric else '原班级报告已保留'
     body = {
         'model': settings.ai_model, 'max_tokens': 16000, 'stream': False,
         'messages': [
             {'role': 'system', 'content': _skill_runtime_instructions(skill) + instruction_suffix +
              '\n只输出完整JSON对象。以下完整规则用于平台校验，所有必填字段和教学要求都必须满足：\n' +
              json.dumps(schema, ensure_ascii=False)},
-            {'role': 'user', 'content': '请根据以下输入生成量规JSON：\n' + json.dumps(payload, ensure_ascii=False)},
+            {'role': 'user', 'content': f'请根据以下输入生成{label}JSON：\n' + json.dumps(payload, ensure_ascii=False)},
         ],
         'response_format': {'type': 'json_schema', 'json_schema': {
             'name': output_name, 'strict': False, 'schema': _rubric_transport_schema(schema)}},
@@ -428,7 +431,7 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
     for _ in range(4):
         remaining = deadline - time.monotonic()
         if remaining <= 1:
-            raise RuntimeError('量规生成及格式修正已超时，原量规已保留，请稍后重试')
+            raise RuntimeError(f'{label}生成及格式修正已超时，{retained}，请稍后重试')
         try:
             response = _post_json(f'{settings.ai_base_url}/chat/completions', body, settings.ai_api_key,
                                   timeout=min(120, remaining), purpose=skill.key)
@@ -445,17 +448,18 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
         try:
             text = _extract_chat_completion_text(response)
             result = _parse_structured_json(text, schema)
-            validate_task_rubric(skill, result, require_complete=True)
+            if is_rubric:
+                validate_task_rubric(skill, result, require_complete=True)
             return result
         except (ValueError, RuntimeError) as error:
             if repaired:
-                raise RuntimeError('量规输出校验及一次修正仍未通过，原量规已保留，请重试') from error
+                raise RuntimeError(f'{label}输出校验及一次修正仍未通过，{retained}，请重试') from error
             repaired = True
             body['messages'] += [
                 {'role': 'assistant', 'content': text[:48000] or '（未返回有效JSON）'},
-                {'role': 'user', 'content': '请修正以下校验问题，重新输出完整量规JSON，不降低原规则要求：\n' + str(error)[:1200]},
+                {'role': 'user', 'content': f'请修正以下校验问题，重新输出完整{label}JSON，不降低原规则要求：\n' + str(error)[:1200]},
             ]
-    raise RuntimeError('量规生成已达到格式兼容及修正次数上限，原量规已保留，请重试')
+    raise RuntimeError(f'{label}生成已达到格式兼容及修正次数上限，{retained}，请重试')
 
 
 def _run_deepseek_structured_skill(
@@ -519,7 +523,7 @@ def _run_structured_skill(
         raise RuntimeError(f"真实模型尚未配置 {key_name} 或 AI_MODEL")
     schema_path = skill.path.parent / "assets" / schema_filename
     schema = schema_override or json.loads(schema_path.read_text(encoding="utf-8"))
-    if provider == 'openrouter' and skill.key == 'solo_task_rubric_builder':
+    if provider == 'openrouter' and skill.key in {'solo_task_rubric_builder', 'solo_class_diagnosis_intervention'}:
         return _run_rubric_compatible(skill, payload, schema, output_name, instruction_suffix)
     if provider in {"deepseek", "openrouter"}:
         return _run_deepseek_structured_skill(skill, payload, schema, output_name, instruction_suffix, provider)
