@@ -840,7 +840,7 @@ def student_results(teaching_id: str, background_tasks: BackgroundTasks) -> dict
     for classroom in classrooms:
         from .services.class_report import report_row
         existing_class = report_row(teaching_id, classroom['id'])
-        class_reports[classroom['id']] = existing_class if existing_class and existing_class['status'] == 'preparing' else queue_class_report(teaching_id, classroom["id"], background_tasks)
+        class_reports[classroom['id']] = existing_class if existing_class and existing_class['status'] in {'preparing','failed'} else queue_class_report(teaching_id, classroom["id"], background_tasks)
     custom_class_reports = {
         classroom["id"]: custom_report_for(teaching_id, "class", classroom["id"])
         for classroom in classrooms

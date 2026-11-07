@@ -887,7 +887,7 @@ function renderClassReport(payload) {
     return;
   }
   const stateText = { preparing: "正在分析全体已提交学生", queued: "等待生成", running: "正在生成", failed: "生成失败", ready: "AI 初判 · 教师核对" }[report.status] || "等待生成";
-  if (!report.result) {
+  if (!report.result || ['preparing','failed'].includes(report.status)) {
     panel.innerHTML = `<article class="card stage-empty-state"><span>SOLO 班级分析</span><h2>${stateText}</h2><p>${report.error ? escapeHTML(report.error) : "正在准备全部已提交学生的诊断并汇总班级报告；失败项目可重试，已成功结果会复用。"}</p>${report.status === "failed" ? '<button class="button primary" id="retryClassReport">重新生成班级报告</button>' : ""}</article>` + renderCustomClassReport(payload);
     return;
   }
