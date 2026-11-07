@@ -303,6 +303,12 @@ def _extract_chat_completion_text(response: dict[str, Any]) -> str:
     raise RuntimeError("DeepSeek 没有返回可用的结构化 JSON")
 
 
+class StructuredOutputError(ValueError):
+    def __init__(self, message: str, diagnostic: str):
+        super().__init__(message)
+        self.diagnostic = diagnostic
+
+
 def _parse_structured_json(text: str, schema: dict[str, Any]) -> dict[str, Any]:
     """Use a complete schema-valid object even when the model appends extra text."""
     import jsonschema
@@ -330,7 +336,14 @@ def _parse_structured_json(text: str, schema: dict[str, Any]) -> dict[str, Any]:
             if not remaining.startswith("{"):
                 break
             cleaned = remaining
-    raise ValueError(f"模型没有返回符合 Schema 的完整 JSON 对象：{last_error}")
+    if isinstance(last_error, jsonschema.ValidationError):
+        path = '/'.join(str(part) for part in last_error.absolute_schema_path)
+        diagnostic = f'格式规则 {path[:300]} 未通过'
+    elif isinstance(last_error, json.JSONDecodeError):
+        diagnostic = f'JSON 不完整或格式无效（第 {last_error.lineno} 行）'
+    else:
+        diagnostic = '输出不是有效的 JSON 对象'
+    raise StructuredOutputError(f"模型没有返回符合 Schema 的完整 JSON 对象：{last_error}", diagnostic)
 
 
 def _post_json(url: str, body: dict[str, Any], api_key: str, timeout: int = 120, purpose: str = "teacher_ai") -> dict[str, Any]:
@@ -461,7 +474,8 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
             return result
         except (ValueError, RuntimeError) as error:
             if repaired:
-                raise RuntimeError(f'{label}输出校验及一次修正仍未通过，{retained}，请重试') from error
+                detail = f'（{error.diagnostic}）' if skill.key == 'solo_class_diagnosis_intervention' and isinstance(error, StructuredOutputError) else ''
+                raise RuntimeError(f'{label}输出校验及一次修正仍未通过{detail}，{retained}，请重试') from error
             repaired = True
             body['messages'] += [
                 {'role': 'assistant', 'content': text[:48000] or '（未返回有效JSON）'},

@@ -9,6 +9,16 @@ from backend.app.services.skills import load_skill
 
 
 class ClassReportFormatRecoveryTest(unittest.TestCase):
+    def test_failed_repair_reports_only_schema_location_not_student_text(self):
+        skill = load_skill('solo_class_diagnosis_intervention')
+        secret = 'PRIVATE_STUDENT_CONTENT'
+        response = {'choices':[{'message':{'content':json.dumps({'student':secret})}}]}
+        with patch.object(ai,'settings',replace(ai.settings,ai_api_key='test-key',ai_model='test-model')), patch.object(ai,'_post_json',return_value=response):
+            with self.assertRaises(RuntimeError) as error:
+                ai.run_class_diagnosis_report(skill,{},'openrouter')
+        self.assertIn('格式规则',str(error.exception))
+        self.assertNotIn(secret,str(error.exception))
+
     def test_transport_has_concrete_type_for_boolean_constant(self):
         skill = load_skill('solo_class_diagnosis_intervention')
         schema = json.loads((skill.path.parent/'assets/class-diagnosis-output.schema.json').read_text(encoding='utf-8'))
