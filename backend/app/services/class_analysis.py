@@ -51,9 +51,19 @@ def analyze_class(teaching_id, classroom_id):
             jobs={pool.submit(analyze,row):row['name'] for row in submitted(*key)}
             for job in as_completed(jobs):
                 try:job.result()
-                except Exception:failures.append(jobs[job])
+                except Exception as error:
+                    causes = []
+                    current = error
+                    while current is not None and len(causes) < 6:
+                        causes.append(str(getattr(current, 'detail', current)))
+                        current = current.__cause__
+                    detail = ' '.join(causes)
+                    reason = ('没有学生发言' if '至少需要一条学生发言' in detail else
+                              '原话引用未通过核验' if '证据quote' in detail else
+                              '模型或网络处理失败')
+                    failures.append(f'{jobs[job]}（{reason}）')
         if failures:
-            raise ValueError(f'{len(failures)}名学生分析失败或没有有效发言：'+ '、'.join(failures) +'。请检查并重试；成功结果已保留，尚未生成不完整班级报告')
+            raise ValueError(f'{len(failures)}名学生分析未完成：'+ '、'.join(failures) +'。请检查并重试；成功结果已保留，尚未生成不完整班级报告')
         background=BackgroundTasks()
         if not queue_class_report(*key,background,force=True):
             raise ValueError('已提交学生尚未全部完成分析，请重试')

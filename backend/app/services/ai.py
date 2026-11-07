@@ -421,7 +421,7 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
     """At most four requests: two format fallbacks and one validation repair."""
     is_rubric = skill.key == 'solo_task_rubric_builder'
     label = '量规' if is_rubric else '诊断分析'
-    retained = '原量规已保留' if is_rubric else '原班级报告已保留'
+    retained = '原量规已保留' if is_rubric else ('原班级报告已保留' if skill.key == 'solo_class_diagnosis_intervention' else '原诊断已保留')
     body = {
         'model': settings.ai_model, 'max_tokens': 16000, 'stream': False,
         'messages': [
@@ -456,6 +456,8 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
             result = _parse_structured_json(text, schema)
             if is_rubric:
                 validate_task_rubric(skill, result, require_complete=True)
+            if output_name == 'student_brief':
+                _validate_student_brief_evidence(result, payload)
             return result
         except (ValueError, RuntimeError) as error:
             if repaired:
@@ -678,11 +680,16 @@ def run_student_brief(skill, payload, provider):
         result = _mock_student_diagnosis(payload)
     else:
         result = _run_structured_skill(skill, payload, 'diagnosis-output.schema.json', 'student_brief', provider,
-            instruction_suffix='只输出结构化诊断，不生成面向学生的反馈长文。判断依据、主要障碍各用1—2句；保留1—3条学生原话证据。进阶目标一句，策略只写两条简短行动。主要障碍必须说明本题中学生具体误解了什么、遗漏了哪条依据或在哪一步解释不清，并引用学生实际表达；不能把SOLO定义或“缺少关联”直接当作障碍。原因没有证据时明确尚需了解，不猜测学生态度、心理或知识缺陷。')
+            instruction_suffix='只输出结构化诊断，不生成面向学生的反馈长文。判断依据、主要障碍各用1—2句；保留1—3条学生原话证据。evidence.quote必须从对应学生发言或提交文本逐字复制连续片段，保留原有标点和空格，不得改写、拼接、补充省略号或引用AI的话；解释写在interpretation。source应准确对应dialogue或submitted_text。进阶目标一句，策略只写两条简短行动。主要障碍必须说明本题中学生具体误解了什么、遗漏了哪条依据或在哪一步解释不清，并引用学生实际表达；不能把SOLO定义或“缺少关联”直接当作障碍。原因没有证据时明确尚需了解，不猜测学生态度、心理或知识缺陷。')
     import jsonschema
     schema = json.loads((skill.path.parent/'assets/diagnosis-output.schema.json').read_text())
     jsonschema.validate(result, schema)
     if provider != 'mock':
+        _validate_student_brief_evidence(result, payload)
+    return result, student_diagnosis_report_text(result), ''
+
+
+def _validate_student_brief_evidence(result, payload):
         if result['student']['student_id'] != payload['student']['student_id']:
             raise ValueError('诊断引用了其他学生，结果未保存')
         if len({result['diagnosis']['level'],result['progression']['current_level'],result['traceability']['rubric_level']}) != 1:
@@ -691,8 +698,7 @@ def run_student_brief(skill, payload, provider):
         for evidence in result['diagnosis']['evidence']:
             sources = student_texts if evidence['source']=='dialogue' else [payload.get('submitted_text','')]
             if not evidence['quote'].strip() or not any(evidence['quote'] in source for source in sources):
-                raise ValueError('诊断证据不是学生原话，结果未保存，请重试')
-    return result, student_diagnosis_report_text(result), ''
+                raise ValueError('证据quote必须逐字复制对应学生发言或提交文本中的连续原文，不得引用AI发言、改写、拼接或增加省略号；请检查source并重新输出')
 
 
 def run_class_diagnosis_report(
