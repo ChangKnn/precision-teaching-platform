@@ -475,8 +475,15 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
         except (ValueError, RuntimeError) as error:
             if repaired:
                 detail = f'（{error.diagnostic}）' if skill.key == 'solo_class_diagnosis_intervention' and isinstance(error, StructuredOutputError) else ''
+                if skill.key == 'solo_class_diagnosis_intervention' and (response.get('choices') or [{}])[0].get('finish_reason') == 'length':
+                    detail = '（模型输出达到长度限制，JSON 未完整返回）'
                 raise RuntimeError(f'{label}输出校验及一次修正仍未通过{detail}，{retained}，请重试') from error
             repaired = True
+            if skill.key == 'solo_class_diagnosis_intervention' and isinstance(error, StructuredOutputError) and error.diagnostic.startswith('JSON 不完整'):
+                # A partial JSON body is not a valid assistant turn to repair;
+                # do not pass a cut-off 48k prefix as if it were complete.
+                body['messages'].append({'role': 'user', 'content': '上次返回的JSON不完整或格式无效。请基于原始输入重新生成一个完整JSON对象，严格闭合所有数组、对象和字符串；各字段表述简洁，保留全体学生及必要证据，不输出代码围栏或额外文字。'})
+                continue
             body['messages'] += [
                 {'role': 'assistant', 'content': text[:48000] or '（未返回有效JSON）'},
                 {'role': 'user', 'content': f'请修正以下校验问题，重新输出完整{label}JSON，不降低原规则要求：\n' + str(error)[:1200]},

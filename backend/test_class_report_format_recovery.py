@@ -9,6 +9,18 @@ from backend.app.services.skills import load_skill
 
 
 class ClassReportFormatRecoveryTest(unittest.TestCase):
+    def test_incomplete_json_retries_without_feeding_a_cut_off_assistant_reply(self):
+        skill=load_skill('solo_class_diagnosis_intervention')
+        sample=json.loads((skill.path.parent/'tests/sample-output.json').read_text(encoding='utf-8'))
+        responses=[{'choices':[{'message':{'content':'{"class_summary":'},'finish_reason':'length'}]},
+                   {'choices':[{'message':{'content':json.dumps(sample,ensure_ascii=False)}}]}]
+        with patch.object(ai,'settings',replace(ai.settings,ai_api_key='test-key',ai_model='test-model')), patch.object(ai,'_post_json',side_effect=responses) as post:
+            result,_=ai.run_class_diagnosis_report(skill,{},'openrouter')
+        self.assertEqual(result,sample)
+        messages=post.call_args_list[1].args[1]['messages']
+        self.assertFalse(any(message['role']=='assistant' for message in messages))
+        self.assertIn('重新生成一个完整JSON',messages[-1]['content'])
+
     def test_failed_repair_reports_only_schema_location_not_student_text(self):
         skill = load_skill('solo_class_diagnosis_intervention')
         secret = 'PRIVATE_STUDENT_CONTENT'
