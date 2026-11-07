@@ -622,12 +622,16 @@ def run_student_diagnosis_report(
         report_text = student_diagnosis_report_text(result)
         student_feedback_text = "这是流程预览，尚未完成真实诊断。请等待老师生成并确认反馈。"
     else:
+        # Fragment references such as #/$defs/evidenceItem resolve from the
+        # document root in provider schema compilers, including when nested.
+        diagnosis_schema = {key: value for key, value in schema.items() if key not in ('$defs', '$id', '$schema')}
         envelope_schema = {
             "type": "object",
             "additionalProperties": False,
+            "$defs": schema.get("$defs", {}),
             "required": ["solo_student_diagnosis", "student_feedback_markdown"],
             "properties": {
-                "solo_student_diagnosis": schema,
+                "solo_student_diagnosis": diagnosis_schema,
                 "student_feedback_markdown": {"type": "string", "minLength": 500, "maxLength": 4000},
             },
         }
