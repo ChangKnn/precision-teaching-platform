@@ -9,6 +9,16 @@ from backend.app.services.skills import load_skill
 
 
 class ClassReportFormatRecoveryTest(unittest.TestCase):
+    def test_transport_has_concrete_type_for_boolean_constant(self):
+        skill = load_skill('solo_class_diagnosis_intervention')
+        schema = json.loads((skill.path.parent/'assets/class-diagnosis-output.schema.json').read_text(encoding='utf-8'))
+        transport = ai._rubric_transport_schema(schema)
+        self.assertEqual(transport['properties']['traceability']['properties']['levels_unchanged'], {'type':'boolean'})
+
+    def test_empty_schema_rejection_can_fallback(self):
+        self.assertTrue(ai._rubric_format_rejected(RuntimeError('模型请求失败（400）：Invalid schema: Empty schema ({}) that accepts any JSON value is not supported')))
+        self.assertFalse(ai._rubric_format_rejected(RuntimeError('模型请求失败（401）：Empty schema not supported')))
+
     def test_grammar_error_retries_json_and_validates_full_schema(self):
         skill = load_skill('solo_class_diagnosis_intervention')
         sample = json.loads((skill.path.parent/'tests/sample-output.json').read_text(encoding='utf-8'))

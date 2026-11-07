@@ -383,7 +383,12 @@ def _rubric_transport_schema(schema: dict[str, Any]) -> dict[str, Any]:
         kind = node.get('type')
         if kind is None:
             example = node.get('const', (node.get('enum') or [None])[0])
-            kind = 'string' if isinstance(example, str) else None
+            if isinstance(example, bool):
+                kind = 'boolean'
+            elif isinstance(example, str):
+                kind = 'string'
+            elif isinstance(example, (int, float)):
+                kind = 'number'
         if kind is not None:
             result['type'] = kind
         if 'properties' in node:
@@ -405,6 +410,7 @@ def _rubric_format_rejected(error: Exception) -> bool:
     if not re.search(r'模型请求失败（(?:400|422)）', message):
         return False
     return ('compiled grammar is too large' in message or
+            ('empty schema' in message and ('not supported' in message or 'invalid schema' in message)) or
             ('grammar' in message and ('too complex' in message or 'complexity' in message)) or
             (any(word in message for word in ('response_format', 'json_schema', 'json schema', 'structured output'))
              and any(word in message for word in ('not supported', 'unsupported', 'not available'))))
