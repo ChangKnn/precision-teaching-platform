@@ -23,6 +23,9 @@ async function renderTaskImages(task) {
   taskImageUrls = [];
   const container = document.getElementById('studentTaskImages');
   container.replaceChildren();
+  if ((task.task_attachments || []).length || (task.task_images || []).length) {
+    const heading=document.createElement('h3');heading.className='task-material-heading';heading.textContent='老师提供的任务附件';container.append(heading);
+  }
   for (const item of task.task_attachments || []) {
     if (item.kind==='link') {
       const link=document.createElement('a');link.href=item.url;link.target='_blank';link.rel='noopener noreferrer';
@@ -36,7 +39,7 @@ async function renderTaskImages(task) {
           if (!response.ok) throw new Error('附件下载失败，请重试');
           const url=URL.createObjectURL(await response.blob());taskImageUrls.push(url);
           const link=document.createElement('a');link.href=url;link.download=item.name;link.click();
-        } catch(error) {showToast(error.message);}
+        } catch(error) {showToast('附件下载失败',error.message);}
         finally {button.disabled=false;}
       });container.append(button);
     }

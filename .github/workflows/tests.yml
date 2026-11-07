@@ -40,4 +40,5 @@ jobs:
       - run: node --test frontend/tests/student-login.test.cjs
       - run: node --test frontend/tests/task-save.test.cjs
       - run: node --test frontend/tests/detailed-feedback.test.cjs
+      - run: node --test frontend/tests/student-attachments.test.cjs
       - run: node --test frontend/tests/voice-input.test.cjs
