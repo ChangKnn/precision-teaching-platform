@@ -182,6 +182,19 @@ class TaskVersionRuntimeTest(TestCase):
         image = version['snapshot']['images'][0]
         self.assertTrue(student_api.student_version_image('pt', version['id'], image['id'], self.student).path.is_file())
 
+    def test_students_see_original_task_and_image_not_image_analysis(self):
+        state = base.TaskMaterialsTest.upload(self)
+        materials.review_recognition('pt', materials.ReadingReview(source_hash=state['source_hash'], task_text='仅供分析的图片识别结果'))
+        self.confirm_rubric(); self.publish()
+        version = versions.published_version('pt')
+        self.assertIn('仅供分析的图片识别结果', versions.version_config(version)['diagnostic_task']['task_content'])
+        result = self.start()
+        self.assertEqual(result['task']['task_text'], version['snapshot']['task']['task_text'])
+        self.assertNotIn('仅供分析的图片识别结果', result['task']['task_text'])
+        self.assertEqual(len(result['task']['task_images']), 1)
+        self.assertNotIn('仅供分析的图片识别结果', student_api.task_rows(self.student)[0]['task_text'])
+        self.assertNotIn('仅供分析的图片识别结果', student_api.get_student_session(result['session']['id'], self.student)['task']['task_text'])
+
     def test_teacher_design_intent_and_outer_whitespace_do_not_trigger_material_lock(self):
         self.start()
         task = db.fetch_one("SELECT * FROM diagnosis_tasks WHERE teaching_id='pt'")

@@ -130,7 +130,9 @@ def version_task(version: dict) -> dict:
         'teaching_id': version['teaching_id'], 'title': teaching['title'], 'subject': teaching['subject'],
         'task_name':(label or {}).get('task_name') or teaching.get('task_name',''), 'theme_id':teaching.get('parent_teaching_id') or version['teaching_id'],
         'course_name':teaching.get('course_name',''),'education_stage':teaching.get('education_stage',''),
-        'teacher_name': teaching['teacher_name'], 'task_text': snapshot.get('student_task_text',snapshot['task_text']),
+        # Show the teacher's original task to students. The enriched snapshot
+        # remains available to AI, but includes image recognition and file text.
+        'teacher_name': teaching['teacher_name'], 'task_text': snapshot['task']['task_text'],
         'duration_minutes': snapshot['task']['duration_minutes'],
         'task_version_id': version['id'], 'task_version_number': version['revision'],
         'task_images': [{'id': image['id'], 'file_url': f"/api/student/tasks/{version['teaching_id']}/versions/{version['id']}/images/{image['id']}"} for image in snapshot['images']],
