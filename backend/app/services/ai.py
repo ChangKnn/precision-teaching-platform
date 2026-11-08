@@ -425,7 +425,7 @@ def _rubric_format_rejected(error: Exception) -> bool:
     return ('compiled grammar is too large' in message or
             ('empty schema' in message and ('not supported' in message or 'invalid schema' in message)) or
             ('grammar' in message and ('too complex' in message or 'complexity' in message)) or
-            (any(word in message for word in ('response_format', 'json_schema', 'json schema', 'structured output'))
+            (any(word in message for word in ('response_format', 'json_schema', 'json schema', 'schema type', 'format.schema', 'structured output'))
              and any(word in message for word in ('not supported', 'unsupported', 'not available'))))
 
 
@@ -433,8 +433,8 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
                            output_name: str, instruction_suffix: str) -> dict:
     """At most four requests: two format fallbacks and one validation repair."""
     is_rubric = skill.key == 'solo_task_rubric_builder'
-    label = '量规' if is_rubric else '诊断分析'
-    retained = '原量规已保留' if is_rubric else ('原班级报告已保留' if skill.key == 'solo_class_diagnosis_intervention' else '原诊断已保留')
+    label = '量规' if is_rubric else ('目标与路径' if skill.key == 'precision_intervention_goal_path_design' else '诊断分析')
+    retained = '原量规已保留' if is_rubric else ('原目标与路径已保留' if skill.key == 'precision_intervention_goal_path_design' else ('原班级报告已保留' if skill.key == 'solo_class_diagnosis_intervention' else '原诊断已保留'))
     body = {
         'model': settings.ai_model, 'max_tokens': 16000, 'stream': False,
         'messages': [
@@ -556,7 +556,7 @@ def _run_structured_skill(
         raise RuntimeError(f"真实模型尚未配置 {key_name} 或 AI_MODEL")
     schema_path = skill.path.parent / "assets" / schema_filename
     schema = schema_override or json.loads(schema_path.read_text(encoding="utf-8"))
-    if provider == 'openrouter' and skill.key in {'solo_task_rubric_builder', 'solo_class_diagnosis_intervention', 'solo_student_diagnosis_feedback'}:
+    if provider == 'openrouter' and skill.key in {'solo_task_rubric_builder', 'solo_class_diagnosis_intervention', 'solo_student_diagnosis_feedback', 'precision_intervention_goal_path_design'}:
         return _run_rubric_compatible(skill, payload, schema, output_name, instruction_suffix)
     if provider in {"deepseek", "openrouter"}:
         return _run_deepseek_structured_skill(skill, payload, schema, output_name, instruction_suffix, provider)

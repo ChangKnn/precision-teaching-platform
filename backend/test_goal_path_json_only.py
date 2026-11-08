@@ -26,7 +26,9 @@ class GoalPathJsonOnlyTest(TestCase):
         self.assertEqual(result,self.result);self.assertIsNone(text)
         body=model.call_args.args[1]
         schema=body['response_format']['json_schema']['schema']
-        self.assertEqual(schema,json.loads((ROOT/'assets/goal-path-output.schema.json').read_text(encoding='utf-8')))
+        original=json.loads((ROOT/'assets/goal-path-output.schema.json').read_text(encoding='utf-8'))
+        self.assertEqual(schema,ai._rubric_transport_schema(original))
+        self.assertIn(json.dumps(original,ensure_ascii=False),body['messages'][0]['content'])
         self.assertNotIn('teacher_report_markdown',schema['properties'])
         instructions=body['messages'][0]['content']
         self.assertNotIn('中小学45分钟单课时默认只安排',instructions)
