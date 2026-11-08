@@ -36,6 +36,7 @@ class TaskAttachmentsTest(TestCase):
         self.case.confirm_rubric();self.case.publish()
         v=versions.published_version('pt');task=versions.version_task(v)
         self.assertEqual(len(task['task_attachments']),3)
+        self.assertEqual({item['name']:item['content_type'] for item in task['task_attachments']}['a.txt'], 'text/plain')
         self.assertNotIn('材料中的案例事实',task['task_text'])
         self.assertIn('材料中的案例事实',versions.version_config(v)['diagnostic_task']['task_content'])
         self.assertNotIn('stored_filename',json.dumps(task))

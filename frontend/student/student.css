@@ -147,6 +147,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .task-card h1 { margin: 13px 0 8px; font-size: 23px; line-height: 1.35; letter-spacing: -.025em; }
 .task-card > p { margin: 0; color: #4f5e5a; line-height: 1.75; }
 .task-material-heading { width: 100%; margin: 16px 0 4px; font-size: 14px; color: #174d49; }
+.task-figure-list img { max-height: none; height: auto; }
 .task-requirements { display: grid; grid-template-columns: auto 1fr; gap: 18px; margin-top: 19px; padding: 16px 18px; background: var(--pine-50); border-radius: 10px; }
 .task-requirements > span { color: var(--pine-700); font-size: 12px; font-weight: 750; }
 .task-requirements ol { margin: 0; padding-left: 19px; color: #3d504b; font-size: 13px; }

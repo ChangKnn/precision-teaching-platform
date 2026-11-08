@@ -16,5 +16,5 @@ def append_attachment_text(text: str,attachments: list[dict]) -> str:
 
 
 def public_attachments(rows: list[dict],url_prefix: str) -> list[dict]:
-    return [{'id':item['id'],'kind':item['kind'],'name':item['name'],'url':item['url'],
+    return [{'id':item['id'],'kind':item['kind'],'name':item['name'],'url':item['url'], 'content_type':item.get('content_type',''),
              'file_url':f"{url_prefix}/{item['id']}" if item['kind']=='file' else None} for item in rows]

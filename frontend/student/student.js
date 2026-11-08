@@ -27,9 +27,12 @@ async function renderTaskImages(task) {
     const heading=document.createElement('h3');heading.className='task-material-heading';heading.textContent='老师提供的任务附件';container.append(heading);
   }
   for (const item of task.task_attachments || []) {
+    if (version !== imageLoadVersion) return;
     if (item.kind==='link') {
       const link=document.createElement('a');link.href=item.url;link.target='_blank';link.rel='noopener noreferrer';
       link.className='button small';link.textContent=`网页 · ${item.name}`;container.append(link);
+    } else if (item.kind === 'file' && (/^image\/(png|jpeg|webp)$/i.test(item.content_type || '') || (!item.content_type && /\.(png|jpe?g|webp)$/i.test(item.name || '')))) {
+      await appendTaskImage(item.file_url, item.name || '任务图片', container, version);
     } else {
       const button=document.createElement('button');button.type='button';button.className='button small';button.textContent=`下载 · ${item.name}`;
       button.addEventListener('click',async()=>{
@@ -37,7 +40,9 @@ async function renderTaskImages(task) {
         try {
           const response=await fetch(item.file_url,{headers:{'X-Student-Token':state.token}});
           if (!response.ok) throw new Error('附件下载失败，请重试');
-          const url=URL.createObjectURL(await response.blob());taskImageUrls.push(url);
+          const blob=await response.blob();
+          if (version !== imageLoadVersion) return;
+          const url=URL.createObjectURL(blob);taskImageUrls.push(url);
           const link=document.createElement('a');link.href=url;link.download=item.name;link.click();
         } catch(error) {showToast('附件下载失败',error.message);}
         finally {button.disabled=false;}
@@ -45,23 +50,27 @@ async function renderTaskImages(task) {
     }
   }
   for (const [index, image] of (task.task_images || []).entries()) {
-    try {
-      const response = await fetch(image.file_url, { headers: { 'X-Student-Token': state.token } });
-      if (!response.ok) throw new Error('题图加载失败');
-      const blob = await response.blob();
-      if (version !== imageLoadVersion) return;
-      const url = URL.createObjectURL(blob);
-      taskImageUrls.push(url);
-      const img = document.createElement('img');
-      img.src = url;
-      img.alt = `本次任务题图 ${index + 1}`;
-      container.append(img);
-    } catch (_) {
-      if (version !== imageLoadVersion) return;
-      const warning = document.createElement('p');
-      warning.textContent = `题图 ${index + 1} 加载失败，请刷新页面重试。`;
-      container.append(warning);
-    }
+    await appendTaskImage(image.file_url, `任务图片 ${index + 1}`, container, version);
+  }
+}
+
+async function appendTaskImage(fileUrl, name, container, version) {
+  try {
+    const response = await fetch(fileUrl, { headers: { 'X-Student-Token': state.token } });
+    if (!response.ok) throw new Error('图片加载失败');
+    const blob = await response.blob();
+    if (version !== imageLoadVersion) return;
+    const url = URL.createObjectURL(blob);
+    taskImageUrls.push(url);
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = name;
+    container.append(img);
+  } catch (_) {
+    if (version !== imageLoadVersion) return;
+    const warning = document.createElement('p');
+    warning.textContent = `${name}加载失败，请刷新页面重试。`;
+    container.append(warning);
   }
 }
 
