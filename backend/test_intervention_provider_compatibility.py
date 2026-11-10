@@ -9,6 +9,23 @@ from backend.app.services.skills import load_skill
 
 
 class InterventionProviderCompatibilityTest(TestCase):
+    def test_long_plan_restarts_after_truncation_without_reusing_partial_json(self):
+        skill = load_skill('precision_intervention_plan_integration_review')
+        source = json.loads((skill.path.parent / 'tests/sample-input.json').read_text(encoding='utf-8'))
+        output = json.loads((skill.path.parent / 'tests/sample-output.json').read_text(encoding='utf-8'))
+        requests = []
+        def post(url, body, api_key, **kwargs):
+            requests.append(copy.deepcopy(body))
+            if len(requests) == 1:
+                return {'choices': [{'finish_reason': 'length', 'message': {'content': '{"partial":"TRUNCATED_SENTINEL'}}]}
+            return {'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps(output)}}]}
+        with patch.object(ai, 'settings', replace(ai.settings, ai_api_key='test', ai_model='anthropic/claude-haiku-5.5')), patch.object(ai, '_post_json', side_effect=post):
+            self.assertEqual(ai.run_intervention_plan_integration(skill, source, 'openrouter'), output)
+        self.assertEqual(requests[0]['max_tokens'], 32000)
+        self.assertEqual(requests[1]['max_tokens'], 32000)
+        self.assertNotIn('TRUNCATED_SENTINEL', json.dumps(requests[1]))
+        self.assertIn('JSON 不完整', requests[1]['messages'][-1]['content'])
+
     def test_audit_fills_only_known_labels_and_pass_placeholders(self):
         skill = load_skill('precision_intervention_plan_integration_review')
         sample = json.loads((skill.path.parent / 'tests/sample-output.json').read_text(encoding='utf-8'))

@@ -484,14 +484,17 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
     }
     if skill.key == 'solo_class_diagnosis_intervention' and settings.ai_model.startswith('anthropic/claude-haiku-5.5'):
         body['max_tokens'] = 32000
-    deadline, mode, repaired = time.monotonic() + 180, 0, False
+    is_long_plan = skill.key == 'precision_intervention_plan_integration_review' and settings.ai_model.startswith('anthropic/claude-haiku-5.5')
+    if is_long_plan:
+        body['max_tokens'] = 32000
+    deadline, mode, repaired = time.monotonic() + (360 if is_long_plan else 180), 0, False
     for _ in range(4):
         remaining = deadline - time.monotonic()
         if remaining <= 1:
             raise RuntimeError(f'{label}生成及格式修正已超时，{retained}，请稍后重试')
         try:
             response = _post_json(f'{settings.ai_base_url}/chat/completions', body, settings.ai_api_key,
-                                  timeout=min(120, remaining), purpose=skill.key)
+                                  timeout=min(240 if is_long_plan else 120, remaining), purpose=skill.key)
         except RuntimeError as error:
             if mode < 2 and _rubric_format_rejected(error):
                 mode += 1
@@ -519,6 +522,9 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
                     detail = '（模型输出达到长度限制，JSON 未完整返回）'
                 raise RuntimeError(f'{label}输出校验及一次修正仍未通过{detail}，{retained}，请重试') from error
             repaired = True
+            if skill.key == 'precision_intervention_plan_integration_review' and (response.get('choices') or [{}])[0].get('finish_reason') == 'length':
+                body['messages'].append({'role': 'user', 'content': '上次输出达到长度限制，JSON 不完整。请根据原始输入重新生成完整 JSON；简洁表达审核意见与总结，不重复上游原文以外的无关解释，并保留全部必填字段、目标、活动及评价节点。'})
+                continue
             if skill.key == 'solo_class_diagnosis_intervention' and isinstance(error, StructuredOutputError) and error.diagnostic.startswith('JSON 不完整'):
                 # A partial JSON body is not a valid assistant turn to repair;
                 # do not pass a cut-off 48k prefix as if it were complete.
