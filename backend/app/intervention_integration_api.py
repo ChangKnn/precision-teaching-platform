@@ -3,10 +3,11 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import threading
 from urllib.parse import quote
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import Response
 
 from .activity_formative_api import _serialized as activity_serialized, goal_with_activity_timing, _presentation_text
@@ -22,6 +23,8 @@ from .task_materials import canonical_task_text
 
 
 router = APIRouter(prefix="/api")
+_integration_jobs: dict[tuple[str, str], dict] = {}
+_integration_jobs_lock = threading.Lock()
 RULE_NAMES = [
     "诊断—目标一致性", "目标—活动一致性", "路径—活动一致性", "差异化合理性",
     "支架适切性", "活动—形成性评价一致性", "师生机角色合理性", "课堂可实施性",
@@ -77,6 +80,12 @@ def _restore_confirmed_teaching_information(source: dict, result: dict) -> dict:
         if key not in context:
             basic.pop(key, None)
     basic.update(copy.deepcopy(context))
+    return corrected
+
+
+def _restore_diagnostic_task(source: dict, result: dict) -> dict:
+    corrected = copy.deepcopy(result)
+    corrected['integrated_plan']['diagnosis_summary']['diagnostic_task'] = copy.deepcopy(source['diagnostic_task_context'])
     return corrected
 
 
@@ -271,7 +280,33 @@ def get_integration_report(teaching_id: str, classroom_id: str) -> dict:
     except HTTPException as error:
         source_hash = None
         ready, prerequisite = False, error.detail
-    return {"ready": ready, "prerequisite": prerequisite, "report": _saved(teaching_id, classroom_id, source_hash)}
+    with _integration_jobs_lock:
+        job = copy.deepcopy(_integration_jobs.get((teaching_id, classroom_id)))
+    return {"ready": ready, "prerequisite": prerequisite, "report": _saved(teaching_id, classroom_id, source_hash), "generation": job}
+
+
+def _run_integration_background(teaching_id: str, classroom_id: str) -> None:
+    key = (teaching_id, classroom_id)
+    try:
+        generate_integration_report(teaching_id, classroom_id)
+        state = {'status': 'completed'}
+    except Exception as error:
+        detail = error.detail if isinstance(error, HTTPException) else str(error)
+        state = {'status': 'failed', 'error': str(detail)}
+    with _integration_jobs_lock:
+        _integration_jobs[key] = state
+
+
+@router.post('/precision-teachings/{teaching_id}/classrooms/{classroom_id}/integration-report/generate-async')
+def start_integration_report(teaching_id: str, classroom_id: str, background_tasks: BackgroundTasks) -> dict:
+    _source(teaching_id, classroom_id)
+    key = (teaching_id, classroom_id)
+    with _integration_jobs_lock:
+        if _integration_jobs.get(key, {}).get('status') == 'running':
+            return {'status': 'running'}
+        _integration_jobs[key] = {'status': 'running'}
+    background_tasks.add_task(_run_integration_background, teaching_id, classroom_id)
+    return {'status': 'running'}
 
 
 @router.get("/precision-teachings/{teaching_id}/classrooms/{classroom_id}/integration-report.pdf")
@@ -342,8 +377,12 @@ def generate_integration_report(teaching_id: str, classroom_id: str) -> dict:
     try:
         result = run_intervention_plan_integration(skill, payload, settings.ai_provider)
         result = _restore_confirmed_teaching_information(payload, result)
+        result = _restore_diagnostic_task(payload, result)
         result = _restore_confirmed_teacher_analysis(payload, result)
         _validate_output(payload, result)
+        _, latest_hash, _ = _source(teaching_id, classroom_id)
+        if latest_hash != source_hash:
+            raise ValueError('生成期间上游资料发生变化，请重新生成')
         now = utc_now()
         output_json = json.dumps(result, ensure_ascii=False)
         with database() as connection:

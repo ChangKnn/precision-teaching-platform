@@ -3,6 +3,8 @@
 import copy
 import json
 import unittest
+from unittest.mock import patch
+from fastapi import BackgroundTasks, HTTPException
 from pathlib import Path
 
 import jsonschema
@@ -11,8 +13,10 @@ from backend.app.intervention_integration_api import (
     _apply_teacher_overrides,
     _replace_student_ids,
     _restore_confirmed_teacher_analysis,
+    _restore_diagnostic_task,
     _validate_output,
 )
+from backend.app import intervention_integration_api as integration
 
 
 SKILL = Path(__file__).parent / "skills/precision-intervention-plan-integration-review"
@@ -27,6 +31,26 @@ class InterventionIntegrationTest(unittest.TestCase):
         output_schema = json.loads((SKILL / "assets/plan-integration-output.schema.json").read_text(encoding="utf-8"))
         jsonschema.validate(self.result, output_schema)
         _validate_output(self.source, self.result)
+
+    def test_restore_exact_diagnostic_task_without_changing_model_object(self):
+        changed = copy.deepcopy(self.result)
+        changed['integrated_plan']['diagnosis_summary']['diagnostic_task']['task_text'] = '模型改写的任务'
+        fixed = _restore_diagnostic_task(self.source, changed)
+        self.assertEqual(fixed['integrated_plan']['diagnosis_summary']['diagnostic_task'], self.source['diagnostic_task_context'])
+        self.assertEqual(changed['integrated_plan']['diagnosis_summary']['diagnostic_task']['task_text'], '模型改写的任务')
+        _validate_output(self.source, fixed)
+
+    def test_background_generation_deduplicates_and_exposes_failure(self):
+        key = ('test-teaching', 'test-class')
+        self.addCleanup(lambda: integration._integration_jobs.pop(key, None))
+        tasks = BackgroundTasks()
+        with patch.object(integration, '_source', return_value=(self.source, 'hash', 'version')):
+            self.assertEqual(integration.start_integration_report(*key, tasks)['status'], 'running')
+            integration.start_integration_report(*key, tasks)
+        self.assertEqual(len(tasks.tasks), 1)
+        with patch.object(integration, 'generate_integration_report', side_effect=HTTPException(502, detail='模型校验失败')):
+            integration._run_integration_background(*key)
+        self.assertEqual(integration._integration_jobs[key], {'status': 'failed', 'error': '模型校验失败'})
 
     def test_accepts_current_class_diagnosis_version_without_relabeling(self):
         self.source["class_diagnosis_result"]["schema_version"] = "1.1"

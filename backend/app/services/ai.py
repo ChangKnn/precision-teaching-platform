@@ -483,8 +483,8 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
             return result
         except (ValueError, RuntimeError) as error:
             if repaired:
-                detail = f'（{error.diagnostic}）' if skill.key == 'solo_class_diagnosis_intervention' and isinstance(error, StructuredOutputError) else ''
-                if skill.key == 'solo_class_diagnosis_intervention' and (response.get('choices') or [{}])[0].get('finish_reason') == 'length':
+                detail = f'（{error.diagnostic}）' if skill.key in {'solo_class_diagnosis_intervention', 'precision_intervention_plan_integration_review'} and isinstance(error, StructuredOutputError) else ''
+                if skill.key in {'solo_class_diagnosis_intervention', 'precision_intervention_plan_integration_review'} and (response.get('choices') or [{}])[0].get('finish_reason') == 'length':
                     detail = '（模型输出达到长度限制，JSON 未完整返回）'
                 raise RuntimeError(f'{label}输出校验及一次修正仍未通过{detail}，{retained}，请重试') from error
             repaired = True

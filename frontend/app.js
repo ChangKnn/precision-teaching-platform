@@ -3463,7 +3463,9 @@ function showIntegrationReport(payload) {
   target.innerHTML = buildInterventionReport(report);
 }
 
+let integrationReportPoll = 0;
 async function renderInterventionReport() {
+  const poll = ++integrationReportPoll;
   const teachingId = serverState?.current_teaching_id;
   const classroomId = ui.activeInterventionClassroomId;
   const target = document.getElementById("interventionReportContent");
@@ -3478,8 +3480,18 @@ async function renderInterventionReport() {
   target.innerHTML = '<p class="report-empty">正在读取已保存的教学方案…</p>';
   try {
     const payload = await window.PlatformAPI.getIntegrationReport(teachingId, classroomId);
-    if (serverState?.current_teaching_id !== teachingId || ui.activeInterventionClassroomId !== classroomId) return;
+    if (poll !== integrationReportPoll || serverState?.current_teaching_id !== teachingId || ui.activeInterventionClassroomId !== classroomId) return;
     showIntegrationReport(payload);
+    if (payload.generation?.status === 'running') {
+      document.getElementById('integrationReportStatus').hidden = false;
+      document.getElementById('integrationReportStatus').textContent = '正在后台生成并审核教学方案，请稍候…';
+      const button = document.getElementById('refreshInterventionReportEmpty') || document.getElementById('refreshInterventionReport');
+      if (button) { button.disabled = true; button.textContent = '正在生成并审核教学方案…'; }
+      window.setTimeout(() => { if (poll === integrationReportPoll && ui.currentPage === 'intervention' && ui.interventionStep === 4) renderInterventionReport(); }, 4000);
+    } else if (payload.generation?.status === 'failed') {
+      document.getElementById('integrationReportStatus').hidden = false;
+      document.getElementById('integrationReportStatus').textContent = `方案生成失败：${payload.generation.error}，请重试。`;
+    }
   } catch (error) {
     document.getElementById("integrationReportStatus").textContent = `方案读取失败：${error.message}`;
     target.innerHTML = `<p class="report-empty">${escapeHTML(error.message)}</p>`;
@@ -4630,9 +4642,9 @@ document.addEventListener("click", async event => {
     status.hidden = false;
     status.textContent = "正在生成并审核教学方案，请稍候…";
     try {
-      const payload = await window.PlatformAPI.generateIntegrationReport(teachingId, classroomId);
+      await window.PlatformAPI.generateIntegrationReport(teachingId, classroomId);
       if (serverState.current_teaching_id !== teachingId || ui.activeInterventionClassroomId !== classroomId) return;
-      showIntegrationReport({ ready: true, report: payload.report });
+      await renderInterventionReport();
     } catch (error) {
       document.getElementById("integrationReportStatus").textContent = `方案生成失败：${error.message}`;
       showToast(`方案生成失败：${error.message}`);

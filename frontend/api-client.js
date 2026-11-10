@@ -251,7 +251,7 @@ window.PlatformAPI = {
   },
 
   generateIntegrationReport(teachingId, classroomId) {
-    return this.request(`/api/precision-teachings/${encodeURIComponent(teachingId)}/classrooms/${encodeURIComponent(classroomId)}/integration-report/generate`, {
+    return this.request(`/api/precision-teachings/${encodeURIComponent(teachingId)}/classrooms/${encodeURIComponent(classroomId)}/integration-report/generate-async`, {
       method: "POST"
     });
   },
