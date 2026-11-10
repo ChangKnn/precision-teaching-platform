@@ -14,6 +14,7 @@ from backend.app.intervention_integration_api import (
     _replace_student_ids,
     _restore_confirmed_teacher_analysis,
     _restore_diagnostic_task,
+    _restore_class_distribution,
     _validate_output,
 )
 from backend.app import intervention_integration_api as integration
@@ -39,6 +40,29 @@ class InterventionIntegrationTest(unittest.TestCase):
         self.assertEqual(fixed['integrated_plan']['diagnosis_summary']['diagnostic_task'], self.source['diagnostic_task_context'])
         self.assertEqual(changed['integrated_plan']['diagnosis_summary']['diagnostic_task']['task_text'], '模型改写的任务')
         _validate_output(self.source, fixed)
+
+    def test_class_distribution_restores_source_numbers_and_reorders_by_level(self):
+        changed = copy.deepcopy(self.result)
+        summary = changed['integrated_plan']['diagnosis_summary']
+        original_performance = summary['distribution_rows'][0]['typical_performance']
+        summary['total_students'] = 100
+        summary['distribution_rows'][0]['count'] = 99
+        summary['distribution_rows'][0]['proportion'] = 0.99
+        summary['distribution_rows'].reverse()
+        fixed = _restore_class_distribution(self.source, changed)
+        self.assertEqual(fixed['integrated_plan']['diagnosis_summary']['total_students'], 4)
+        first = fixed['integrated_plan']['diagnosis_summary']['distribution_rows'][0]
+        self.assertEqual((first['level'], first['count'], first['proportion']), ('P', 1, 0.25))
+        self.assertEqual(first['typical_performance'], original_performance)
+        self.assertEqual(summary['total_students'], 100)
+        _validate_output(self.source, fixed)
+
+    def test_class_distribution_rejects_duplicate_levels(self):
+        changed = copy.deepcopy(self.result)
+        rows = changed['integrated_plan']['diagnosis_summary']['distribution_rows']
+        rows[1]['level'] = rows[0]['level']
+        with self.assertRaisesRegex(ValueError, '层级不完整或重复'):
+            _restore_class_distribution(self.source, changed)
 
     def test_background_generation_deduplicates_and_exposes_failure(self):
         key = ('test-teaching', 'test-class')

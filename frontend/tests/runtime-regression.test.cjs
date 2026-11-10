@@ -12,6 +12,28 @@ const studentSource = fs.readFileSync(path.join(frontend, "student/student.js"),
 const teacherSource = fs.readFileSync(path.join(frontend, "app.js"), "utf8");
 const taskEditorSource = fs.readFileSync(path.join(frontend, "task-editor.js"), "utf8");
 
+test('background plan polling preserves the visible generating state while awaiting a response', async () => {
+  let resolveRequest;
+  const pending = new Promise(resolve => { resolveRequest = resolve; });
+  const elements = new Map();
+  const get = id => { if (!elements.has(id)) elements.set(id, {hidden:false, disabled:false, textContent:'', innerHTML:''}); return elements.get(id); };
+  get('interventionReportContent').innerHTML = '正在生成的内容';
+  get('integrationReportStatus').textContent = '正在后台生成';
+  let redraws = 0;
+  const context = loadFunctions(teacherSource, ['renderInterventionReport'], {
+    integrationReportPoll:0, serverState:{current_teaching_id:'t'}, ui:{activeInterventionClassroomId:'c', currentPage:'intervention', interventionStep:4},
+    document:{getElementById:get, querySelector:()=>null},
+    window:{PlatformAPI:{getIntegrationReport:()=>pending},setTimeout(){}}, showIntegrationReport(){redraws++;}, escapeHTML:String
+  });
+  const promise = context.renderInterventionReport(true);
+  assert.equal(get('interventionReportContent').innerHTML, '正在生成的内容');
+  assert.equal(get('integrationReportStatus').textContent, '正在后台生成');
+  resolveRequest({generation:{status:'running'}});
+  await promise;
+  assert.equal(redraws, 0);
+  assert.match(get('integrationReportStatus').textContent, /正在后台生成/);
+});
+
 function loadFunctions(source, names, globals = {}) {
   const context = vm.createContext(globals);
   for (const name of names) {

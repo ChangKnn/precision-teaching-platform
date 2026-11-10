@@ -89,6 +89,27 @@ def _restore_diagnostic_task(source: dict, result: dict) -> dict:
     return corrected
 
 
+def _restore_class_distribution(source: dict, result: dict) -> dict:
+    """Keep model commentary attached to its level, but use authoritative counts."""
+    corrected = copy.deepcopy(result)
+    summary = corrected['integrated_plan']['diagnosis_summary']
+    rows = summary['distribution_rows']
+    by_level = {row['level']: row for row in rows}
+    source_summary = source['class_diagnosis_result']['class_summary']
+    distribution = source_summary['distribution']
+    if len(by_level) != len(rows) or set(by_level) != {row['level'] for row in distribution}:
+        raise ValueError('报告的班级 SOLO 层级不完整或重复，请重试')
+    restored = []
+    for original in distribution:
+        row = by_level[original['level']]
+        for field in ('level', 'level_name', 'count', 'proportion'):
+            row[field] = original[field]
+        restored.append(row)
+    summary['distribution_rows'] = restored
+    summary['total_students'] = source_summary['total_students']
+    return corrected
+
+
 def _restore_confirmed_teacher_analysis(source: dict, result: dict) -> dict:
     """Replace model paraphrases with the teacher's exact confirmed analyses.
 
@@ -205,6 +226,8 @@ def _validate_output(source: dict, result: dict) -> None:
     if basic["plan_title"] != source["integration_preferences"]["plan_title"]:
         raise ValueError("报告标题与教师设置不一致")
     source_distribution = source["class_diagnosis_result"]["class_summary"]["distribution"]
+    if plan['diagnosis_summary']['total_students'] != source['class_diagnosis_result']['class_summary']['total_students']:
+        raise ValueError('报告改变了班级诊断人数')
     output_distribution = plan["diagnosis_summary"]["distribution_rows"]
     if [(row["level"], row["count"], row["proportion"]) for row in output_distribution] != [
         (row["level"], row["count"], row["proportion"]) for row in source_distribution
@@ -378,6 +401,7 @@ def generate_integration_report(teaching_id: str, classroom_id: str) -> dict:
         result = run_intervention_plan_integration(skill, payload, settings.ai_provider)
         result = _restore_confirmed_teaching_information(payload, result)
         result = _restore_diagnostic_task(payload, result)
+        result = _restore_class_distribution(payload, result)
         result = _restore_confirmed_teacher_analysis(payload, result)
         _validate_output(payload, result)
         _, latest_hash, _ = _source(teaching_id, classroom_id)

@@ -3464,11 +3464,12 @@ function showIntegrationReport(payload) {
 }
 
 let integrationReportPoll = 0;
-async function renderInterventionReport() {
+async function renderInterventionReport(quiet = false) {
   const poll = ++integrationReportPoll;
   const teachingId = serverState?.current_teaching_id;
   const classroomId = ui.activeInterventionClassroomId;
   const target = document.getElementById("interventionReportContent");
+  if (!quiet) {
   serverState.integrationReport = null;
   document.getElementById("integrationReportActions").hidden = true;
   document.getElementById("refreshInterventionReport").hidden = true;
@@ -3478,16 +3479,19 @@ async function renderInterventionReport() {
   document.getElementById("downloadInterventionDocx").disabled = true;
   document.getElementById("downloadInterventionReport").disabled = true;
   target.innerHTML = '<p class="report-empty">正在读取已保存的教学方案…</p>';
+  }
   try {
     const payload = await window.PlatformAPI.getIntegrationReport(teachingId, classroomId);
     if (poll !== integrationReportPoll || serverState?.current_teaching_id !== teachingId || ui.activeInterventionClassroomId !== classroomId) return;
-    showIntegrationReport(payload);
+    if (!(quiet && payload.generation?.status === 'running')) showIntegrationReport(payload);
     if (payload.generation?.status === 'running') {
       document.getElementById('integrationReportStatus').hidden = false;
       document.getElementById('integrationReportStatus').textContent = '正在后台生成并审核教学方案，请稍候…';
       const button = document.getElementById('refreshInterventionReportEmpty') || document.getElementById('refreshInterventionReport');
       if (button) { button.disabled = true; button.textContent = '正在生成并审核教学方案…'; }
-      window.setTimeout(() => { if (poll === integrationReportPoll && ui.currentPage === 'intervention' && ui.interventionStep === 4) renderInterventionReport(); }, 4000);
+      const emptyHeading = document.querySelector('#interventionReportContent .stage-empty-state h2');
+      if (emptyHeading) emptyHeading.textContent = '正在生成';
+      window.setTimeout(() => { if (poll === integrationReportPoll && ui.currentPage === 'intervention' && ui.interventionStep === 4) renderInterventionReport(true); }, 4000);
     } else if (payload.generation?.status === 'failed') {
       document.getElementById('integrationReportStatus').hidden = false;
       document.getElementById('integrationReportStatus').textContent = `方案生成失败：${payload.generation.error}，请重试。`;
