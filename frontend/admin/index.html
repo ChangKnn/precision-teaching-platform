@@ -55,11 +55,12 @@
     </main>
   </div>
 
+  <dialog id="editTeacherDialog"><form id="editTeacherForm" class="stack"><h2>修改教师基本信息</h2><p id="editTeacherIdentity" class="muted"></p><label>教师姓名<input id="editTeacherName" maxlength="50" required></label><label>学校<input id="editTeacherSchool" maxlength="120" required></label><label>学科<input id="editTeacherSubject" maxlength="50" required></label><p class="field-help">修改学校名称不会更改已有班级所属学校。</p><div class="actions"><button type="button" data-close-dialog>取消</button><button class="primary" type="submit">保存</button></div></form></dialog>
   <dialog id="resetDialog"><form id="resetForm" class="stack"><h2>重置教师密码</h2><p id="resetIdentity" class="muted"></p><p>原有登录将立即失效，教师下次登录必须设置新密码。</p><label>新的临时密码<input id="resetPassword" type="password" minlength="10" maxlength="128" autocomplete="new-password" required></label><div class="actions"><button type="button" data-close-dialog>取消</button><button class="primary" type="submit">重置密码</button></div></form></dialog>
   <dialog id="ownPasswordDialog"><form id="ownPasswordForm" class="stack"><h2>修改管理员密码</h2><label>当前密码<input id="ownCurrent" type="password" autocomplete="current-password" maxlength="128" required></label><label>新密码<input id="ownNew" type="password" autocomplete="new-password" minlength="10" maxlength="128" required></label><label>确认新密码<input id="ownRepeat" type="password" autocomplete="new-password" minlength="10" maxlength="128" required></label><div class="actions"><button type="button" data-close-dialog>取消</button><button class="primary" type="submit">保存密码</button></div></form></dialog>
   <dialog id="taskDialog"><div class="detail-header"><h2>任务详情 · 只读</h2><button type="button" data-close-dialog>关闭</button></div><div id="taskDetail"></div></dialog>
   <p id="notice" class="notice" role="status" hidden></p>
   <footer class="site-filing" aria-label="网站备案信息"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">京ICP备2026068374号-1</a><a href="https://beian.mps.gov.cn/#/query/webSearch?code=11010802050729" target="_blank" rel="noopener noreferrer"><img src="/assets/beian.png" alt="公安备案图标" width="20" height="20">京公网安备11010802050729号</a></footer>
-  <script src="admin.js?v=20261031-new-account-password"></script>
+  <script src="admin.js?v=20261110-teacher-profile"></script>
 </body>
 </html>

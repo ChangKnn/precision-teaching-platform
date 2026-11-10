@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class TeacherProfileUpdate(BaseModel):
+    school_name: str | None = Field(default=None, min_length=1, max_length=120)
     display_name: str = Field(min_length=1, max_length=50)
     subject: str = Field(min_length=1, max_length=50)
     years_experience: int = Field(ge=0, le=80)

@@ -1,6 +1,6 @@
 "use strict";
 const el = id => document.getElementById(id);
-const state = {teachers: [], workspaces: [], offset: 0, total: 0, resetId: null};
+const state = {teachers: [], workspaces: [], offset: 0, total: 0, resetId: null, editId: null};
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
 const date = value => value ? new Date(value).toLocaleString("zh-CN", {hour12:false}) : "尚未登录";
 const labels = {draft:"草稿",active:"进行中",completed:"已完成",published:"已发布",pending:"待处理",confirmed:"已确认",diagnosis:"诊断设计",feedback:"结果反馈",intervention:"干预设计"};
@@ -53,7 +53,7 @@ async function refresh() {
   for (const [id,key] of [["countTeachers","teachers"],["countEnabled","enabled_teachers"],["countTeachings","teachings"],["countSubmitted","submitted_sessions"]]) el(id).textContent = overview[key];
   state.teachers = teachers.teachers;
   state.workspaces = teachers.unbound_workspaces;
-  el("teacherRows").innerHTML = state.teachers.map(t => `<tr><td><strong>${escapeHtml(t.teacher_name)}</strong><small>${escapeHtml(t.username)}</small></td><td>${escapeHtml(t.school_name)}<small>${escapeHtml(t.subject)}</small></td><td><span class="badge ${t.enabled ? "" : "disabled"}">${t.enabled ? "已启用" : "已停用"}</span>${t.must_change_password ? "<small>待首次改密</small>" : ""}</td><td>${t.teaching_count}</td><td>${escapeHtml(date(t.last_login_at))}</td><td><div class="row-actions"><button data-action="toggle" data-id="${escapeHtml(t.id)}">${t.enabled ? "停用" : "启用"}</button><button data-action="reset" data-id="${escapeHtml(t.id)}">重置密码</button><button data-action="tasks" data-id="${escapeHtml(t.id)}">查看任务</button></div></td></tr>`).join("");
+  el("teacherRows").innerHTML = state.teachers.map(t => `<tr><td><strong>${escapeHtml(t.teacher_name)}</strong><small>${escapeHtml(t.username)}</small></td><td>${escapeHtml(t.school_name)}<small>${escapeHtml(t.subject)}</small></td><td><span class="badge ${t.enabled ? "" : "disabled"}">${t.enabled ? "已启用" : "已停用"}</span>${t.must_change_password ? "<small>待首次改密</small>" : ""}</td><td>${t.teaching_count}</td><td>${escapeHtml(date(t.last_login_at))}</td><td><div class="row-actions"><button data-action="edit" data-id="${escapeHtml(t.id)}">编辑信息</button><button data-action="toggle" data-id="${escapeHtml(t.id)}">${t.enabled ? "停用" : "启用"}</button><button data-action="reset" data-id="${escapeHtml(t.id)}">重置密码</button><button data-action="tasks" data-id="${escapeHtml(t.id)}">查看任务</button></div></td></tr>`).join("");
   el("teacherEmpty").hidden = state.teachers.length > 0;
   const previousWorkspace = el("workspaceChoice").value;
   el("workspaceChoice").replaceChildren(new Option("新建教学空间", ""), ...state.workspaces.map(w => new Option(`${w.teacher_name} · ${w.school_name} · ${w.subject}（${w.teaching_count}项任务）`,w.id)));
@@ -115,7 +115,14 @@ el("teacherRows").addEventListener("click", async e => {
   const button = e.target.closest("button[data-action]"); if (!button) return;
   const teacher = state.teachers.find(t=>t.id===button.dataset.id); if (!teacher) return;
   try {
-    if (button.dataset.action === "toggle") {
+    if (button.dataset.action === "edit") {
+      state.editId=teacher.id;
+      el('editTeacherIdentity').textContent=`账号：${teacher.username}`;
+      el('editTeacherName').value=teacher.teacher_name;
+      el('editTeacherSchool').value=teacher.school_name;
+      el('editTeacherSubject').value=teacher.subject;
+      el('editTeacherDialog').showModal();
+    } else if (button.dataset.action === "toggle") {
       if (!confirm(`${teacher.enabled ? "停用" : "启用"}账号 ${teacher.username}？${teacher.enabled ? "该教师将立即退出，但资料和任务保留。" : ""}`)) return;
       button.disabled=true;
       await api(`/api/admin/teachers/${encodeURIComponent(teacher.id)}`, "PATCH", {enabled:!teacher.enabled}); await refresh(); notice("账号状态已更新");
@@ -126,6 +133,12 @@ el("teacherRows").addEventListener("click", async e => {
     }
   } catch (error) {notice(error.message,true);} finally {button.disabled=false;}
 });
+el('editTeacherForm').addEventListener('submit', e => { e.preventDefault(); busy(e.target, async () => {
+  await api(`/api/admin/teachers/${encodeURIComponent(state.editId)}/profile`, 'PUT', {
+    teacher_name:el('editTeacherName').value.trim(), school_name:el('editTeacherSchool').value.trim(), subject:el('editTeacherSubject').value.trim()
+  });
+  el('editTeacherDialog').close(); await refresh(); notice('教师信息已更新');
+}); });
 el("resetForm").addEventListener("submit", e => {e.preventDefault(); busy(e.target, async () => {
   await api(`/api/admin/teachers/${encodeURIComponent(state.resetId)}/password`, "POST", {password:el("resetPassword").value}); e.target.reset(); el("resetDialog").close(); await refresh(); notice("密码已重置，教师需使用临时密码重新登录");
 });});

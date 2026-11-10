@@ -4740,6 +4740,7 @@ document.addEventListener("click", async event => {
     button.textContent = "正在保存…";
     try {
       const profile = await window.PlatformAPI.saveProfile({
+        school_name: document.getElementById("profileSchoolName").value.trim(),
         display_name: document.getElementById("profileDisplayName").value.trim(),
         subject: document.getElementById("profileSubject").value.trim(),
         years_experience: Number(document.getElementById("profileYears").value || 0),

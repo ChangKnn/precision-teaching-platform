@@ -15,7 +15,7 @@ class ClassroomManagementTest(TestCase):
         self.case.setUp();self.addCleanup(self.case.doCleanups)
         self.request=SimpleNamespace(state=SimpleNamespace(teacher_workspace_id='ws'))
         with db.database() as connection:
-            connection.execute("INSERT INTO classroom_schools VALUES ('class','测试学校',?)",(db.utc_now(),))
+            connection.execute("INSERT OR IGNORE INTO classroom_schools VALUES ('class','测试学校',?)",(db.utc_now(),))
 
     def test_rename_keeps_student_identity_login_and_all_previous_answers(self):
         sid=self.case.start()['session']['id'];self.case.send(sid)

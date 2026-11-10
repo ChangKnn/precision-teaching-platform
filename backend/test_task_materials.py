@@ -41,6 +41,7 @@ class TaskMaterialsTest(TestCase):
                 (teaching_id,goal,task_text,ai_role,updated_at) VALUES ('pt','说明理由',?, '中性引导者：只追问理由，不提供解法',?)""",
                 (r'求 \(x^2+1\) 的最小值，请说明理由。', now))
             connection.execute("INSERT INTO classrooms (id,name,created_at,updated_at) VALUES ('class','测试班',?,?)", (now, now))
+            connection.execute("INSERT INTO classroom_schools VALUES ('class','测试学校',?)", (now,))
             connection.execute("UPDATE diagnosis_tasks SET design_intent='观察学生如何依据条件说明理由，不只看最终答案' WHERE teaching_id='pt'")
             connection.execute("INSERT INTO classroom_workspaces VALUES ('class','ws',?)", (now,))
             connection.execute("INSERT INTO diagnosis_assignments VALUES ('pt','class',?,1)", (now,))

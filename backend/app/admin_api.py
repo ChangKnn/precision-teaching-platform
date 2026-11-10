@@ -23,6 +23,13 @@ class AccountState(BaseModel):
     enabled: bool
 
 
+class TeacherIdentityUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    school_name: str = Field(min_length=1, max_length=120)
+    subject: str = Field(min_length=1, max_length=50)
+    teacher_name: str = Field(min_length=1, max_length=50)
+
+
 class PasswordReset(BaseModel):
     model_config = ConfigDict(extra="forbid")
     password: str = Field(min_length=10, max_length=128)
@@ -84,6 +91,16 @@ def set_teacher_state(account_id: str, payload: AccountState, request: Request) 
     write_audit("admin_enable_teacher" if payload.enabled else "admin_disable_teacher", "user_account", account_id,
                 {"actor": admin["account_id"]})
     return {"id": account_id, "enabled": payload.enabled}
+
+
+@router.put('/teachers/{account_id}/profile')
+def update_teacher_identity(account_id: str, payload: TeacherIdentityUpdate, request: Request) -> dict:
+    admin = require_admin(request)
+    account = _teacher(account_id)
+    from .services.teacher_profiles import update_identity
+    identity = update_identity(account['workspace_id'], payload.school_name, payload.subject, payload.teacher_name)
+    write_audit('admin_update_teacher_profile', 'user_account', account_id, {'actor': admin['account_id'], 'workspace_id': account['workspace_id']})
+    return {'id': account_id, **identity}
 
 
 @router.post("/teachers/{account_id}/password")

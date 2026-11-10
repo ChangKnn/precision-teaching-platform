@@ -13,7 +13,6 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .database import database, fetch_all, fetch_one, initialize_database, utc_now, write_audit
-from .database import teacher_identity_key
 from .schemas import (
     AIJobCreate,
     AIJobResponse,
@@ -386,30 +385,10 @@ def get_teacher_profile(request: Request) -> dict:
 
 @app.put("/api/teacher-profile")
 def update_teacher_profile(payload: TeacherProfileUpdate, request: Request) -> dict:
-    now = utc_now()
     workspace_id = request.state.teacher_workspace_id
-    workspace = fetch_one("SELECT school_name FROM teacher_workspaces WHERE id = ?", (workspace_id,))
-    key = teacher_identity_key(workspace["school_name"], payload.subject, payload.display_name)
-    duplicate = fetch_one("SELECT id FROM teacher_workspaces WHERE identity_key = ?", (key,))
-    if duplicate and duplicate["id"] != workspace_id:
-        raise HTTPException(status_code=409, detail="该学校、学科、教师姓名对应的空间已存在")
-    with database() as connection:
-        connection.execute(
-            """
-            UPDATE teacher_workspaces
-            SET teacher_name = ?, subject = ?, identity_key = ?, years_experience = ?, teaching_style = ?, profile_completed = 1, updated_at = ?
-            WHERE id = ?
-            """,
-            (
-                payload.display_name,
-                payload.subject,
-                key,
-                payload.years_experience,
-                payload.teaching_style,
-                now,
-                workspace_id,
-            ),
-        )
+    from .services.teacher_profiles import update_identity
+    update_identity(workspace_id, payload.school_name, payload.subject, payload.display_name,
+                    years_experience=payload.years_experience, teaching_style=payload.teaching_style)
     write_audit("update", "teacher_profile", workspace_id, payload.model_dump())
     return get_teacher_profile(request)
 

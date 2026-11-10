@@ -45,7 +45,7 @@ def login_options() -> list[dict]:
         JOIN precision_teachings p ON p.id = da.teaching_id
         JOIN teacher_workspaces tw ON tw.id = p.workspace_id
         JOIN classrooms c ON c.id = da.classroom_id
-        JOIN classroom_schools cs ON cs.classroom_id = c.id AND cs.school_name = tw.school_name
+        JOIN classroom_schools cs ON cs.classroom_id = c.id
         WHERE da.is_published = 1
         ORDER BY cs.school_name, c.name
         """
@@ -69,7 +69,7 @@ def match_classroom(school_name: str, class_name: str) -> dict | None:
             JOIN diagnosis_tasks d ON d.teaching_id = da.teaching_id AND (d.status = 'published' OR d.published_version_id IS NOT NULL)
             JOIN precision_teachings p ON p.id = da.teaching_id
             JOIN teacher_workspaces tw ON tw.id = p.workspace_id
-            WHERE da.classroom_id = c.id AND da.is_published = 1 AND tw.school_name = cs.school_name
+            WHERE da.classroom_id = c.id AND da.is_published = 1
         )
         ORDER BY cs.school_name, c.name
         """
@@ -149,11 +149,12 @@ def task_rows(student: dict) -> list[dict]:
         JOIN precision_teachings p ON p.id = da.teaching_id
         JOIN diagnosis_tasks d ON d.teaching_id = p.id AND (d.status = 'published' OR d.published_version_id IS NOT NULL)
         JOIN teacher_workspaces tw ON tw.id = p.workspace_id
+        JOIN classroom_schools cs ON cs.classroom_id = da.classroom_id
         LEFT JOIN student_task_sessions sts
           ON sts.teaching_id = p.id AND sts.student_id = ?
         LEFT JOIN student_diagnosis_reports sdr
           ON sdr.session_id = sts.id AND sdr.status = 'pushed'
-        WHERE da.classroom_id = ? AND da.is_published = 1 AND tw.school_name = ?
+        WHERE da.classroom_id = ? AND da.is_published = 1 AND cs.school_name = ?
         ORDER BY CASE WHEN sts.status = 'in_progress' THEN 0
                       WHEN sts.status IS NULL THEN 1 ELSE 2 END,
                  d.updated_at DESC
@@ -200,8 +201,8 @@ def owned_session(session_id: str, student_id: str) -> dict:
     if not session:
         raise HTTPException(status_code=404, detail="学习会话不存在")
     if not fetch_one('''SELECT 1 FROM diagnosis_assignments da JOIN students s ON s.classroom_id=da.classroom_id
-        JOIN precision_teachings p ON p.id=da.teaching_id JOIN teacher_workspaces tw ON tw.id=p.workspace_id
-        WHERE da.teaching_id=? AND da.is_published=1 AND s.id=? AND s.school_name=tw.school_name''',
+        JOIN classroom_schools cs ON cs.classroom_id=da.classroom_id
+        WHERE da.teaching_id=? AND da.is_published=1 AND s.id=? AND s.school_name=cs.school_name''',
         (session['teaching_id'],student_id)):
         raise HTTPException(status_code=404, detail='此任务已不再分配到当前学生班级')
     version = session_version(session)
@@ -453,7 +454,8 @@ def start_task(teaching_id: str, student: dict = Depends(require_student)) -> di
         JOIN precision_teachings p ON p.id = da.teaching_id
         JOIN diagnosis_tasks d ON d.teaching_id = p.id AND (d.status = 'published' OR d.published_version_id IS NOT NULL)
         JOIN teacher_workspaces tw ON tw.id = p.workspace_id
-        WHERE da.teaching_id = ? AND da.classroom_id = ? AND da.is_published = 1 AND tw.school_name = ?
+        JOIN classroom_schools cs ON cs.classroom_id = da.classroom_id
+        WHERE da.teaching_id = ? AND da.classroom_id = ? AND da.is_published = 1 AND cs.school_name = ?
         """,
         (teaching_id, student["classroom_id"], student["school_name"]),
     )
@@ -532,10 +534,10 @@ def get_student_session(session_id: str, student: dict = Depends(require_student
 def student_task_image(teaching_id: str, image_id: str, student: dict = Depends(require_student)) -> FileResponse:
     assigned = fetch_one("""SELECT 1 FROM diagnosis_assignments da
         JOIN precision_teachings p ON p.id=da.teaching_id
-        JOIN teacher_workspaces tw ON tw.id=p.workspace_id
+        JOIN classroom_schools cs ON cs.classroom_id=da.classroom_id
         JOIN diagnosis_tasks d ON d.teaching_id=p.id
         WHERE da.teaching_id=? AND da.classroom_id=? AND da.is_published=1
-        AND d.status='published' AND tw.school_name=?""", (teaching_id, student["classroom_id"], student["school_name"]))
+        AND d.status='published' AND cs.school_name=?""", (teaching_id, student["classroom_id"], student["school_name"]))
     if not assigned:
         raise HTTPException(status_code=404, detail="题图不属于当前学生任务")
     return image_response(teaching_id, image_id)
@@ -544,8 +546,8 @@ def student_task_image(teaching_id: str, image_id: str, student: dict = Depends(
 @router.get('/student/tasks/{teaching_id}/versions/{version_id}/images/{image_id}')
 def student_version_image(teaching_id: str, version_id: str, image_id: str, student: dict = Depends(require_student)) -> FileResponse:
     assigned = fetch_one('''SELECT 1 FROM diagnosis_assignments da
-        JOIN precision_teachings p ON p.id=da.teaching_id JOIN teacher_workspaces tw ON tw.id=p.workspace_id
-        WHERE da.teaching_id=? AND da.classroom_id=? AND da.is_published=1 AND tw.school_name=?''',
+        JOIN classroom_schools cs ON cs.classroom_id=da.classroom_id
+        WHERE da.teaching_id=? AND da.classroom_id=? AND da.is_published=1 AND cs.school_name=?''',
         (teaching_id,student['classroom_id'],student['school_name']))
     version = get_version(version_id)
     if not assigned or not version or version['teaching_id'] != teaching_id:
@@ -573,8 +575,8 @@ def student_version_image(teaching_id: str, version_id: str, image_id: str, stud
 @router.get('/student/tasks/{teaching_id}/versions/{version_id}/attachments/{attachment_id}')
 def student_version_attachment(teaching_id: str,version_id: str,attachment_id: str,student: dict=Depends(require_student)) -> FileResponse:
     assigned=fetch_one('''SELECT 1 FROM diagnosis_assignments da JOIN precision_teachings p ON p.id=da.teaching_id
-        JOIN teacher_workspaces w ON w.id=p.workspace_id WHERE da.teaching_id=? AND da.classroom_id=?
-        AND da.is_published=1 AND w.school_name=?''',(teaching_id,student['classroom_id'],student['school_name']))
+        JOIN classroom_schools cs ON cs.classroom_id=da.classroom_id WHERE da.teaching_id=? AND da.classroom_id=?
+        AND da.is_published=1 AND cs.school_name=?''',(teaching_id,student['classroom_id'],student['school_name']))
     version=get_version(version_id)
     if not assigned or not version or version['teaching_id']!=teaching_id:
         raise HTTPException(status_code=404,detail='附件不属于当前学生任务')
