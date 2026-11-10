@@ -85,7 +85,7 @@ def _restore_confirmed_teaching_information(source: dict, result: dict) -> dict:
 
 def _restore_diagnostic_task(source: dict, result: dict) -> dict:
     corrected = copy.deepcopy(result)
-    corrected['integrated_plan']['diagnosis_summary']['diagnostic_task'] = copy.deepcopy(source['diagnostic_task_context'])
+    corrected['integrated_plan']['diagnosis_summary']['diagnostic_task'].update(copy.deepcopy(source['diagnostic_task_context']))
     return corrected
 
 

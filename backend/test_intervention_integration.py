@@ -37,7 +37,9 @@ class InterventionIntegrationTest(unittest.TestCase):
         changed = copy.deepcopy(self.result)
         changed['integrated_plan']['diagnosis_summary']['diagnostic_task']['task_text'] = '模型改写的任务'
         fixed = _restore_diagnostic_task(self.source, changed)
-        self.assertEqual(fixed['integrated_plan']['diagnosis_summary']['diagnostic_task'], self.source['diagnostic_task_context'])
+        for key, value in self.source['diagnostic_task_context'].items():
+            self.assertEqual(fixed['integrated_plan']['diagnosis_summary']['diagnostic_task'][key], value)
+        self.assertIn('source_display', fixed['integrated_plan']['diagnosis_summary']['diagnostic_task'])
         self.assertEqual(changed['integrated_plan']['diagnosis_summary']['diagnostic_task']['task_text'], '模型改写的任务')
         _validate_output(self.source, fixed)
 

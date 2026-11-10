@@ -3494,7 +3494,7 @@ async function renderInterventionReport(quiet = false) {
       window.setTimeout(() => { if (poll === integrationReportPoll && ui.currentPage === 'intervention' && ui.interventionStep === 4) renderInterventionReport(true); }, 4000);
     } else if (payload.generation?.status === 'failed') {
       document.getElementById('integrationReportStatus').hidden = false;
-      document.getElementById('integrationReportStatus').textContent = `方案生成失败：${payload.generation.error}，请重试。`;
+      document.getElementById('integrationReportStatus').textContent = `方案生成失败：${payload.generation.error}`;
     }
   } catch (error) {
     document.getElementById("integrationReportStatus").textContent = `方案读取失败：${error.message}`;

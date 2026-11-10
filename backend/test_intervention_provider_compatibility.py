@@ -9,6 +9,22 @@ from backend.app.services.skills import load_skill
 
 
 class InterventionProviderCompatibilityTest(TestCase):
+    def test_audit_fills_only_known_labels_and_pass_placeholders(self):
+        skill = load_skill('precision_intervention_plan_integration_review')
+        sample = json.loads((skill.path.parent / 'tests/sample-output.json').read_text(encoding='utf-8'))
+        schema = json.loads((skill.path.parent / 'assets/plan-integration-output.schema.json').read_text(encoding='utf-8'))
+        row = sample['audit_summary']['review_items'][0]
+        row.update(status='✓ 通过')
+        for field in ('check_item', 'issue', 'suggestion', 'return_to'):
+            row.pop(field)
+        normalized = ai._parse_structured_json(json.dumps(sample), schema, normalize=ai._normalize_integration_audit)
+        fixed = normalized['audit_summary']['review_items'][0]
+        self.assertEqual(fixed['check_item'], '诊断—目标一致性')
+        self.assertEqual((fixed['issue'], fixed['suggestion'], fixed['return_to']), ('—', '—', '—'))
+        row['status'] = '× 需要修改'
+        with self.assertRaises(ai.StructuredOutputError):
+            ai._parse_structured_json(json.dumps(sample), schema, normalize=ai._normalize_integration_audit)
+
     def test_grammar_fallback_for_activity_and_plan(self):
         cases = (
             ('precision_intervention_activity_formative_regulation', ai.run_activity_formative_design),

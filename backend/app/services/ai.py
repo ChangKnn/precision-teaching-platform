@@ -309,7 +309,7 @@ class StructuredOutputError(ValueError):
         self.diagnostic = diagnostic
 
 
-def _parse_structured_json(text: str, schema: dict[str, Any]) -> dict[str, Any]:
+def _parse_structured_json(text: str, schema: dict[str, Any], normalize=None) -> dict[str, Any]:
     """Use a complete schema-valid object even when the model appends extra text."""
     import jsonschema
 
@@ -323,6 +323,8 @@ def _parse_structured_json(text: str, schema: dict[str, Any]) -> dict[str, Any]:
             candidate, end = decoder.raw_decode(cleaned)
             if not isinstance(candidate, dict):
                 raise ValueError("模型输出的顶层不是 JSON 对象")
+            if normalize:
+                candidate = normalize(candidate)
             jsonschema.validate(candidate, schema)
             return candidate
         except (json.JSONDecodeError, ValueError) as error:
@@ -339,11 +341,40 @@ def _parse_structured_json(text: str, schema: dict[str, Any]) -> dict[str, Any]:
     if isinstance(last_error, jsonschema.ValidationError):
         path = '/'.join(str(part) for part in last_error.absolute_schema_path)
         diagnostic = f'格式规则 {path[:300]} 未通过'
+        if last_error.validator == 'required' and isinstance(last_error.instance, dict):
+            missing = [key for key in last_error.validator_value if key not in last_error.instance]
+            if missing:
+                diagnostic += '，缺少字段 ' + '、'.join(missing)
     elif isinstance(last_error, json.JSONDecodeError):
         diagnostic = f'JSON 不完整或格式无效（第 {last_error.lineno} 行）'
     else:
         diagnostic = '输出不是有效的 JSON 对象'
     raise StructuredOutputError(f"模型没有返回符合 Schema 的完整 JSON 对象：{last_error}", diagnostic)
+
+
+def _normalize_integration_audit(result: dict) -> dict:
+    """Fill only deterministic audit labels and passing-row placeholders."""
+    from ..intervention_integration_api import RULE_NAMES
+    import copy
+    normalized = copy.deepcopy(result)
+    audit = normalized.get('audit_summary')
+    rows = audit.get('review_items') if isinstance(audit, dict) else None
+    if not isinstance(rows, list):
+        return normalized
+    codes = {f'R{index}': name for index, name in enumerate(RULE_NAMES, 1)}
+    inverse = {name: code for code, name in codes.items()}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if not row.get('check_item') and row.get('rule_code') in codes:
+            row['check_item'] = codes[row['rule_code']]
+        if not row.get('rule_code') and row.get('check_item') in inverse:
+            row['rule_code'] = inverse[row['check_item']]
+        if row.get('status') == '✓ 通过':
+            for field in ('issue', 'suggestion', 'return_to'):
+                if not row.get(field):
+                    row[field] = '—'
+    return normalized
 
 
 def _post_json(url: str, body: dict[str, Any], api_key: str, timeout: int = 120, purpose: str = "teacher_ai") -> dict[str, Any]:
@@ -473,7 +504,7 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
         text = ''
         try:
             text = _extract_chat_completion_text(response)
-            result = _parse_structured_json(text, schema)
+            result = _parse_structured_json(text, schema, normalize=_normalize_integration_audit if skill.key == 'precision_intervention_plan_integration_review' else None)
             if is_rubric:
                 from .compact_outputs import expand_rubric
                 result = expand_rubric(result)
@@ -908,6 +939,7 @@ def run_intervention_plan_integration(
     instructions = (
         "\n\n只输出符合 plan-integration-output.schema.json 的 JSON 对象。"
         "必须逐项审查 R1—R8；保留上游目标、活动、时长、学生归属和形成性评价，不得静默改写。"
+        "每个 review_items 项都必须包含 rule_code、check_item、status、issue、suggestion、return_to 六个字段；通过项后三项为‘—’，非通过项须给出具体问题、建议及返回位置。"
         "basic_information中的精准教学信息逐值复制precision_teaching_context；高等教育的subject允许为空，不能补写学科、课程名或未填写说明，课程名称和专业使用各自字段。"
         "basic_information.plan_title、共同核心目标 goal_statement、每条分层目标的 goal_id/goal_statement、"
         "五层分布及路径阶段的 stage_id/duration_minutes 必须逐字或逐值复制上游输入。"
