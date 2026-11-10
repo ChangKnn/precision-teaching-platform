@@ -104,6 +104,8 @@ def _restore_class_distribution(source: dict, result: dict) -> dict:
         row = by_level[original['level']]
         for field in ('level', 'level_name', 'count', 'proportion'):
             row[field] = original[field]
+        if not source['integration_preferences']['show_student_names']:
+            row['students_display'] = None
         restored.append(row)
     summary['distribution_rows'] = restored
     summary['total_students'] = source_summary['total_students']

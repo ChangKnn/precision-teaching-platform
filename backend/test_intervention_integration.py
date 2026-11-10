@@ -50,12 +50,14 @@ class InterventionIntegrationTest(unittest.TestCase):
         summary['total_students'] = 100
         summary['distribution_rows'][0]['count'] = 99
         summary['distribution_rows'][0]['proportion'] = 0.99
+        summary['distribution_rows'][0]['students_display'] = '不应显示的姓名'
         summary['distribution_rows'].reverse()
         fixed = _restore_class_distribution(self.source, changed)
         self.assertEqual(fixed['integrated_plan']['diagnosis_summary']['total_students'], 4)
         first = fixed['integrated_plan']['diagnosis_summary']['distribution_rows'][0]
         self.assertEqual((first['level'], first['count'], first['proportion']), ('P', 1, 0.25))
         self.assertEqual(first['typical_performance'], original_performance)
+        self.assertIsNone(first['students_display'])
         self.assertEqual(summary['total_students'], 100)
         _validate_output(self.source, fixed)
 
