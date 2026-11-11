@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 import hashlib
+import io
 import json
 from pathlib import Path
 import re
@@ -12,6 +13,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
 from fastapi.responses import FileResponse
+from PIL import Image, UnidentifiedImageError
 
 from .config import settings
 from .custom_analysis_api import custom_report_for, standard_for
@@ -734,16 +736,37 @@ async def upload_file(
     extensions = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
     if content_type not in extensions:
         raise HTTPException(status_code=415, detail="仅支持 JPG、PNG 和 WEBP 图片")
-    content = await request.body()
-    if not content or len(content) > 10 * 1024 * 1024:
+    content = bytearray()
+    async for chunk in request.stream():
+        content.extend(chunk)
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail='单张图片应小于 10 MB')
+    if not content:
         raise HTTPException(status_code=413, detail="单张图片应小于 10 MB")
+    try:
+        with Image.open(io.BytesIO(content)) as image:
+            if image.format != {'image/jpeg':'JPEG','image/png':'PNG','image/webp':'WEBP'}[content_type]:
+                raise ValueError('图片格式与文件不一致')
+            image.verify()
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as error:
+        raise HTTPException(status_code=415, detail='图片无效或格式不受支持，请重新拍照或选择图片') from error
 
     original_filename = Path(unquote(x_file_name or "student-work")).name[:180]
     file_id = f"file-{uuid4().hex[:20]}"
     stored_filename = f"{file_id}{extensions[content_type]}"
-    (settings.upload_path / stored_filename).write_bytes(content)
+    settings.upload_path.mkdir(parents=True, exist_ok=True)
+    path = settings.upload_path / stored_filename
     now = utc_now()
-    with database() as connection:
+    try:
+      with database() as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        current = connection.execute('SELECT status FROM student_task_sessions WHERE id=?', (session_id,)).fetchone()
+        if not current or current['status'] != 'in_progress':
+            raise HTTPException(status_code=409, detail='该任务已经提交')
+        count = connection.execute('SELECT COUNT(*) AS n FROM student_submissions WHERE session_id=?', (session_id,)).fetchone()['n']
+        if count >= 6:
+            raise HTTPException(status_code=422, detail='最多上传 6 张图片')
+        path.write_bytes(content)
         connection.execute(
             """
             INSERT INTO student_submissions
@@ -752,6 +775,9 @@ async def upload_file(
             """,
             (file_id, session_id, original_filename, stored_filename, content_type, len(content), now),
         )
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
     return {
         "id": file_id,
         "original_filename": original_filename,
@@ -759,6 +785,34 @@ async def upload_file(
         "size_bytes": len(content),
         "created_at": now,
     }
+
+
+@router.get('/student/sessions/{session_id}/files/{submission_id}')
+def student_submission_file(session_id: str, submission_id: str, student: dict = Depends(require_student)) -> FileResponse:
+    owned_session(session_id, student['id'])
+    submission = fetch_one('SELECT * FROM student_submissions WHERE id=? AND session_id=?', (submission_id, session_id))
+    if not submission:
+        raise HTTPException(status_code=404, detail='图片不存在')
+    path = settings.upload_path / Path(submission['stored_filename']).name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail='图片文件不存在')
+    return FileResponse(path, media_type=submission['content_type'], headers={'Cache-Control':'private, no-store', 'X-Content-Type-Options':'nosniff'})
+
+
+@router.delete('/student/sessions/{session_id}/files/{submission_id}')
+def delete_student_submission_file(session_id: str, submission_id: str, student: dict = Depends(require_student)) -> dict:
+    owned_session(session_id, student['id'])
+    with database() as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        current = connection.execute('SELECT status FROM student_task_sessions WHERE id=?', (session_id,)).fetchone()
+        if not current or current['status'] != 'in_progress':
+            raise HTTPException(status_code=409, detail='该任务已经提交')
+        item = connection.execute('SELECT stored_filename FROM student_submissions WHERE id=? AND session_id=?', (submission_id, session_id)).fetchone()
+        if not item:
+            raise HTTPException(status_code=404, detail='图片不存在')
+        connection.execute('DELETE FROM student_submissions WHERE id=? AND session_id=?', (submission_id, session_id))
+    (settings.upload_path / Path(item['stored_filename']).name).unlink(missing_ok=True)
+    return {'deleted': True}
 
 
 @router.post("/student/sessions/{session_id}/submit")

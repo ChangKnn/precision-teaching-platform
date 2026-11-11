@@ -137,7 +137,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .submit-trigger { min-height: 38px; color: var(--pine-700); border-color: #b9d0ca; }
 .submit-trigger svg { width: 17px; }
 
-.conversation-scroll { min-height: 0; overflow-y: auto; scroll-behavior: smooth; }
+.conversation-scroll { min-height: 0; min-width: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .conversation-inner { width: min(820px, calc(100% - 48px)); margin: 0 auto; padding: 30px 0 36px; }
 .task-card { padding: 24px 26px; background: white; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 28px rgba(32, 68, 63, .05); }
 .task-card-top { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
@@ -227,6 +227,13 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .text-submission-field textarea { width: 100%; min-height: 220px; padding: 14px 15px; resize: vertical; color: var(--ink); border: 1px solid #cad7d3; border-radius: 12px; outline: 0; line-height: 1.75; font: inherit; font-weight: 400; }
 .text-submission-field textarea:focus { border-color: var(--pine-700); box-shadow: 0 0 0 3px rgba(28,104,97,.08); }
 .text-submission-field > small { justify-self: end; color: var(--muted); font-weight: 400; }
+.photo-submission { display: grid; gap: 10px; margin-top: 16px; font-size: 13px; font-weight: 700; }
+.photo-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.photo-upload-status { margin: 0; color: var(--muted); font-weight: 400; }
+.photo-upload-status:empty { display: none; }
+.image-preview { position: relative; min-width: 0; }
+.image-preview img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; }
+.image-preview button { position: absolute; right: 4px; top: 4px; padding: 4px 8px; border: 0; border-radius: 6px; color: white; background: rgba(0,0,0,.72); cursor: pointer; }
 .upload-zone { display: flex; min-height: 170px; margin-top: 23px; align-items: center; justify-content: center; flex-direction: column; border: 1.5px dashed #aec8c2; border-radius: 13px; background: var(--pine-50); cursor: pointer; transition: border-color .15s, background .15s; }
 .upload-zone:hover, .upload-zone.dragging { border-color: var(--pine-700); background: #e8f4f0; }
 .upload-icon { display: grid; place-items: center; width: 44px; height: 44px; margin-bottom: 10px; border-radius: 12px; background: white; color: var(--pine-700); box-shadow: 0 5px 14px rgba(21,78,69,.08); }

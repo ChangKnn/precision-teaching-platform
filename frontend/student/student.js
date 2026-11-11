@@ -9,6 +9,7 @@ const state = {
   session: null,
   typing: false,
   voiceBusy: false,
+  photoBusy: false,
   taskLoading: false,
   timerId: null,
   reportPollId: null
@@ -358,6 +359,7 @@ subjectSelect.addEventListener("change", async () => {
 
 async function openTask(teachingId) {
   const request = ++taskOpenRequest;
+  $('#conversationScroll').scrollTop = 0;
   if (typeof studentVoice !== 'undefined') studentVoice.cancel('任务切换，语音输入已停止。');
   stopReportPolling();
   window.clearInterval(state.timerId);
@@ -445,7 +447,7 @@ function renderNoTask() {
   $$("[data-open-submit]").forEach((button) => button.disabled = true);
 }
 
-function renderMessages() {
+function renderMessages(scrollToLatest = false) {
   const items = state.session?.messages || [];
   const report = state.session?.report;
   const reportTime = report?.pushed_at ? new Date(report.pushed_at).getTime() : Number.POSITIVE_INFINITY;
@@ -481,7 +483,7 @@ function renderMessages() {
   if (state.typing) {
     messages.insertAdjacentHTML("beforeend", '<article class="message ai"><span class="message-avatar">AI</span><div class="message-body"><div class="message-meta"><span>思阶 AI</span><span>·</span><time>正在回应</time></div><span class="typing"><i></i><i></i><i></i></span></div></article>');
   }
-  requestAnimationFrame(() => {
+  if (scrollToLatest) requestAnimationFrame(() => {
     const scroller = $("#conversationScroll");
     scroller.scrollTop = scroller.scrollHeight;
   });
@@ -516,10 +518,10 @@ function startReportPolling() {
   if (!state.session || (state.session.status === "submitted" && state.session.report)) return;
   const sessionId = state.session.id;
   state.reportPollId = window.setInterval(async () => {
-    if (state.typing || state.session?.id !== sessionId) return;
+    if (state.typing || state.photoBusy || state.session?.id !== sessionId) return;
     try {
       let latest = await api(`/api/student/sessions/${encodeURIComponent(sessionId)}`);
-      if (state.typing || state.session?.id !== sessionId) return;
+      if (state.typing || state.photoBusy || state.session?.id !== sessionId) return;
       // An active conversation is pinned. Polling only refreshes its feedback,
       // never adopts a newer teacher publication or generates a new-role opening.
       if (latest.task_version_id !== state.session.task_version_id) return;
@@ -575,7 +577,7 @@ messageForm.addEventListener("submit", async (event) => {
   messageInput.value = "";
   state.typing = true;
   resizeComposer();
-  renderMessages();
+  renderMessages(true);
   try {
     const result = await api(`/api/student/sessions/${encodeURIComponent(sendingSession.id)}/messages`, {
       method: "POST",
@@ -606,7 +608,7 @@ messageForm.addEventListener("submit", async (event) => {
     if (state.session?.id === sendingSession.id) {
       state.typing = false;
       resizeComposer();
-      renderMessages();
+      renderMessages(true);
       updateSubmissionSummary();
     }
   }
@@ -646,6 +648,7 @@ function openSubmit() {
   $("#submittedText").value = state.session.submitted_text || "";
   submitDialog.dataset.taskVersionId = state.session.task_version_id || '';
   updateSubmissionSummary();
+  renderSubmissionPhotos();
   $("#submitError").hidden = true;
   submitDialog.showModal();
 }
@@ -653,23 +656,75 @@ function openSubmit() {
 $$('[data-open-submit]').forEach((button) => button.addEventListener("click", openSubmit));
 
 function updateSubmissionSummary() {
-  const studentMessages = (state.session?.messages || []).filter((message) => message.role === "student").length;
-  const submittedText = $("#submittedText").value.trim();
-  const hasText = submittedText.length > 0;
-  const textStatus = $("#textSubmissionStatus");
-  $("#messageCountLabel").textContent = `${studentMessages} 条学生发言`;
   $("#submittedTextCount").textContent = $("#submittedText").value.length;
-  $("#textStatusLabel").textContent = hasText ? `${submittedText.length} 字` : "未填写也可提交";
-  textStatus.classList.toggle("complete", hasText);
-  textStatus.classList.toggle("optional", !hasText);
-  $("#textStatusIcon").innerHTML = hasText
-    ? '<path d="m5 13 4 4L19 7"/>'
-    : '<path d="M5 12h14"/>';
 }
+
+let submissionPreviewUrls = [];
+let submissionPreviewVersion = 0;
+async function renderSubmissionPhotos() {
+  const version = ++submissionPreviewVersion;
+  submissionPreviewUrls.forEach(url => URL.revokeObjectURL(url));
+  submissionPreviewUrls = [];
+  const list = $('#submissionPhotoList');
+  list.replaceChildren();
+  const sessionId = state.session?.id;
+  for (const item of state.session?.submissions || []) {
+    const card = document.createElement('div'); card.className = 'image-preview';
+    const img = document.createElement('img'); img.alt = item.original_filename || '作答照片';
+    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×';
+    remove.setAttribute('aria-label', `删除${img.alt}`); remove.disabled = state.photoBusy;
+    remove.addEventListener('click', async () => {
+      if (state.photoBusy || state.session?.id !== sessionId) return;
+      state.photoBusy = true; setSubmissionPhotoBusy(true);
+      try {
+        await api(`/api/student/sessions/${encodeURIComponent(sessionId)}/files/${encodeURIComponent(item.id)}`, {method:'DELETE'});
+        if (state.session?.id === sessionId) state.session.submissions = state.session.submissions.filter(photo => photo.id !== item.id);
+      } catch (error) { showToast('删除图片失败', error.message); }
+      finally { state.photoBusy = false; setSubmissionPhotoBusy(false); if (state.session?.id === sessionId && submitDialog.open) renderSubmissionPhotos(); }
+    });
+    card.append(img, remove); list.append(card);
+    try {
+      const response = await fetch(`/api/student/sessions/${encodeURIComponent(sessionId)}/files/${encodeURIComponent(item.id)}`, {headers:{'X-Student-Token':state.token}});
+      if (!response.ok) throw new Error('加载失败');
+      const blob = await response.blob();
+      if (version !== submissionPreviewVersion || state.session?.id !== sessionId) return;
+      const url = URL.createObjectURL(blob); submissionPreviewUrls.push(url); img.src = url;
+    } catch (_) { if (version === submissionPreviewVersion) img.alt = `${img.alt}（加载失败）`; }
+  }
+}
+function setSubmissionPhotoBusy(busy) {
+  for (const selector of ['#takeSubmissionPhoto', '#chooseSubmissionPhotos', '#confirmSubmitButton']) $(selector).disabled = busy;
+  $('#photoUploadStatus').textContent = busy ? '正在处理照片…' : '';
+  $('#submissionPhotoList').querySelectorAll('button').forEach(button => {button.disabled = busy;});
+}
+async function uploadSubmissionPhotos(files) {
+  const session = state.session;
+  if (!session || state.photoBusy || !files.length) return;
+  if ((session.submissions || []).length + files.length > 6) { showToast('上传图片', '最多上传 6 张图片'); return; }
+  state.photoBusy = true; setSubmissionPhotoBusy(true);
+  try {
+    for (const file of files) {
+      if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024 || !file.size) throw new Error('请选择 10MB 以内的 JPG、PNG 或 WEBP 图片');
+      const photo = await api(`/api/student/sessions/${encodeURIComponent(session.id)}/files`, {method:'POST', headers:{'Content-Type':file.type,'X-File-Name':encodeURIComponent(file.name || '作答照片')}, body:file});
+      session.submissions ||= []; session.submissions.push(photo);
+      if (state.session?.id !== session.id) break;
+    }
+  } catch (error) { showToast('上传图片失败', error.message); }
+  finally { state.photoBusy = false; setSubmissionPhotoBusy(false); if (state.session?.id === session.id && submitDialog.open) renderSubmissionPhotos(); }
+}
+$('#takeSubmissionPhoto').addEventListener('click', () => $('#submissionCamera').click());
+$('#chooseSubmissionPhotos').addEventListener('click', () => $('#submissionPhotos').click());
+for (const selector of ['#submissionCamera', '#submissionPhotos']) $(selector).addEventListener('change', event => {
+  const files = [...event.target.files]; event.target.value = ''; uploadSubmissionPhotos(files);
+});
+submitDialog.addEventListener('close', () => {
+  ++submissionPreviewVersion; submissionPreviewUrls.forEach(url => URL.revokeObjectURL(url)); submissionPreviewUrls = [];
+});
 
 $("#submittedText").addEventListener("input", updateSubmissionSummary);
 
 $("#confirmSubmitButton").addEventListener("click", async () => {
+  if (state.photoBusy) { showToast('请等待图片处理完成'); return; }
   if (state.voiceBusy) { showToast('请先停止语音输入并等待最后一句识别完成'); return; }
   if (state.typing) { showToast('请等待当前 AI 回复后再提交'); return; }
   const submittedText = $("#submittedText").value.trim();

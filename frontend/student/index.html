@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#123f3c">
   <title>思阶学生端｜诊断学习空间</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23123f3c'/%3E%3Ctext x='32' y='43' text-anchor='middle' font-size='34' font-family='sans-serif' fill='white'%3E思%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="student.css?v=20261108-inline-images-v1">
+  <link rel="stylesheet" href="student.css?v=20261111-photo-submission-v1">
   <link rel="stylesheet" href="/filing.css?v=20261018">
   <link rel="stylesheet" href="/notifications.css?v=20261018-persistent">
   <link rel="stylesheet" href="/vendor/mathlive/mathlive-fonts.css">
@@ -153,17 +153,12 @@
   <dialog class="submit-dialog" id="submitDialog" aria-labelledby="submitTitle">
     <form method="dialog" class="dialog-shell" id="submissionForm">
       <div class="dialog-heading">
-        <div><span class="step-kicker">最后一步</span><h2 id="submitTitle">提交学习记录</h2><p>AI 对话记录会提交给老师；你也可以补充最终作答文本。</p></div>
+        <div><h2 id="submitTitle">提交学习记录</h2></div>
         <button class="icon-button" value="cancel" aria-label="关闭提交窗口"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
       </div>
 
-      <label class="text-submission-field" for="submittedText"><span>最终作答文本（选填）</span><textarea id="submittedText" rows="10" maxlength="12000" placeholder="可在这里补充最终作答；留空也可以提交。"></textarea><small><span id="submittedTextCount">0</span>/12000 字</small></label>
-
-      <div class="submission-includes">
-        <span>本次会一并提交</span>
-        <div class="submission-status complete"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg><strong>AI 对话记录</strong><small id="messageCountLabel">0 条学生发言</small></div>
-        <div class="submission-status optional" id="textSubmissionStatus"><svg aria-hidden="true" viewBox="0 0 24 24" id="textStatusIcon"><path d="M5 12h14"/></svg><strong>学生文字成果（选填）</strong><small id="textStatusLabel">未填写也可提交</small></div>
-      </div>
+      <label class="text-submission-field" for="submittedText"><span>最终作答文本（选填）</span><textarea id="submittedText" rows="6" maxlength="12000"></textarea><small><span id="submittedTextCount">0</span>/12000 字</small></label>
+      <div class="photo-submission"><span>作答照片（选填）</span><div class="photo-actions"><button type="button" class="secondary-button" id="takeSubmissionPhoto">拍照</button><button type="button" class="secondary-button" id="chooseSubmissionPhotos">选择图片</button></div><input id="submissionCamera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden><input id="submissionPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden><p id="photoUploadStatus" class="photo-upload-status" role="status"></p><div id="submissionPhotoList" class="image-previews" aria-live="polite"></div></div>
 
       <p class="submit-error" id="submitError" role="alert" hidden></p>
       <div class="dialog-actions">
@@ -195,6 +190,6 @@
   <script src="/math-text.js?v=20261018"></script>
   <script src="/notifications.js?v=20261019-error-only-v1"></script>
   <script src="voice-input.js?v=20261103-responsive-v1"></script>
-  <script src="student.js?v=20261108-inline-images-v1"></script>
+  <script src="student.js?v=20261111-photo-submission-v1"></script>
 </body>
 </html>

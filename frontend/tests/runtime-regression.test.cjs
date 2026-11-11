@@ -12,6 +12,19 @@ const studentSource = fs.readFileSync(path.join(frontend, "student/student.js"),
 const teacherSource = fs.readFileSync(path.join(frontend, "app.js"), "utf8");
 const taskEditorSource = fs.readFileSync(path.join(frontend, "task-editor.js"), "utf8");
 
+test('reading a task does not automatically scroll past it on message redraw', () => {
+  const scroller = {scrollTop: 0, scrollHeight: 900};
+  const messageBox = {innerHTML:'', insertAdjacentHTML(){}};
+  const context = loadFunctions(studentSource, ['renderMessages'], {
+    state:{session:{messages:[]}, typing:false}, messages:messageBox, TaskMath:{typeset(){}},
+    requestAnimationFrame: callback => callback(), $:()=>scroller
+  });
+  context.renderMessages();
+  assert.equal(scroller.scrollTop, 0);
+  context.renderMessages(true);
+  assert.equal(scroller.scrollTop, 900);
+});
+
 test('background plan polling preserves the visible generating state while awaiting a response', async () => {
   let resolveRequest;
   const pending = new Promise(resolve => { resolveRequest = resolve; });

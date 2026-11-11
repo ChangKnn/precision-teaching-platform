@@ -1597,3 +1597,6 @@ body { font-size: 16px; }
 .activity-process-grid > .af-edit-block { display: flex; flex-direction: column; gap: 10px; }
 .activity-process-grid > .af-edit-block > .af-action-document,
 .activity-process-grid > .af-edit-block > .af-unified-preview { flex: 1; }
+.submitted-photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 180px)); gap: 12px; }
+.submitted-photo-grid a { display: block; }
+.submitted-photo-grid img { display: block; width: 100%; height: 150px; object-fit: contain; border: 1px solid #dbe3e0; border-radius: 8px; background: #f5f8f7; }

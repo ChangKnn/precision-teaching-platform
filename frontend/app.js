@@ -796,6 +796,8 @@ function renderStudentResultDetail(result) {
   const submittedWork = result.submitted_text
     ? `<blockquote class="submitted-text-evidence">${escapeHTML(result.submitted_text)}</blockquote>`
     : `<p class="muted">本次未提交文字成果；生成报告时仅使用完整对话。</p>`;
+  const submittedPhotos = (result.submissions || []).filter(item => item.file_url && /^image\/(jpeg|png|webp)$/i.test(item.content_type || ''));
+  const photoHTML = submittedPhotos.length ? `<section class="submitted-work"><div class="record-section-heading"><div><h3>作答照片</h3><p>照片供教师查看，暂不参与 AI 报告分析。</p></div></div><div class="submitted-photo-grid">${submittedPhotos.map(item => `<a href="${escapeHTML(item.file_url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHTML(item.file_url)}" alt="${escapeHTML(item.original_filename || '学生作答照片')}" loading="lazy"></a>`).join('')}</div></section>` : '';
   const reportCard = !report ? `<article class="card individual-report-card report-empty-card">
       <div class="card-heading"><div><span class="section-kicker">2 · 个体反馈报告</span><h2>${escapeHTML(result.student.name)}的个体反馈报告</h2><p>依据已确认量规和完整会话${result.submitted_text ? "，结合文字成果" : ""}生成。</p></div><span class="status neutral">尚未生成</span></div>
       <div class="stage-empty-state"><span>SOLO 个体诊断</span><h2>生成学生报告</h2>${rubricReady ? "" : '<p>请先返回诊断设计，在“分析标准”步骤确认当前任务量规。</p>'}<button class="button primary" data-generate-student-report="${escapeHTML(result.id)}" ${rubricReady ? "" : "disabled"}>${rubricReady ? "生成报告" : "等待量规确认"}</button></div>
@@ -813,7 +815,7 @@ function renderStudentResultDetail(result) {
         return `<div class="record-message ${message.role === 'student' ? 'student' : 'ai'}"><b>${message.role === 'student' ? '学生' : 'AI'}${message.task_version_number ? ` · 任务第 ${Number(message.task_version_number)} 版` : ''}</b><p>${escapeHTML(message.content)}</p><time>${escapeHTML(formatUpdatedAt(message.created_at))}</time></div>`;
       }).join('')}</div>
     </section>
-    <section class="submitted-work"><div class="record-section-heading"><div><h3>最终作答文本</h3><p>${result.submitted_text ? "学生提交的成果原文。" : "学生未填写，可依据对话记录继续分析。"}</p></div></div>${submittedWork}</section>
+    <section class="submitted-work"><div class="record-section-heading"><div><h3>最终作答文本</h3><p>${result.submitted_text ? "学生提交的成果原文。" : "学生未填写，可依据对话记录继续分析。"}</p></div></div>${submittedWork}</section>${photoHTML}
   </article>${reportCard}${renderCustomIndividualReport(result)}`;
   if (result._generating) {
     panel.querySelectorAll('[data-generate-student-report]').forEach(button => {
@@ -943,7 +945,7 @@ function renderStudentResults(payload) {
   ui.activeStudentResultIndex = Math.min(ui.activeStudentResultIndex, results.length - 1);
   const rubricReady = results.some(result => result.task_rubric_confirmed ?? (serverState.current_workspace?.rubric?.status === "confirmed"));
   studentPanel.innerHTML = `<div class="card student-feedback-toolbar"><div><b>个体诊断与按需反馈</b><span>${generatedCount}/${results.length} 份已生成 · ${pushableCount} 份已确认待推送</span></div><div class="student-feedback-actions"><button class="button" id="generateAllStudentReports" ${rubricReady ? "" : "disabled"}>${rubricReady ? "生成全部简短诊断" : "请先确认任务量规"}</button>${serverState.current_workspace?.custom_analysis_standard?.individual_enabled ? '<button class="button" id="generateAllCustomReports">生成全部个人补充反馈</button>' : ""}<button class="button primary" id="pushConfirmedStudentReports" ${pushableCount ? "" : "disabled"}>一键推送已确认报告</button></div></div><div class="student-review-layout">
-    <aside class="card student-list" id="studentResultList"><div class="list-header"><b>${results.length} 名学生</b><span>学生提交</span></div>${results.map((result, index) => `<button class="${index === ui.activeStudentResultIndex ? "active" : ""}" data-result-index="${index}"><span><b>${escapeHTML(result.student.name)}</b><small class="student-result-meta"><span class="student-solo-label">${escapeHTML(studentSOLOLabel(result.report))}</span><span title="按学生发言次数统计">对话 ${result.messages.filter(message => message.role === 'student').length} 次</span><span>${result.submitted_text?.trim() ? '成果已交' : '成果未交'}</span></small></span><em>${result.report?.provider === 'mock' ? '预览' : result.report ? ({ draft: "待确认", confirmed: "已确认", pushed: "已推送", stale: "需重生成" }[result.report.status]) : "待生成"}</em></button>`).join("")}</aside>
+    <aside class="card student-list" id="studentResultList"><div class="list-header"><b>${results.length} 名学生</b><span>学生提交</span></div>${results.map((result, index) => `<button class="${index === ui.activeStudentResultIndex ? "active" : ""}" data-result-index="${index}"><span><b>${escapeHTML(result.student.name)}</b><small class="student-result-meta"><span class="student-solo-label">${escapeHTML(studentSOLOLabel(result.report))}</span><span title="按学生发言次数统计">对话 ${result.messages.filter(message => message.role === 'student').length} 次</span><span>${result.submitted_text?.trim() || result.submissions?.length ? '成果已交' : '成果未交'}</span></small></span><em>${result.report?.provider === 'mock' ? '预览' : result.report ? ({ draft: "待确认", confirmed: "已确认", pushed: "已推送", stale: "需重生成" }[result.report.status]) : "待生成"}</em></button>`).join("")}</aside>
     <div class="student-review-main" id="studentResultDetail"></div>
   </div>`;
   renderStudentResultDetail(results[ui.activeStudentResultIndex]);
