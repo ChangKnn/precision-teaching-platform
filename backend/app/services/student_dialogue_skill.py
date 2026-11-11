@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import ssl
 from importlib.util import module_from_spec, spec_from_file_location
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -14,7 +15,7 @@ import jsonschema
 
 from ..config import settings
 from ..database import fetch_one, fetch_all
-from .http import verified_ssl_context
+from .http import open_with_tls_retry
 from .llm_debug import record_llm_request
 from .skills import load_skill
 from .education_context import higher_education_fields, education_runtime_rules
@@ -300,12 +301,14 @@ def _model_result(payload: dict) -> tuple[dict, str | None]:
         method="POST",
     )
     try:
-        with urlopen(request, timeout=90, context=verified_ssl_context()) as response:
+        with open_with_tls_retry(request, timeout=90, opener=urlopen) as response:
             response_data = json.loads(response.read().decode("utf-8"))
     except HTTPError as error:
         raise RuntimeError(f"学生对话模型请求失败（{error.code}）：{error.read().decode('utf-8', errors='replace')[:500]}") from error
     except URLError as error:
         raise RuntimeError(f"无法连接学生对话模型：{error.reason}") from error
+    except ssl.SSLError as error:
+        raise RuntimeError('AI 回复传输中断，请稍后重试；本次消息尚未保存') from error
     except (TimeoutError, ConnectionError) as error:
         raise RuntimeError("AI 响应超时或连接中断，请稍后重试；本次消息尚未保存") from error
     if settings.student_ai_provider in {"deepseek", "openrouter"}:

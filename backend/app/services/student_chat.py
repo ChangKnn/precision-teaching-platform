@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import ssl
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from ..config import settings
-from .http import verified_ssl_context
+from .http import open_with_tls_retry
 from .llm_debug import record_llm_request
 
 
@@ -106,13 +107,15 @@ def _openai_reply(
     )
     record_llm_request("student", "student_dialogue", settings.student_ai_provider, request.full_url, json.loads(body))
     try:
-        with urlopen(request, timeout=45, context=verified_ssl_context()) as response:
+        with open_with_tls_retry(request, timeout=45, opener=urlopen) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")[:500]
         raise RuntimeError(f"模型请求失败（{error.code}）：{detail}") from error
     except URLError as error:
         raise RuntimeError(f"无法连接模型服务：{error.reason}") from error
+    except ssl.SSLError as error:
+        raise RuntimeError('AI 回复传输中断，请稍后重试') from error
     return _extract_output_text(payload), payload.get("id")
 
 
@@ -161,13 +164,15 @@ def _deepseek_reply(
     )
     record_llm_request("student", "student_dialogue", settings.student_ai_provider, request.full_url, json.loads(body))
     try:
-        with urlopen(request, timeout=45, context=verified_ssl_context()) as response:
+        with open_with_tls_retry(request, timeout=45, opener=urlopen) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")[:500]
         raise RuntimeError(f"模型请求失败（{error.code}）：{detail}") from error
     except URLError as error:
         raise RuntimeError(f"无法连接模型服务：{error.reason}") from error
+    except ssl.SSLError as error:
+        raise RuntimeError('AI 回复传输中断，请稍后重试') from error
     choices = payload.get("choices") or []
     if not choices or not str(choices[0].get("message", {}).get("content", "")).strip():
         raise RuntimeError("模型没有返回可用文本")

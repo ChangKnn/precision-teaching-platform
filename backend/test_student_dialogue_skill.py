@@ -3,6 +3,8 @@
 import copy
 import io
 import json
+import ssl
+from urllib.error import HTTPError, URLError
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -11,6 +13,28 @@ from backend.app.services import student_dialogue_skill as dialogue
 
 
 class StudentDialogueSkillTest(unittest.TestCase):
+    def test_student_tls_setup_eof_retries_once_without_weakening_verification(self):
+        payload = dialogue._payload(self.config, 'ses-1', 'student-1', [], '原话')
+        result = dialogue._mock_result(payload)
+        response = io.BytesIO(json.dumps({'choices':[{'message':{'content':json.dumps(result)}}]}).encode())
+        settings = SimpleNamespace(student_ai_provider='openrouter', student_ai_api_key='test', student_ai_model='test', student_ai_base_url='https://example.test')
+        with patch.object(dialogue, 'settings', settings), patch.object(dialogue, 'record_llm_request'), patch('backend.app.services.http.time.sleep'), patch.object(dialogue, 'urlopen', side_effect=[URLError(ssl.SSLEOFError(8, 'UNEXPECTED_EOF_WHILE_READING')), response]) as opener:
+            actual, _ = dialogue._model_result(payload)
+        self.assertEqual(actual, result)
+        self.assertEqual(opener.call_count, 2)
+        self.assertTrue(all(call.kwargs['context'].check_hostname for call in opener.call_args_list))
+        self.assertTrue(all(call.kwargs['context'].verify_mode == ssl.CERT_REQUIRED for call in opener.call_args_list))
+
+    def test_student_tls_body_failure_and_auth_error_are_not_retried(self):
+        payload = dialogue._payload(self.config, 'ses-1', 'student-1', [], '原话')
+        settings = SimpleNamespace(student_ai_provider='openrouter', student_ai_api_key='test', student_ai_model='test', student_ai_base_url='https://example.test')
+        class BrokenResponse(io.BytesIO):
+            def read(self, *args): raise ssl.SSLEOFError(8, 'EOF')
+        for error in (HTTPError('https://example.test', 401, 'Unauthorized', {}, io.BytesIO(b'bad key')), BrokenResponse()):
+            with self.subTest(error=type(error)), patch.object(dialogue, 'settings', settings), patch.object(dialogue, 'record_llm_request'), patch.object(dialogue, 'urlopen', side_effect=[error]) as opener:
+                with self.assertRaises(RuntimeError): dialogue._model_result(payload)
+                self.assertEqual(opener.call_count, 1)
+
     def test_claude_fenced_json_is_accepted_without_changing_transcript(self):
         current = '这是原话'
         payload = dialogue._payload(self.config, 'ses-1', 'student-1', [], current)
