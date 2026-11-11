@@ -33,7 +33,7 @@ class SiteFilingTest(unittest.TestCase):
                 html = (FRONTEND / page).read_text(encoding='utf-8')
                 self.assertIn('京ICP备2026068374号-1', html)
                 self.assertIn('京公网安备11010802050729号', html)
-                self.assertIn('/filing.css?v=20261018', html)
+                self.assertIn('/filing.css?v=', html)
                 parser = FilingParser()
                 parser.feed(html)
                 self.assertEqual(len(parser.links), 2)

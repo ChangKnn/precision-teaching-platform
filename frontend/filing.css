@@ -28,5 +28,9 @@
   :root { --site-filing-height: 80px; }
   .site-filing { flex-direction: column; gap: 8px; }
   .login-panel { min-height: calc(100vh - var(--site-filing-height)); }
+  body.student-page { --site-filing-height: calc(34px + env(safe-area-inset-bottom, 0px)); }
+  body.student-page .site-filing { min-height: var(--site-filing-height); padding: 2px 8px calc(2px + env(safe-area-inset-bottom, 0px)); gap: 0; font-size: 10px; line-height: 15px; }
+  body.student-page .site-filing a { gap: 3px; }
+  body.student-page .site-filing img { width: 14px; height: 14px; }
 }
 @media print { .site-filing { display: none; } }
