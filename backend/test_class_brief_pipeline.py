@@ -49,6 +49,30 @@ class ClassBriefPipelineTest(TestCase):
             self.assertEqual(model.call_count,1);self.assertEqual(queue.call_count,1)
         self.assertEqual(api.serialize_student_report(self.second)['report_kind'],'brief')
 
+    def test_compact_rubric_supports_individual_and_all_students_in_class(self):
+        rubric=json.loads(db.fetch_one("SELECT current_json FROM diagnosis_rubrics WHERE teaching_id='pt'")['current_json'])
+        rubric.pop('task_analysis',None)
+        with db.database() as c:
+            c.execute("UPDATE diagnosis_rubrics SET current_json=? WHERE teaching_id='pt'",(json.dumps(rubric,ensure_ascii=False),))
+        with patch.object(api,'run_student_diagnosis_report',return_value=(self.sample,'教师报告','学生反馈')),patch.object(api,'queue_class_report'):
+            result=api.generate_student_report(self.session,BackgroundTasks())
+        self.assertEqual(result['report']['report_kind'],'detailed')
+        with patch('backend.app.services.ai.run_student_brief',side_effect=self.brief) as model, patch('backend.app.services.class_report.queue_class_report',return_value={'status':'ready'}) as queue:
+            pipeline.analyze_class('pt','class')
+            self.assertEqual(model.call_count,1)
+            self.assertEqual(queue.call_count,1)
+        self.assertEqual(len(class_report_input('pt','class')[0]['student_diagnosis_results']),2)
+
+    def test_invalid_rubric_error_does_not_expose_student_input(self):
+        rubric=json.loads(db.fetch_one("SELECT current_json FROM diagnosis_rubrics WHERE teaching_id='pt'")['current_json'])
+        del rubric['levels']['EA']
+        with db.database() as c:
+            c.execute("UPDATE diagnosis_rubrics SET current_json=? WHERE teaching_id='pt'",(json.dumps(rubric,ensure_ascii=False),))
+        with self.assertRaises(HTTPException) as error:
+            api.generate_student_report(self.session,BackgroundTasks())
+        self.assertIn('EA',error.exception.detail)
+        self.assertNotIn('我的解释',error.exception.detail)
+
     def test_failed_student_blocks_aggregation_and_keeps_successes(self):
         self.generate(self.session)
         background=BackgroundTasks();pipeline.prepare_class('pt','class',background)

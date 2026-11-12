@@ -69,7 +69,7 @@
     },
     "task_specific_solo_rubric": {
       "type": "object",
-      "required": ["schema_version", "source_basis", "task_analysis", "levels", "usage_notes"],
+      "required": ["schema_version", "source_basis", "levels", "usage_notes"],
       "properties": {
         "schema_version": {"const": "1.1"},
         "source_basis": {"type": "object"},

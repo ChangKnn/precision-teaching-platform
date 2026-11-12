@@ -991,8 +991,11 @@ def _generate_student_report(session_id: str, background_tasks: BackgroundTasks,
 
         input_schema = json.loads((skill.path.parent / "assets/diagnosis-input.schema.json").read_text(encoding="utf-8"))
         jsonschema.validate(payload, input_schema)
-    except Exception as error:
-        raise HTTPException(status_code=422, detail=f"学生报告输入校验失败：{error}") from error
+    except jsonschema.ValidationError as error:
+        path = ' / '.join(map(str, error.absolute_path)) or '输入信息'
+        missing = [field for field in error.validator_value if field not in error.instance] if error.validator == 'required' and isinstance(error.instance, dict) else []
+        detail = f"学生报告输入校验失败：{path}" + (f"缺少字段 {', '.join(missing)}" if missing else '格式不符合要求')
+        raise HTTPException(status_code=422, detail=detail) from error
     input_json = json.dumps(payload, ensure_ascii=False, sort_keys=True)
     input_hash = hashlib.sha256(input_json.encode("utf-8")).hexdigest()
     if lightweight:

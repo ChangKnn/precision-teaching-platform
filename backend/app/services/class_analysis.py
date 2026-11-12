@@ -60,6 +60,7 @@ def analyze_class(teaching_id, classroom_id):
                     detail = ' '.join(causes)
                     reason = ('没有学生发言' if '至少需要一条学生发言' in detail else
                               '原话引用未通过核验' if '证据quote' in detail else
+                              '分析输入或量规格式有误' if '学生报告输入校验失败' in detail else
                               '模型或网络处理失败')
                     failures.append(f'{jobs[job]}（{reason}）')
         if failures:

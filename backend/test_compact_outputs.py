@@ -15,6 +15,14 @@ class CompactOutputsTest(TestCase):
         result=expand_rubric(value)
         self.assertNotIn('task_analysis',result)
         validate_task_rubric(load_skill('solo_task_rubric_builder'),result,require_complete=True)
+        student=load_skill('solo_student_diagnosis_feedback')
+        payload=json.loads((student.path.parent/'tests/sample-input.json').read_text(encoding='utf-8'))
+        schema=json.loads((student.path.parent/'assets/diagnosis-input.schema.json').read_text(encoding='utf-8'))
+        jsonschema.validate(payload,schema)  # Historical task analysis stays accepted.
+        payload['task_specific_solo_rubric']=result
+        jsonschema.validate(payload,schema)
+        del payload['task_specific_solo_rubric']['levels']['EA']
+        with self.assertRaises(jsonschema.ValidationError): jsonschema.validate(payload,schema)
 
     def test_class_model_omits_repeated_rosters_but_final_result_covers_everyone(self):
         skill=load_skill('solo_class_diagnosis_intervention')
