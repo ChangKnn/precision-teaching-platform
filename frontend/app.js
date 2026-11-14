@@ -948,8 +948,11 @@ function renderClassReport(payload) {
     const mainProblem = first?.problem_description || item.main_obstacles?.[0] || "暂无";
     const support = first?.teaching_suggestion || item.teaching_suggestion || "暂无";
     const second = groups[1];
+    const savedSuggestion = report.teaching_suggestions?.items?.find(suggestion => suggestion.level === item.level);
+    const design = item.teaching_design || (savedSuggestion ? {content:savedSuggestion.content, task:savedSuggestion.activity, scaffold:savedSuggestion.scaffold} : null);
+    const teaching = design ? `<div class="level-teaching-design"><b>教学建议：</b><p><b>内容：</b>${escapeHTML(design.content)}</p><p><b>任务：</b>${escapeHTML(design.task)}</p><p><b>支架：</b>${escapeHTML(design.scaffold)}</p></div>` : `<p><b>教学建议：</b>${escapeHTML(support)}</p><small>重新生成班级报告后，可查看内容、任务和支架建议。</small>`;
     const examples = (item.student_cases || []).map(c => `<li>${escapeHTML(c.student_name)}：${escapeHTML(c.level_reason)}${c.obstacle ? `；主要障碍：${escapeHTML(c.obstacle)}` : ""}</li>`).join("");
-    return `<section id="class-level-${escapeHTML(item.level)}" class="class-level-section"><h3>${escapeHTML(item.level_name)}（${item.count} 人）</h3><p><b>当前表现：</b>${escapeHTML(item.main_performance)}</p><p><b>主要困难：</b>${escapeHTML(mainProblem)}</p><p><b>教学建议：</b>${escapeHTML(support)}</p>${second ? `<p><b>另一类需要：</b>${escapeHTML(second.problem_description)}；${escapeHTML(second.teaching_suggestion)}</p>` : ""}<details class="class-basis-details"><summary>查看学生与典型依据</summary><p><b>学生：</b>${studentNames(item.students)}</p>${examples ? `<ul>${examples}</ul>` : '<p>暂无典型学生分析。</p>'}</details></section>`;
+    return `<section id="class-level-${escapeHTML(item.level)}" class="class-level-section"><h3>${escapeHTML(item.level_name)}（${item.count} 人）</h3><p><b>当前表现：</b>${escapeHTML(item.main_performance)}</p><p><b>主要困难：</b>${escapeHTML(mainProblem)}</p>${teaching}${second ? `<p><b>另一类需要：</b>${escapeHTML(second.problem_description)}；${escapeHTML(second.teaching_suggestion)}</p>` : ""}<details class="class-basis-details"><summary>查看学生与典型依据</summary><p><b>学生：</b>${studentNames(item.students)}</p>${examples ? `<ul>${examples}</ul>` : '<p>暂无典型学生分析。</p>'}</details></section>`;
   }).join("");
   const alerts = data.individual_attention;
   panel.innerHTML = `<div class="class-feedback-layout"><div class="class-feedback-content">

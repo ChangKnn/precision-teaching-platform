@@ -341,9 +341,13 @@ def render_class_markdown(result: dict, payload: dict | None = None) -> str:
             f"- 学生：{names(item['students'])}",
             f"- 主要表现：{item['main_performance']}",
             f"- 主要困难：{main_problem}",
-            f"- 教学建议：{main_suggestion}",
-            f"- 典型依据：{evidence}",
         ]
+        design = item.get('teaching_design')
+        if design:
+            lines.extend([f"- 教学建议（内容）：{design['content']}", f"- 教学建议（任务）：{design['task']}", f"- 教学建议（支架）：{design['scaffold']}"])
+        else:
+            lines.append(f"- 教学建议：{main_suggestion}")
+        lines.append(f"- 典型依据：{evidence}")
         if len(groups) > 1:
             lines.append(f"- 另一类需要：{groups[1]['problem_description']}；{groups[1]['teaching_suggestion']}")
         lines.append("")
@@ -469,6 +473,7 @@ def _queue_class_report_locked(
         )
         if source_job:
             previous_input = json.loads(source_job["input_json"])
+            previous_input.pop('diagnostic_task_text', None)
             for student in previous_input.get('student_diagnosis_results', []):
                 student.pop('student_statements', None)
                 student.pop('submitted_text', None)
@@ -543,6 +548,9 @@ def generate_class_report(
                     item['student_statements'].append(statement['content'])
             for student in payload.get('student_diagnosis_results', []):
                 student.update(by_student.get(student['student']['student_id'], {'student_statements': [], 'submitted_text': ''}))
+            if payload.get('student_diagnosis_results'):
+                from ..task_materials import canonical_task_text
+                payload['diagnostic_task_text'] = canonical_task_text(teaching_id)
             skill = load_skill("solo_class_diagnosis_intervention")
             job_id = task.token
             with database() as connection:

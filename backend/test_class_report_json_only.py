@@ -12,6 +12,7 @@ def compact(value):
     result=copy.deepcopy(value)
     result.pop("class_summary",None);result.pop("traceability",None)
     for row in result["level_analyses"]:
+        row["teaching_design"] = {"content":"提供相关材料", "task":"比较材料中的信息", "scaffold":"提供观察提示"}
         row["difficulty_groups"] = [{"difficulty":"任务证据运用不足","problem_label":"证据运用不足",
             "problem_description":"学生尚未完整运用任务证据。","student_ids":[s["student_id"] for s in row["students"]],
             "teaching_suggestion":"引导学生说明证据。"}]

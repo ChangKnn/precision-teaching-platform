@@ -51,12 +51,17 @@ class ClassFeedbackDetailsTest(unittest.TestCase):
         from backend.app.services.ai import _validate_class_problem_groups
         result = copy.deepcopy(self.result)
         for level in result['level_analyses']:
+            level['teaching_design'] = {'content':'相关材料','task':'比较信息','scaffold':'提示观察'}
             level['difficulty_groups'] = [{'difficulty':'表述问题','problem_label':'问题概括',
                 'problem_description':'学生在任务中表现出的相近问题。',
                 'student_ids':[s['student_id'] for s in level['students']],
                 'teaching_suggestion':'提供针对性支持。'}]
         _validate_class_problem_groups(result, self.payload)
         level = next(row for row in result['level_analyses'] if len(row['students']) > 1)
+        removed_design = level.pop('teaching_design')
+        with self.assertRaisesRegex(ValueError, '内容、任务和支架'):
+            _validate_class_problem_groups(result, self.payload)
+        level['teaching_design'] = removed_design
         level['difficulty_groups'][0]['student_ids'].pop()
         _validate_class_problem_groups(result, self.payload)
         level['difficulty_groups'][0]['student_ids'] = ['unknown-student']

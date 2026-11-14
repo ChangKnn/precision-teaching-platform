@@ -242,6 +242,10 @@ def _skill_runtime_instructions(skill: SkillDefinition) -> str:
         path = skill.path.parent / relative_path
         if path.is_file():
             sections.append(f"\n\n# 运行时参考：{relative_path}\n{path.read_text(encoding='utf-8')}")
+    if skill.key == 'solo_class_diagnosis_intervention':
+        path = skill.path.parent.parent / 'class-teaching-suggestions/references/thesis-progression-rules.md'
+        if path.is_file():
+            sections.append(f"\n\n# 运行时参考：教师提供的SOLO进阶设计依据\n{path.read_text(encoding='utf-8')}")
     output_contract = {
         "precision_diagnostic_task_design": "diagnostic_task_design",
         "solo_student_diagnosis_feedback": "solo_student_diagnosis",
@@ -783,6 +787,9 @@ def _validate_class_problem_groups(result, payload):
     if set(row.get('level') for row in rows) != set(expected) or len(rows) != len(expected):
         raise ValueError('问题分类须覆盖所有有学生的层级，每层仅一条层级分析')
     for row in rows:
+        design = row.get('teaching_design') or {}
+        if not all(str(design.get(key, '')).strip() for key in ('content', 'task', 'scaffold')):
+            raise ValueError(f"{row['level']}层级须分别给出内容、任务和支架建议")
         groups = row.get('difficulty_groups') or []
         if not 1 <= len(groups) <= 2:
             raise ValueError(f"{row['level']}层级需要归纳1至2类主要问题")
@@ -824,6 +831,7 @@ def run_class_diagnosis_report(
         provider, schema_override=class_transport_schema(schema, compact_large=compact_large), instruction_suffix=(
             "\n\n只返回符合 Schema 的班级结构化分析，不额外生成文字报告。"
             "教师页面与导出报告由平台根据这些字段排版。"
+            "每层main_performance用2至4句概括学生实际表现，包括能做什么、怎样作答及有依据的差异，不罗列人名。主要问题依据个体实际表达及本次诊断任务，写明学生讨论或处理了什么、具体在哪一步受阻，禁止套写层级定义或凭空推测。teaching_design分别给出content（具体材料）、task（学生如何加工）和scaffold（最小必要支持），依据教师SOLO进阶设计参考，结合该任务及障碍，各一句，不代学生作答。"
             "只能引用输入中的个体诊断，不得重新定级，也不要设计具体课堂活动。"
             "本轮不输出class_summary、traceability或level_analyses内的students/count；这些统计和完整名单由程序据全体输入生成。其他字段保持完整但简洁，每层只选1—2条典型证据，避免重复复述。"
             "common_issues归纳1至3条基于学生实际表现的共同问题，不复述SOLO层级介绍，填写有依据的学生ID。每层根据学生progression.main_obstacle优先归纳一个最值得教学关注的问题，只有学生确有明显不同且需要不同支持时才写第二个；不得为了覆盖每位学生而强行分类。每项problem_label为18字以内短语，problem_description一句话，difficulty与描述相同，student_ids只列有依据的学生，teaching_suggestion给一句具体支持。individual_attention仅记录有明确原话依据的情绪表达、学习支持、新思路或安全关注，每项evidence_quote须逐字摘自该学生student_statements或submitted_text；无依据时返回空数组。不得臆测心理和给学生贴标签，明确安全风险时建议教师及时关注。所有描述尽量简短。分组须覆盖全体已诊断学生。"
@@ -859,20 +867,24 @@ def _run_large_class_in_stages(skill, payload, provider, full_schema):
     group_schema['items']['properties'].pop('difficulty')
     level_schema = {'type':'object', 'additionalProperties':False, 'required':['level_analyses'],
         'properties':{'level_analyses':{'type':'array','minItems':1,'maxItems':1,'items':{
-            'type':'object','additionalProperties':False,'required':['level','difficulty_groups'],
-            'properties':{'level':{'type':'string','enum':levels},'difficulty_groups':group_schema}}}}}
+            'type':'object','additionalProperties':False,'required':['level','main_performance','difficulty_groups','teaching_design'],
+            'properties':{'level':{'type':'string','enum':levels},'main_performance':{'type':'string','minLength':1},
+                          'difficulty_groups':group_schema,'teaching_design':full_schema['$defs']['levelAnalysis']['properties']['teaching_design']}}}}}
     def level_task(level):
         subset = [s for s in students if s['diagnosis']['level'] == level]
         # Use the actual individual diagnoses, without repeating long transcripts.
-        brief = [{'student':s['student'], 'diagnosis':{'level':level,'rationale':s['diagnosis']['rationale']},
+        brief = [{'student':s['student'], 'diagnosis':{'level':level,'rationale':s['diagnosis']['rationale'], 'evidence':s['diagnosis']['evidence']},
+                  'thinking_structure_summary':s.get('thinking_structure_summary',''),
                   'progression':{'main_obstacle':s['progression']['main_obstacle']}} for s in subset]
-        inp = {'precision_teaching_context':payload['precision_teaching_context'], 'student_diagnosis_results':brief}
+        inp = {'precision_teaching_context':payload['precision_teaching_context'], 'diagnostic_task_text':payload.get('diagnostic_task_text',''), 'student_diagnosis_results':brief}
         suffix = ('本次只归纳这一个SOLO层级的问题，不生成班级报告、分组或其他层级。'
             '比较同层级学生的主要障碍，优先归纳一个有代表性的主要问题；只有确实需要不同教学支持时才增加第二个，'
             '不得为了覆盖每个人强行分类。每项包含18字以内problem_label、一句话problem_description、'
-            '有依据的student_ids及一句teaching_suggestion；不要输出difficulty字段。')
+            '有依据的student_ids及一句teaching_suggestion；不要输出difficulty字段。'
+            'main_performance用2至4句概括具体作答表现及有依据的差异。problem_description必须依据学生实际表达写出本题具体的问题，不得只改写SOLO定义或虚构事实。'
+            'teaching_design依教师提供的SOLO进阶设计依据分别写content（材料内容）、task（学习任务）、scaffold（必要支架），每项一句，具体贴合本次任务和障碍，支架不代替学生作答。')
         result = _run_rubric_compatible(skill, inp, level_schema, 'class_level_problems', suffix)
-        return level, result['level_analyses'][0]['difficulty_groups']
+        return level, result['level_analyses'][0]
     def overview_task():
         overview_schema = class_transport_schema(full_schema, compact_large=True, separate_problems=True)
         suffix = ('本次只生成班级整体与层级概览，不输出difficulty_groups或grouping_recommendations，平台会单独生成。'
@@ -885,7 +897,10 @@ def _run_large_class_in_stages(skill, payload, provider, full_schema):
         overview = overview_future.result()
         groups_by_level = dict(future.result() for future in futures)
     for row in overview['level_analyses']:
-        row['difficulty_groups'] = groups_by_level[row['level']]
+        level_result = groups_by_level[row['level']]
+        row['difficulty_groups'] = level_result['difficulty_groups']
+        row['main_performance'] = level_result['main_performance']
+        row['teaching_design'] = level_result['teaching_design']
     _validate_class_problem_groups(overview, payload)
     result = expand_class(expand_large_class_output(overview, payload), payload)
     jsonschema.validate(result, full_schema)

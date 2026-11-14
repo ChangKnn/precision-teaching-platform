@@ -14,6 +14,7 @@ class LargeClassCompactTest(unittest.TestCase):
         skill = load_skill('solo_class_diagnosis_intervention')
         path = skill.path.parent
         payload = json.loads((path / 'tests/sample-input.json').read_text())
+        payload['diagnostic_task_text'] = '比较实验中温度对蒸发的影响。'
         output = json.loads((path / 'tests/sample-output.json').read_text())
         first = payload['student_diagnosis_results'][0]
         for i in range(35):
@@ -39,8 +40,10 @@ class LargeClassCompactTest(unittest.TestCase):
                 answer = output
             else:
                 request = json.loads(body['messages'][1]['content'].split('JSON：\n', 1)[1])
+                self.assertEqual(request['diagnostic_task_text'], payload['diagnostic_task_text'])
+                self.assertTrue(request['student_diagnosis_results'][0]['diagnosis']['evidence'])
                 level = request['student_diagnosis_results'][0]['diagnosis']['level']
-                answer = {'level_analyses':[{'level':level,'difficulty_groups':grouped[level]}]}
+                answer = {'level_analyses':[{'level':level,'main_performance':'学生能识别部分相关信息，但对联系仍需要支持。', 'teaching_design':{'content':'提供相关材料','task':'比较信息','scaffold':'给出观察提示'},'difficulty_groups':grouped[level]}]}
             return {'choices':[{'message':{'content':json.dumps(answer,ensure_ascii=False)}}]}
         with patch.object(ai, 'settings', replace(ai.settings, ai_api_key='test-key', ai_model='test-model')), patch.object(ai, '_post_json', side_effect=fake_post) as post:
             result, _ = ai.run_class_diagnosis_report(skill, payload, 'openrouter')
@@ -55,6 +58,12 @@ class LargeClassCompactTest(unittest.TestCase):
         self.assertNotIn('grouping_recommendations', schema['properties'])
         self.assertNotIn('quote', schema['$defs']['evidenceRef']['properties'])
         self.assertTrue(result['level_analyses'][0]['typical_evidence'][0]['quote'])
+        self.assertTrue(result['level_analyses'][0]['teaching_design']['scaffold'])
+
+    def test_class_skill_receives_teacher_provided_progression_reference(self):
+        instructions = ai._skill_runtime_instructions(load_skill('solo_class_diagnosis_intervention'))
+        self.assertIn('教师提供的SOLO进阶设计依据', instructions)
+        self.assertIn('关键认知变化→学习内容→学习活动→支架', instructions)
 
     def test_unknown_evidence_reference_is_rejected(self):
         from backend.app.services.compact_outputs import expand_large_class_output
