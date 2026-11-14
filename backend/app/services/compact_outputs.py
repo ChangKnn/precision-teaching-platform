@@ -21,13 +21,62 @@ def expand_rubric(value):
         'usage_notes':{'evidence_sufficiency':['仅依据学生自主表达判断，不把示例视为唯一答案。'],'boundary_risks':value['notes'],
                        'downstream_instructions':['以学生表现中的相邻层级边界判断，接纳不同合理解法，不按字数或术语数量定级。']}}
 
-def class_transport_schema(schema):
+def class_transport_schema(schema, compact_large=False):
     result=deepcopy(schema)
     for key in ('class_summary','traceability'):
         result['required'].remove(key);result['properties'].pop(key)
     row=result['$defs']['levelAnalysis']
     for key in ('students','count'):
         row['required'].remove(key);row['properties'].pop(key)
+    if compact_large:
+        result['required'].remove('grouping_recommendations')
+        result['properties'].pop('grouping_recommendations')
+        evidence = result['$defs']['evidenceRef']
+        for key in ('student_name', 'quote', 'interpretation'):
+            evidence['required'].remove(key)
+            evidence['properties'].pop(key)
+        group = row['properties']['difficulty_groups']['items']
+        group['required'].remove('difficulty')
+        group['properties'].pop('difficulty')
+    return result
+
+
+def expand_large_class_output(value, payload):
+    """Restore verified evidence and construct a single complete grouping locally."""
+    result = deepcopy(value)
+    students = {s['student']['student_id']: s for s in payload['student_diagnosis_results']}
+    for level in result['level_analyses']:
+        for difficulty in level.get('difficulty_groups', []):
+            difficulty['difficulty'] = difficulty['problem_description']
+        for evidence in level['typical_evidence']:
+            student = students.get(evidence['student_id'])
+            sources = (student or {}).get('diagnosis', {}).get('evidence', [])
+            source = next((s for s in sources if s['ref'] == evidence['source_ref']), None)
+            if not source:
+                raise ValueError('典型证据未匹配学生个体诊断')
+            evidence.update(student_name=student['student']['student_name'], quote=source['quote'], interpretation=source['interpretation'])
+    if 'grouping_recommendations' not in result:
+        groups, assigned = [], set()
+        for level in result['level_analyses']:
+            for difficulty in level.get('difficulty_groups', []):
+                members = [sid for sid in difficulty['student_ids'] if sid not in assigned]
+                assigned.update(members)
+                if not members:
+                    continue
+                n = (len(members) + 5) // 6
+                base, extra = divmod(len(members), n)
+                pos = 0
+                for index in range(n):
+                    size = base + (index < extra)
+                    ids = members[pos:pos + size]
+                    pos += size
+                    groups.append({'group_id': f'H{len(groups)+1}', 'group_name': f"{difficulty['problem_label']}组{index+1}",
+                        'students': [{'student_id': sid, 'student_name': students[sid]['student']['student_name']} for sid in ids],
+                        'common_characteristics': difficulty['problem_description'],
+                        'progression_direction': difficulty['teaching_suggestion'], 'use_case': '教师可根据课堂情况调整。'})
+        result['grouping_recommendations'] = {'homogeneous_groups': groups, 'heterogeneous_groups': [],
+            'heterogeneous_not_recommended_reason': '请教师结合课堂任务自行决定是否采用异质分组。',
+            'usage_note': '按层级和主要问题整理，供教师结合实际情况调整。'}
     return result
 
 
