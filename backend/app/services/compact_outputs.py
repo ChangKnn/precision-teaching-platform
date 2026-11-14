@@ -21,7 +21,7 @@ def expand_rubric(value):
         'usage_notes':{'evidence_sufficiency':['仅依据学生自主表达判断，不把示例视为唯一答案。'],'boundary_risks':value['notes'],
                        'downstream_instructions':['以学生表现中的相邻层级边界判断，接纳不同合理解法，不按字数或术语数量定级。']}}
 
-def class_transport_schema(schema, compact_large=False):
+def class_transport_schema(schema, compact_large=False, separate_problems=False):
     result=deepcopy(schema)
     for key in ('class_summary','traceability'):
         result['required'].remove(key);result['properties'].pop(key)
@@ -38,6 +38,8 @@ def class_transport_schema(schema, compact_large=False):
         group = row['properties']['difficulty_groups']['items']
         group['required'].remove('difficulty')
         group['properties'].pop('difficulty')
+    if separate_problems:
+        row['properties'].pop('difficulty_groups', None)
     return result
 
 

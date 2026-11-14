@@ -516,9 +516,9 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
                 validate_task_rubric(skill, result, require_complete=True)
             if output_name == 'student_brief':
                 _validate_student_brief_evidence(result, payload)
-            if output_name == 'solo_class_diagnosis':
+            if output_name in ('solo_class_diagnosis', 'class_level_problems'):
                 _validate_class_problem_groups(result, payload)
-                if 'grouping_recommendations' not in result:
+                if output_name == 'solo_class_diagnosis' and 'grouping_recommendations' not in result:
                     from .compact_outputs import expand_large_class_output
                     expand_large_class_output(result, payload)
             return result
@@ -815,6 +815,8 @@ def run_class_diagnosis_report(
     schema = json.loads((skill.path.parent / "assets/class-diagnosis-output.schema.json").read_text(encoding="utf-8"))
     from .compact_outputs import class_transport_schema, expand_class, expand_large_class_output
     compact_large = len(json.dumps(payload, ensure_ascii=False)) > 24000
+    if compact_large:
+        return _run_large_class_in_stages(skill, payload, provider, schema)
     compact_instruction = (
         '本次输入较长：不得输出grouping_recommendations，平台会依据问题分类和完整学生名单生成分组。'
         '典型证据只输出student_id与source_ref，必须对应该学生个体诊断中的真实ref；不要输出学生姓名、原话或解释。'
@@ -843,6 +845,52 @@ def run_class_diagnosis_report(
     jsonschema.validate(result, schema)
     # Preserve the call signature; the caller renders the validated result locally.
     _validate_class_problem_groups(result, payload)
+    result['problem_grouping_version'] = '1.0'
+    return result, None
+
+
+def _run_large_class_in_stages(skill, payload, provider, full_schema):
+    """Analyze each level separately, then combine with a compact class overview."""
+    from concurrent.futures import ThreadPoolExecutor
+    from .compact_outputs import class_transport_schema, expand_class, expand_large_class_output
+    import jsonschema
+    students = payload['student_diagnosis_results']
+    levels = [level for level in ('P', 'U', 'M', 'R', 'EA') if any(s['diagnosis']['level'] == level for s in students)]
+    group_schema = full_schema['$defs']['levelAnalysis']['properties']['difficulty_groups']
+    group_schema = json.loads(json.dumps(group_schema))
+    group_schema['items']['required'].remove('difficulty')
+    group_schema['items']['properties'].pop('difficulty')
+    level_schema = {'type':'object', 'additionalProperties':False, 'required':['level_analyses'],
+        'properties':{'level_analyses':{'type':'array','minItems':1,'maxItems':1,'items':{
+            'type':'object','additionalProperties':False,'required':['level','difficulty_groups'],
+            'properties':{'level':{'type':'string','enum':levels},'difficulty_groups':group_schema}}}}}
+    def level_task(level):
+        subset = [s for s in students if s['diagnosis']['level'] == level]
+        # Use the actual individual diagnoses, without repeating long transcripts.
+        brief = [{'student':s['student'], 'diagnosis':{'level':level,'rationale':s['diagnosis']['rationale']},
+                  'progression':{'main_obstacle':s['progression']['main_obstacle']}} for s in subset]
+        inp = {'precision_teaching_context':payload['precision_teaching_context'], 'student_diagnosis_results':brief}
+        suffix = ('本次只归纳这一个SOLO层级的问题，不生成班级报告、分组或其他层级。'
+            '比较每名学生的主要障碍，将含义相近者归并为1至4类；每类包含18字以内problem_label、一句话problem_description、'
+            '对应student_ids及一句teaching_suggestion。必须覆盖所有学生，可一人多类；不要输出difficulty字段。')
+        result = _run_rubric_compatible(skill, inp, level_schema, 'class_level_problems', suffix)
+        return level, result['level_analyses'][0]['difficulty_groups']
+    def overview_task():
+        overview_schema = class_transport_schema(full_schema, compact_large=True, separate_problems=True)
+        suffix = ('本次只生成班级整体与层级概览，不输出difficulty_groups或grouping_recommendations，平台会单独生成。'
+            '典型证据仅输出student_id和该学生真实source_ref；不要输出原话、姓名或解释。'
+            '每项简短，individual_attention只列有明确原话依据的必要提醒；不得编造。')
+        return _run_rubric_compatible(skill, payload, overview_schema, 'class_overview', suffix)
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        overview_future = pool.submit(overview_task)
+        futures = [pool.submit(level_task, level) for level in levels]
+        overview = overview_future.result()
+        groups_by_level = dict(future.result() for future in futures)
+    for row in overview['level_analyses']:
+        row['difficulty_groups'] = groups_by_level[row['level']]
+    _validate_class_problem_groups(overview, payload)
+    result = expand_class(expand_large_class_output(overview, payload), payload)
+    jsonschema.validate(result, full_schema)
     result['problem_grouping_version'] = '1.0'
     return result, None
 

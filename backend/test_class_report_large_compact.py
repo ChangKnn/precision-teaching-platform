@@ -33,8 +33,16 @@ class LargeClassCompactTest(unittest.TestCase):
                 'problem_description':'尚未结合任务证据说明观点。', 'student_ids':ids, 'teaching_suggestion':'提示学生寻找证据。'}]
             for ev in row['typical_evidence']:
                 for k in ('student_name', 'quote', 'interpretation'): ev.pop(k)
-        response = {'choices':[{'message':{'content':json.dumps(output,ensure_ascii=False)}}]}
-        with patch.object(ai, 'settings', replace(ai.settings, ai_api_key='test-key', ai_model='test-model')), patch.object(ai, '_post_json', return_value=response) as post:
+        grouped = {row['level']: row.pop('difficulty_groups') for row in output['level_analyses']}
+        def fake_post(url, body, key, **kwargs):
+            if body['response_format']['json_schema']['name'] == 'class_overview':
+                answer = output
+            else:
+                request = json.loads(body['messages'][1]['content'].split('JSON：\n', 1)[1])
+                level = request['student_diagnosis_results'][0]['diagnosis']['level']
+                answer = {'level_analyses':[{'level':level,'difficulty_groups':grouped[level]}]}
+            return {'choices':[{'message':{'content':json.dumps(answer,ensure_ascii=False)}}]}
+        with patch.object(ai, 'settings', replace(ai.settings, ai_api_key='test-key', ai_model='test-model')), patch.object(ai, '_post_json', side_effect=fake_post) as post:
             result, _ = ai.run_class_diagnosis_report(skill, payload, 'openrouter')
         validate_class_result(result, payload)
         groups = result['grouping_recommendations']['homogeneous_groups']
@@ -42,7 +50,8 @@ class LargeClassCompactTest(unittest.TestCase):
         self.assertEqual(len(all_ids), len(payload['student_diagnosis_results']))
         self.assertEqual(len(all_ids), len(set(all_ids)))
         self.assertTrue(all(len(group['students']) <= 6 for group in groups))
-        schema = post.call_args.args[1]['response_format']['json_schema']['schema']
+        schema = next(call.args[1]['response_format']['json_schema']['schema'] for call in post.call_args_list if call.args[1]['response_format']['json_schema']['name'] == 'class_overview')
+        self.assertEqual(post.call_count, len(grouped) + 1)
         self.assertNotIn('grouping_recommendations', schema['properties'])
         self.assertNotIn('quote', schema['$defs']['evidenceRef']['properties'])
         self.assertTrue(result['level_analyses'][0]['typical_evidence'][0]['quote'])
