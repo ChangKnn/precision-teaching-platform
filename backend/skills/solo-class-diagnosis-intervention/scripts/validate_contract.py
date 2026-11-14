@@ -199,9 +199,9 @@ def main() -> None:
     require("SOLO 层级及含义" in output_template, "template must explain SOLO labels")
     require("{{task_specific_level_meaning}}" in output_template, "level meaning placeholder missing")
     require("完整教学流程" not in output_template, "template must not become a lesson plan")
-    require("共同任务、合作规则和共同产出只能出现一次" in output_template, "same-task compact presentation rule missing")
-    require("组内互补依据" in output_template, "heterogeneous complementarity column missing")
-    require("不得按 SOLO 层级机械配额" in output_template, "anti-quota rule missing")
+    require("相同任务只介绍一次" in output_template, "same-task compact presentation rule missing")
+    require("完整任务单独保留" in output_template, "full task preservation rule missing")
+    require("仅展示同质分组" in output_template, "current grouping scope missing")
     require("后续干预设计依据" in output_template, "downstream intervention design handoff missing")
     for forbidden in ["活动建议：", "组织建议：", "可行性说明：", "课堂精准教学干预建议"]:
         require(forbidden not in output_template, f"removed intervention field remains in template: {forbidden}")

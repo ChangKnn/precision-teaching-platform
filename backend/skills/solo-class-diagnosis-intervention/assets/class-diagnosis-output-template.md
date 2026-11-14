@@ -30,7 +30,7 @@
 - 人数：{{count}}
 - 学生：{{students}}
 - 主要表现：{{main_performance}}
-- 典型依据：{{typical_evidence_with_student_and_ref}}
+- 典型依据：{{typical_student_brief_analysis}}
 - 主要进阶障碍：{{main_obstacles}}
 - 教学建议：{{brief_teaching_suggestion}}
 
@@ -50,44 +50,14 @@
 
 ## 5. 分组建议
 
-### 同质分组
+#### {{task_based_group_name}}
 
-#### {{homogeneous_group_name}}（{{homogeneous_group_id}}）
+- 学情：{{common_characteristics}}
+- 学习任务：{{learning_task}}
+- 教学支持：{{progression_direction}}
+- 第一组：{{students}}
 
-- 学生：{{students}}
-- 共同特点：{{common_characteristics}}
-- 进阶方向：{{progression_direction}}
-- 适用活动：{{use_case}}
-
-### 异质分组
-
-仅在确有合作价值时呈现；否则说明不建议及理由。
-
-选择与实际方案一致的一种格式，不同时输出两种。
-
-#### 格式 A：各组完成同一任务
-
-- 共同任务：{{shared_task}}
-- 合作规则：{{shared_collaboration_rule}}
-- 共同产出：{{shared_product}}
-
-| 小组名称 | 学生 | 组内互补依据 |
-|---|---|---|
-| {{heterogeneous_group_name}} | {{students}} | {{group_specific_complementarity}} |
-
-共同任务、合作规则和共同产出只能出现一次，不得在各组下重复。
-
-#### 格式 B：共同主线下各组任务不同
-
-- 共同合作规则：{{shared_collaboration_rule}}
-
-| 小组名称 | 学生 | 任务重点 | 组内互补依据 |
-|---|---|---|---|
-| {{heterogeneous_group_name}} | {{students}} | {{group_task_focus}} | {{group_specific_complementarity}} |
-
-任务重点必须具有实质差异；若只是措辞不同，应改用格式 A。
-
-异质分组不得按 SOLO 层级机械配额。同质方案以及任何已提出的异质方案都必须分别覆盖所有参与诊断的学生；如果无法形成有价值的全员异质方案，写明不建议的理由，不强行凑组。
+相同任务只介绍一次，其下列出各组名单。名称从任务提炼核心活动，完整任务单独保留。当前平台仅展示同质分组。
 
 ## 6. 后续干预设计依据
 
@@ -97,21 +67,6 @@
 |---|---|---|---|
 | {{target_students}} | {{diagnostic_finding}} | {{intended_cognitive_change}} | {{design_requirements}} |
 
-## 机器可读结果
+## 输出约定
 
-在上述 Markdown 后附加：
-
-```json solo_class_diagnosis
-{
-  "schema_version": "1.1",
-  "class_summary": {},
-  "overall_diagnosis": {},
-  "level_analyses": [],
-  "teaching_priorities": {},
-  "grouping_recommendations": {},
-  "intervention_design_basis": [],
-  "traceability": {}
-}
-```
-
-实际输出必须填写所有必需字段并通过 `class-diagnosis-output.schema.json`，不得保留占位符。
+模型仅返回运行时 Schema 要求的完整 JSON，不输出本模板、占位符或附加 Markdown。统计和完整名单由程序核对补齐。
