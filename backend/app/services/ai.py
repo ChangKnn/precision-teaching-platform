@@ -880,6 +880,7 @@ def run_class_diagnosis_report(
     if compact_large:
         result = expand_large_class_output(result, payload)
     if payload.get('student_diagnosis_results'):
+        result['task_group_names_version'] = '1'
         result = expand_class(result, payload)
     try:
         import jsonschema
@@ -947,6 +948,7 @@ def _run_large_class_in_stages(skill, payload, provider, full_schema):
         row['main_performance'] = level_result['main_performance']
         row['teaching_design'] = level_result['teaching_design']
     _validate_class_problem_groups(overview, payload)
+    overview['task_group_names_version'] = '1'
     result = expand_class(expand_large_class_output(overview, payload), payload)
     jsonschema.validate(result, full_schema)
     result['task_group_names_version'] = '1'

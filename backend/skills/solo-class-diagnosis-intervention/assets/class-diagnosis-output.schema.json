@@ -299,6 +299,12 @@
     "common_issue_warning": {
       "type": "string",
       "minLength": 1
+    },
+    "task_group_names_version": {
+      "type": "string",
+      "enum": [
+        "1"
+      ]
     }
   },
   "$defs": {

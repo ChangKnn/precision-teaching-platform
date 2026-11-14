@@ -94,7 +94,7 @@ class LargeClassCompactTest(unittest.TestCase):
                 self.assertEqual(request['diagnostic_task_text'], payload['diagnostic_task_text'])
                 self.assertTrue(request['student_diagnosis_results'][0]['diagnosis']['evidence'])
                 level = request['student_diagnosis_results'][0]['diagnosis']['level']
-                answer = {'level_analyses':[{'level':level,'main_performance':'学生能识别部分相关信息，但对联系仍需要支持。', 'teaching_design':{'content':'提供相关材料','task':'比较信息','scaffold':'给出观察提示'},'difficulty_groups':grouped[level]}]}
+                answer = {'level_analyses':[{'level':level,'level_group_name':'信息比较','main_performance':'学生能识别部分相关信息，但对联系仍需要支持。', 'teaching_design':{'content':'提供相关材料','task':'比较信息','scaffold':'给出观察提示'},'difficulty_groups':grouped[level]}]}
             return {'choices':[{'message':{'content':json.dumps(answer,ensure_ascii=False)}}]}
         with patch.object(ai, 'settings', replace(ai.settings, ai_api_key='test-key', ai_model='test-model')), patch.object(ai, '_post_json', side_effect=fake_post) as post:
             result, _ = ai.run_class_diagnosis_report(skill, payload, 'openrouter')
@@ -110,6 +110,16 @@ class LargeClassCompactTest(unittest.TestCase):
         self.assertNotIn('quote', schema['$defs']['evidenceRef']['properties'])
         self.assertTrue(result['level_analyses'][0]['typical_evidence'][0]['quote'])
         self.assertTrue(result['level_analyses'][0]['teaching_design']['scaffold'])
+        import jsonschema
+        from backend.app.services.compact_outputs import practical_grouping
+        from backend.app.services.class_report import render_class_markdown
+        jsonschema.validate(result, json.loads((path / 'assets/class-diagnosis-output.schema.json').read_text()))
+        self.assertEqual(result['grouping_recommendations'], practical_grouping(result)['grouping_recommendations'])
+        self.assertTrue(all(group['group_name'] == '信息比较组' for group in groups))
+        markdown = render_class_markdown(result)
+        self.assertIn('学习任务：比较信息', markdown)
+        self.assertIn('教学支持：', markdown)
+
 
     def test_class_skill_receives_teacher_provided_progression_reference(self):
         instructions = ai._skill_runtime_instructions(load_skill('solo_class_diagnosis_intervention'))

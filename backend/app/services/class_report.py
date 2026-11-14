@@ -371,22 +371,20 @@ def render_class_markdown(result: dict, payload: dict | None = None) -> str:
         lines += [note, ""]
     if grouping["homogeneous_groups"]:
         for group in grouping["homogeneous_groups"]:
-            direction = '按组内学生需要分别支持' if group.get('support_breakdown') else group['progression_direction']
+            group_ids = {student['student_id'] for student in group['students']}
+            level = next((row for row in result['class_summary']['distribution']
+                          if group_ids <= {s['student_id'] for s in row['students']}), None)
+            analysis = next((row for row in result['level_analyses']
+                             if level and row['level'] == level['level']), {})
+            task = analysis.get('teaching_design', {}).get('task', '')
             lines += [
-                f"- {group['group_name']}（{group['group_id']}；{names(group['students'])}）：{group['common_characteristics']}；"
-                f"进阶方向：{direction}；适用情境：{group['use_case']}"
+                f"#### {group['group_name']}", "",
+                f"- 学情：{group['common_characteristics']}",
             ]
-            by_id = {student['student_id']: student for student in group['students']}
-            mapped = set()
-            for support in group.get('support_breakdown', []):
-                selected = [by_id[sid] for sid in support['student_ids'] if sid in by_id]
-                mapped.update(student['student_id'] for student in selected)
-                if selected:
-                    lines.append(f"  - {names(selected)}：{support['support']}")
-            if group.get('common_characteristics') == '本组由不同学习需要的学生组成，请按具体需要提供支持。':
-                missing = [student for student in group['students'] if student['student_id'] not in mapped]
-                if missing:
-                    lines.append(f"  - {names(missing)}：支持安排需结合个体诊断核对。")
+            if task:
+                lines.append(f"- 学习任务：{task}")
+            lines += [f"- 教学支持：{group['progression_direction']}",
+                      f"- 学生：{names(group['students'])}", ""]
     else:
         lines.append("当前不建议同质分组。")
     lines += ["", "### 异质分组", ""]

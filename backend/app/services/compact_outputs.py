@@ -24,6 +24,7 @@ def expand_rubric(value):
 
 def class_transport_schema(schema, compact_large=False, separate_problems=False):
     result=deepcopy(schema)
+    result['properties'].pop('task_group_names_version', None)
     # Student-to-support assignments are built from verified source groups, never by the model.
     for group_type in ('homogeneousGroup', 'heterogeneousGroup'):
         result['$defs'][group_type]['properties'].pop('support_breakdown', None)
