@@ -115,6 +115,42 @@ class LargeClassCompactTest(unittest.TestCase):
         instructions = ai._skill_runtime_instructions(load_skill('solo_class_diagnosis_intervention'))
         self.assertIn('教师提供的SOLO进阶设计依据', instructions)
         self.assertIn('关键认知变化→学习内容→学习活动→支架', instructions)
+        self.assertIn('数量、空间、逻辑、实验、因果或文本关系', instructions)
+        self.assertNotIn('东汉', instructions)
+
+    def test_different_subject_tasks_are_forwarded_without_replacement(self):
+        skill = load_skill('solo_class_diagnosis_intervention')
+        path = skill.path.parent
+        schema = json.loads((path / 'assets/class-diagnosis-output.schema.json').read_text())
+        initial = json.loads((path / 'tests/sample-input.json').read_text())
+        sample = json.loads((path / 'tests/sample-output.json').read_text())
+        overview = copy.deepcopy(sample)
+        for key in ('class_summary', 'traceability', 'grouping_recommendations'):
+            overview.pop(key)
+        for row in overview['level_analyses']:
+            row.pop('students'); row.pop('count')
+            for evidence in row['typical_evidence']:
+                for key in ('student_name', 'quote', 'interpretation'):
+                    evidence.pop(key)
+        for subject, task in [('历史', '分析材料中的多种解释'), ('数学', '比较两种求解方法'), ('大学课程', '分析模型的适用条件')]:
+            with self.subTest(subject=subject):
+                payload = copy.deepcopy(initial)
+                payload['precision_teaching_context']['subject'] = subject
+                payload['diagnostic_task_text'] = task
+                def fake_run(skill_arg, input_arg, schema_arg, output_name, suffix):
+                    if output_name == 'class_overview':
+                        return copy.deepcopy(overview)
+                    self.assertEqual(input_arg['precision_teaching_context']['subject'], subject)
+                    self.assertEqual(input_arg['diagnostic_task_text'], task)
+                    level = input_arg['student_diagnosis_results'][0]['diagnosis']['level']
+                    ids = [s['student']['student_id'] for s in input_arg['student_diagnosis_results']]
+                    return {'level_analyses':[{'level':level,'main_performance':'基于学生回应的表现。',
+                        'teaching_design':{'content':'当前课程材料','task':task,'scaffold':'观察提示'},
+                        'difficulty_groups':[{'problem_label':'解释不足','problem_description':'说明尚不充分。',
+                                              'student_ids':ids,'teaching_suggestion':'根据材料追问。'}]}]}
+                with patch.object(ai, '_run_rubric_compatible', side_effect=fake_run):
+                    result, _ = ai._run_large_class_in_stages(skill, payload, 'openrouter', schema)
+                self.assertTrue(all(row['teaching_design']['task'] == task for row in result['level_analyses']))
 
     def test_unknown_evidence_reference_is_rejected(self):
         from backend.app.services.compact_outputs import expand_large_class_output

@@ -23,6 +23,10 @@ def expand_rubric(value):
 
 def class_transport_schema(schema, compact_large=False, separate_problems=False):
     result=deepcopy(schema)
+    # Student-to-support assignments are built from verified source groups, never by the model.
+    for group_type in ('homogeneousGroup', 'heterogeneousGroup'):
+        result['$defs'][group_type]['properties'].pop('support_breakdown', None)
+        result['$defs'][group_type]['properties'].pop('support_unmapped_student_ids', None)
     for key in ('class_summary','traceability'):
         result['required'].remove(key);result['properties'].pop(key)
     row=result['$defs']['levelAnalysis']
@@ -133,8 +137,40 @@ def practical_grouping(result):
             group = deepcopy(original[origin_ids[0]])
             group['group_id'] = f"{'H' if key == 'homogeneous_groups' else 'X'}{index}"
             group['students'] = [student for student, _ in entries]
+            current_ids = {student['student_id'] for student, _ in entries}
+            if group.get('support_breakdown'):
+                group['support_breakdown'] = [
+                    {**part, 'student_ids': [sid for sid in part['student_ids'] if sid in current_ids]}
+                    for part in group['support_breakdown'] if any(sid in current_ids for sid in part['student_ids'])
+                ]
+                if not group['support_breakdown']:
+                    group.pop('support_breakdown')
+            if group.get('support_unmapped_student_ids'):
+                group['support_unmapped_student_ids'] = [sid for sid in group['support_unmapped_student_ids'] if sid in current_ids]
             if len(origin_ids) > 1:
                 group['group_name'] = f'第{index}学习小组'
+                support_by_text, unmapped = {}, []
+                support_field = 'progression_direction' if key == 'homogeneous_groups' else 'collaboration_direction'
+                for student, origin in entries:
+                    prior = original[origin]
+                    matched = [entry['support'].strip() for entry in prior.get('support_breakdown', []) if student['student_id'] in entry['student_ids'] and entry['support'].strip()]
+                    was_mixed = (prior.get('common_characteristics') == '本组由不同学习需要的学生组成，请按具体需要提供支持。'
+                                 or prior.get('grouping_rationale') == '为便于课堂组织合并，成员的学习需要可能不同。')
+                    if not matched and not prior.get('support_breakdown') and not was_mixed:
+                        matched = [prior.get(support_field, '').strip()]
+                    if not any(matched):
+                        unmapped.append(student['student_id'])
+                    for support in matched:
+                        if support:
+                            support_by_text.setdefault(support, []).append(student['student_id'])
+                if support_by_text:
+                    group['support_breakdown'] = [{'student_ids': ids, 'support': support} for support, ids in support_by_text.items()]
+                else:
+                    group.pop('support_breakdown', None)
+                if unmapped:
+                    group['support_unmapped_student_ids'] = unmapped
+                else:
+                    group.pop('support_unmapped_student_ids', None)
                 if key == 'homogeneous_groups':
                     group['common_characteristics'] = '本组由不同学习需要的学生组成，请按具体需要提供支持。'
                     directions = list(dict.fromkeys(original[i]['progression_direction'].strip() for i in origin_ids if original[i]['progression_direction'].strip()))
@@ -193,6 +229,10 @@ def _repair_class_grouping(result, exact):
 def expand_class(value,payload):
     from .class_report import deterministic_distribution
     result=deepcopy(value)
+    for group_type in ('homogeneous_groups', 'heterogeneous_groups'):
+        for group in result.get('grouping_recommendations', {}).get(group_type, []):
+            group.pop('support_breakdown', None)
+            group.pop('support_unmapped_student_ids', None)
     exact=deterministic_distribution(payload)
     analyses={row['level']:row for row in result['level_analyses']}
     distribution=[]

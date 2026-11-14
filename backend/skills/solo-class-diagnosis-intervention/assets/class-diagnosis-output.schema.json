@@ -242,7 +242,9 @@
               "情绪表达",
               "学习支持",
               "新思路",
-              "安全关注"
+              "安全关注",
+              "身体不适",
+              "参与状态"
             ]
           },
           "observation": {
@@ -769,6 +771,41 @@
         "use_case": {
           "type": "string",
           "minLength": 1
+        },
+        "support_breakdown": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "student_ids",
+              "support"
+            ],
+            "properties": {
+              "student_ids": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "support": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "support_unmapped_student_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -811,6 +848,41 @@
         "shared_product": {
           "type": "string",
           "minLength": 1
+        },
+        "support_breakdown": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "student_ids",
+              "support"
+            ],
+            "properties": {
+              "student_ids": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "support": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "support_unmapped_student_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },

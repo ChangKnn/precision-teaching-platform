@@ -239,6 +239,12 @@ def validate_class_result(result: dict, payload: dict) -> None:
             raise ValueError(f"{key} 中有重复或未知学生")
         if groups and set(members) != source_ids:
             raise ValueError(f"{key} 未覆盖所有参与诊断的学生")
+        for group in groups:
+            group_ids = {student['student_id'] for student in group['students']}
+            support_ids = {sid for entry in group.get('support_breakdown', []) for sid in entry['student_ids']}
+            unmapped_ids = set(group.get('support_unmapped_student_ids', []))
+            if not (support_ids | unmapped_ids) <= group_ids or support_ids & unmapped_ids:
+                raise ValueError('组内教学支持引用了不属于本组的学生')
     if grouping["heterogeneous_groups"] and grouping["heterogeneous_not_recommended_reason"]:
         raise ValueError("已有异质分组时不应同时写不建议的理由")
     if not grouping["heterogeneous_groups"] and not grouping["heterogeneous_not_recommended_reason"]:
@@ -365,10 +371,22 @@ def render_class_markdown(result: dict, payload: dict | None = None) -> str:
         lines += [note, ""]
     if grouping["homogeneous_groups"]:
         for group in grouping["homogeneous_groups"]:
+            direction = '按组内学生需要分别支持' if group.get('support_breakdown') else group['progression_direction']
             lines += [
                 f"- {group['group_name']}（{group['group_id']}；{names(group['students'])}）：{group['common_characteristics']}；"
-                f"进阶方向：{group['progression_direction']}；适用情境：{group['use_case']}"
+                f"进阶方向：{direction}；适用情境：{group['use_case']}"
             ]
+            by_id = {student['student_id']: student for student in group['students']}
+            mapped = set()
+            for support in group.get('support_breakdown', []):
+                selected = [by_id[sid] for sid in support['student_ids'] if sid in by_id]
+                mapped.update(student['student_id'] for student in selected)
+                if selected:
+                    lines.append(f"  - {names(selected)}：{support['support']}")
+            if group.get('common_characteristics') == '本组由不同学习需要的学生组成，请按具体需要提供支持。':
+                missing = [student for student in group['students'] if student['student_id'] not in mapped]
+                if missing:
+                    lines.append(f"  - {names(missing)}：支持安排需结合个体诊断核对。")
     else:
         lines.append("当前不建议同质分组。")
     lines += ["", "### 异质分组", ""]

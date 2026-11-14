@@ -41,8 +41,42 @@ class PracticalGroupingTest(unittest.TestCase):
         result = practical_grouping(make_report(4))
         for group in result['grouping_recommendations']['homogeneous_groups']:
             self.assertIn('不同学习需要', group['common_characteristics'])
+            mapped = {}
+            for entry in group['support_breakdown']:
+                for student_id in entry['student_ids']:
+                    mapped[student_id] = entry['support']
             for student in group['students']:
                 self.assertIn('任务支持' + student['student_id'][1:], group['progression_direction'])
+                self.assertEqual(mapped[student['student_id']], '任务支持' + student['student_id'][1:])
+
+    def test_legacy_mixed_group_does_not_invent_support_assignments(self):
+        report = make_report(4)
+        old = report['grouping_recommendations']['homogeneous_groups'][0]
+        old['common_characteristics'] = '本组由不同学习需要的学生组成，请按具体需要提供支持。'
+        old['progression_direction'] = '历史上合并的多条支持，但没有学生对应关系'
+        groups = practical_grouping(report)['grouping_recommendations']['homogeneous_groups']
+        group = next(g for g in groups if any(s['student_id'] == 's0' for s in g['students']))
+        self.assertIn('s0', group['support_unmapped_student_ids'])
+        self.assertFalse(any('s0' in row['student_ids'] for row in group.get('support_breakdown', [])))
+
+    def test_moving_students_preserves_and_filters_prior_support_mappings(self):
+        report = make_report(7)
+        groups = report['grouping_recommendations']['homogeneous_groups']
+        combined = groups[1]
+        combined['students'] = [group['students'][0] for group in groups[1:]]
+        combined['common_characteristics'] = '本组由不同学习需要的学生组成，请按具体需要提供支持。'
+        combined['support_breakdown'] = [{'student_ids':[student['student_id']], 'support':'支持' + student['student_id']}
+                                         for student in combined['students']]
+        report['grouping_recommendations']['homogeneous_groups'] = [groups[0], combined]
+        adapted = practical_grouping(report)['grouping_recommendations']['homogeneous_groups']
+        for group in adapted:
+            ids = {student['student_id'] for student in group['students']}
+            mapped = {sid for entry in group.get('support_breakdown', []) for sid in entry['student_ids']}
+            self.assertTrue(mapped <= ids)
+            for entry in group.get('support_breakdown', []):
+                for sid in entry['student_ids']:
+                    if sid != 's0':
+                        self.assertEqual(entry['support'], '支持' + sid)
 
     def test_invalid_roster_is_not_guessed_or_repaired(self):
         report = make_report(4)

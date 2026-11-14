@@ -870,10 +870,10 @@ def run_class_diagnosis_report(
         provider, schema_override=class_transport_schema(schema, compact_large=compact_large), instruction_suffix=(
             "\n\n只返回符合 Schema 的班级结构化分析，不额外生成文字报告。"
             "教师页面与导出报告由平台根据这些字段排版。"
-            "每层main_performance用2至4句概括学生实际表现，包括能做什么、怎样作答及有依据的差异，不罗列人名。主要问题依据个体实际表达及本次诊断任务，写明学生讨论或处理了什么、具体在哪一步受阻，禁止套写层级定义或凭空推测。teaching_design分别给出content（具体材料）、task（学生如何加工）和scaffold（最小必要支持），依据教师SOLO进阶设计参考，结合该任务及障碍，各一句，不代学生作答。"
+            "每层main_performance用2至4句概括学生实际表现和有依据的差异，区分自主提出、经AI追问后提出和仅确认AI的内容，不以少数学生代替全体。主要问题依据个体表达及本次任务，写明处理了什么、具体在哪一步受阻，不套写层级定义或推测。teaching_design分别给出content、task和scaffold，各一句，结合当前学科任务、学生障碍及SOLO进阶依据，不代学生作答。P先支持一个相关回应，U先扩展相关要素而不强求完整关系链，M按任务建立适当关系，R可根据目标和材料检验新情境或条件。不得把时间顺序或未经验证的关系写成因果结论。"
             "只能引用输入中的个体诊断，不得重新定级，也不要设计具体课堂活动。"
             "本轮不输出class_summary、traceability或level_analyses内的students/count；这些统计和完整名单由程序据全体输入生成。其他字段保持完整但简洁，每层只选1—2条典型证据，避免重复复述。"
-            "common_issues归纳1至3条基于学生实际表现的共同问题，不复述SOLO层级介绍，填写有依据的学生ID。每层根据学生progression.main_obstacle优先归纳一个最值得教学关注的问题，只有学生确有明显不同且需要不同支持时才写第二个；不得为了覆盖每位学生而强行分类。每项problem_label为18字以内短语，problem_description一句话，difficulty与描述相同，student_ids只列有依据的学生，teaching_suggestion给一句具体支持。individual_attention仅记录有明确原话依据的情绪表达、学习支持、新思路或安全关注，每项evidence_quote须逐字摘自该学生student_statements或submitted_text；无依据时返回空数组。不得臆测心理和给学生贴标签，明确安全风险时建议教师及时关注。所有描述尽量简短。分组须覆盖全体已诊断学生。"
+            "common_issues归纳1至3条基于学生实际表现的共同问题，不复述SOLO层级介绍，填写有依据的学生ID。每层根据学生progression.main_obstacle优先归纳一个最值得教学关注的问题，只有学生确有明显不同且需要不同支持时才写第二个；不得为了覆盖每位学生而强行分类。每项problem_label为18字以内短语，problem_description一句话，difficulty与描述相同，student_ids只列有依据的学生，teaching_suggestion给一句具体支持。individual_attention仅记录有明确原话依据的身体不适、参与状态、情绪表达、学习支持、新思路或安全关注；只凭明确表达的感受判断情绪，不能由拒答或催促推测。evidence_quote须逐字摘自该学生原始表达；无依据时返回空数组。不得臆测心理和给学生贴标签，明确安全风险时建议教师及时关注。所有描述尽量简短。分组须覆盖全体已诊断学生。"
             + compact_instruction
         ),
     )
@@ -919,9 +919,11 @@ def _run_large_class_in_stages(skill, payload, provider, full_schema):
         suffix = ('本次只归纳这一个SOLO层级的问题，不生成班级报告、分组或其他层级。'
             '比较同层级学生的主要障碍，优先归纳一个有代表性的主要问题；只有确实需要不同教学支持时才增加第二个，'
             '不得为了覆盖每个人强行分类。每项包含18字以内problem_label、一句话problem_description、'
-            '有依据的student_ids及一句teaching_suggestion；group_name应结合具体学科内容和学生要完成的任务，用一线教师易懂的短语命名，例如“梳理东汉衰亡因素组”，不要使用SOLO术语、笼统能力标签或层级名；不要输出difficulty字段。'
+            '有依据的student_ids及一句teaching_suggestion；group_name应结合当前学科内容和学生要完成的任务，用教师易懂的短语命名，不照搬其他学科示例，不用SOLO术语或层级名；不要输出difficulty字段。'
             'main_performance用2至4句概括具体作答表现及有依据的差异。problem_description必须依据学生实际表达写出本题具体的问题，不得只改写SOLO定义或虚构事实。'
-            'teaching_design依教师提供的SOLO进阶设计依据分别写content（材料内容）、task（学习任务）、scaffold（必要支架），每项一句，具体贴合本次任务和障碍，支架不代替学生作答。')
+            '区分学生自主提出、经AI追问后提出和仅确认AI的内容，不把后两者都当作自主掌握。'
+            'teaching_design依教师提供的SOLO进阶设计依据分别写content（材料内容）、task（学习任务）、scaffold（必要支架），每项一句，具体贴合当前学科任务和障碍。'
+            'P先支持一个相关回应；U先扩展另一个相关要素，不强求完整关系链；M按任务需要连接要素，关系不必都是因果；R根据材料和教学目标可提供新情境、条件变化或边界检验。不得把材料中未证明的关系或可选资源写成已知事实，支架不代替学生作答。')
         result = _run_rubric_compatible(skill, inp, level_schema, 'class_level_problems', suffix)
         return level, result['level_analyses'][0]
     def overview_task():
@@ -929,7 +931,7 @@ def _run_large_class_in_stages(skill, payload, provider, full_schema):
         suffix = ('本次只生成班级整体与层级概览，不输出difficulty_groups或grouping_recommendations，平台会单独生成。'
             '典型证据仅输出student_id和该学生真实source_ref；不要输出原话、姓名或解释。'
             'common_issues的basis_student_ids及individual_attention的student_id必须逐字复制输入中student.student_id，禁止用姓名、序号或示例编号代替。'
-            '每项简短，individual_attention只列有明确原话依据的必要提醒；不得编造。')
+            '每项简短，individual_attention只列有明确原话依据的必要提醒；身体不适、参与状态和明确表达的情绪应区分，不得由拒答或催促推断情绪，不作心理诊断。')
         return _run_rubric_compatible(skill, payload, overview_schema, 'class_overview', suffix)
     with ThreadPoolExecutor(max_workers=3) as pool:
         overview_future = pool.submit(overview_task)
