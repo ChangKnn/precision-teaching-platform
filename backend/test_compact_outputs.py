@@ -38,3 +38,41 @@ class CompactOutputsTest(TestCase):
         jsonschema.validate(result,schema);validate_class_result(result,payload)
         self.assertEqual(result['class_summary']['total_students'],len(payload['student_diagnosis_results']))
         self.assertLess(len(json.dumps(compact)),len(json.dumps(full)))
+
+    def test_invalid_model_rosters_are_replaced_using_all_39_verified_students(self):
+        skill=load_skill('solo_class_diagnosis_intervention')
+        payload=json.loads((skill.path.parent/'tests/sample-input.json').read_text())
+        output=json.loads((skill.path.parent/'tests/sample-output.json').read_text())
+        schema=json.loads((skill.path.parent/'assets/class-diagnosis-output.schema.json').read_text())
+        original=payload['student_diagnosis_results'][0]
+        for index in range(35):
+            student=copy.deepcopy(original)
+            student['student']['student_id']=f'new-{index:02}'
+            student['student']['student_name']=f'匿名{index:02}'
+            payload['student_diagnosis_results'].append(student)
+        for key in ('class_summary','traceability'): output.pop(key)
+        for row in output['level_analyses']:
+            row.pop('count');row.pop('students')
+        grouping=output['grouping_recommendations']
+        grouping['homogeneous_groups'][0]['students'].append(copy.deepcopy(grouping['homogeneous_groups'][0]['students'][0]))
+        grouping['heterogeneous_groups'][0]['students'][0]['student_id']='unknown'
+        result=expand_class(output,payload)
+        jsonschema.validate(result,schema)
+        validate_class_result(result,payload)
+        groups=result['grouping_recommendations']
+        ids=[s['student_id'] for group in groups['homogeneous_groups'] for s in group['students']]
+        self.assertEqual(len(ids),39)
+        self.assertEqual(len(set(ids)),39)
+        self.assertTrue(all(len(group['students']) <= 6 for group in groups['homogeneous_groups']))
+        self.assertIn('自动整理',groups['usage_note'])
+        self.assertEqual(groups['heterogeneous_groups'],[])
+        self.assertIn('教师',groups['heterogeneous_not_recommended_reason'])
+
+    def test_valid_model_grouping_is_preserved(self):
+        skill=load_skill('solo_class_diagnosis_intervention')
+        payload=json.loads((skill.path.parent/'tests/sample-input.json').read_text())
+        result=json.loads((skill.path.parent/'tests/sample-output.json').read_text())
+        expected=copy.deepcopy(result['grouping_recommendations'])
+        for key in ('class_summary','traceability'):result.pop(key)
+        for row in result['level_analyses']:row.pop('count');row.pop('students')
+        self.assertEqual(expand_class(result,payload)['grouping_recommendations'],expected)
