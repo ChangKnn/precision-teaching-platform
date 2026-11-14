@@ -64,9 +64,9 @@ class CompactOutputsTest(TestCase):
         self.assertEqual(len(ids),39)
         self.assertEqual(len(set(ids)),39)
         self.assertTrue(all(len(group['students']) <= 6 for group in groups['homogeneous_groups']))
-        self.assertIn('自动整理',groups['usage_note'])
+        self.assertIn('SOLO 层级',groups['usage_note'])
         self.assertEqual(groups['heterogeneous_groups'],[])
-        self.assertIn('教师',groups['heterogeneous_not_recommended_reason'])
+        self.assertIn('SOLO',groups['heterogeneous_not_recommended_reason'])
 
     def test_valid_model_grouping_is_preserved(self):
         skill=load_skill('solo_class_diagnosis_intervention')
@@ -78,4 +78,7 @@ class CompactOutputsTest(TestCase):
         expected=copy.deepcopy(result['grouping_recommendations'])
         for key in ('class_summary','traceability'):result.pop(key)
         for row in result['level_analyses']:row.pop('count');row.pop('students')
-        self.assertEqual(expand_class(result,payload)['grouping_recommendations'],expected)
+        expanded = expand_class(result,payload)
+        groups = expanded['grouping_recommendations']['homogeneous_groups']
+        levels = {student['student_id']: row['level'] for row in expanded['class_summary']['distribution'] for student in row['students']}
+        self.assertTrue(all(len({levels[s['student_id']] for s in group['students']}) == 1 for group in groups))

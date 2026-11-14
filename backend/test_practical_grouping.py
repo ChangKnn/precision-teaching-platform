@@ -21,74 +21,34 @@ def make_report(count):
 
 
 class PracticalGroupingTest(unittest.TestCase):
-    def test_avoids_one_and_two_students_when_feasible_and_covers_everyone(self):
+    def test_groups_by_level_and_preserves_all_students(self):
         for count in range(1, 61):
-            with self.subTest(count=count):
-                original = make_report(count)
-                snapshot = copy.deepcopy(original)
-                result = practical_grouping(original)
-                groups = result['grouping_recommendations']['homogeneous_groups']
-                ids = [student['student_id'] for group in groups for student in group['students']]
-                self.assertEqual(len(ids),count)
-                self.assertEqual(len(set(ids)),count)
-                if count >= 3:
-                    self.assertTrue(all(3 <= len(g['students']) <= 6 for g in groups))
-                elif count == 2:
-                    self.assertEqual([len(group['students']) for group in groups], [2])
-                self.assertEqual(original,snapshot)
+            report = make_report(count)
+            original = copy.deepcopy(report)
+            result = practical_grouping(report)
+            groups = result['grouping_recommendations']['homogeneous_groups']
+            levels = {s['student_id']: row['level'] for row in report['class_summary']['distribution'] for s in row['students']}
+            ids = [s['student_id'] for g in groups for s in g['students']]
+            self.assertEqual(set(ids), set(levels))
+            self.assertEqual(len(ids), len(set(ids)))
+            self.assertTrue(all(len({levels[s['student_id']] for s in g['students']}) == 1 for g in groups))
+            self.assertEqual(report, original)
 
-    def test_mixed_needs_are_not_described_as_shared(self):
-        result = practical_grouping(make_report(4))
-        for group in result['grouping_recommendations']['homogeneous_groups']:
-            self.assertIn('不同学习需要', group['common_characteristics'])
-            mapped = {}
-            for entry in group['support_breakdown']:
-                for student_id in entry['student_ids']:
-                    mapped[student_id] = entry['support']
-            for student in group['students']:
-                self.assertIn('任务支持' + student['student_id'][1:], group['progression_direction'])
-                self.assertEqual(mapped[student['student_id']], '任务支持' + student['student_id'][1:])
-
-    def test_legacy_mixed_group_does_not_invent_support_assignments(self):
-        report = make_report(4)
-        old = report['grouping_recommendations']['homogeneous_groups'][0]
-        old['common_characteristics'] = '本组由不同学习需要的学生组成，请按具体需要提供支持。'
-        old['progression_direction'] = '历史上合并的多条支持，但没有学生对应关系'
+    def test_large_level_uses_evidenced_difficulties_without_duplicates(self):
+        report = make_report(10)
+        all_students = [s for row in report['class_summary']['distribution'] for s in row['students']]
+        for row in report['class_summary']['distribution']:
+            row['students'] = all_students if row['level'] == 'P' else []
+        report['level_analyses'] = [{'level':'P', 'main_performance':'整体表现', 'difficulty_groups':[
+            {'student_ids':['s0','s1','s2'], 'problem_label':'问题一', 'problem_description':'具体困难', 'teaching_suggestion':'共同支持'},
+            {'student_ids':['s2','s3'], 'problem_label':'问题二', 'problem_description':'另一困难', 'teaching_suggestion':'另一支持'}]}]
         groups = practical_grouping(report)['grouping_recommendations']['homogeneous_groups']
-        group = next(g for g in groups if any(s['student_id'] == 's0' for s in g['students']))
-        self.assertIn('s0', group['support_unmapped_student_ids'])
-        self.assertFalse(any('s0' in row['student_ids'] for row in group.get('support_breakdown', [])))
-
-    def test_moving_students_preserves_and_filters_prior_support_mappings(self):
-        report = make_report(7)
-        groups = report['grouping_recommendations']['homogeneous_groups']
-        combined = groups[1]
-        combined['students'] = [group['students'][0] for group in groups[1:]]
-        combined['common_characteristics'] = '本组由不同学习需要的学生组成，请按具体需要提供支持。'
-        combined['support_breakdown'] = [{'student_ids':[student['student_id']], 'support':'支持' + student['student_id']}
-                                         for student in combined['students']]
-        report['grouping_recommendations']['homogeneous_groups'] = [groups[0], combined]
-        adapted = practical_grouping(report)['grouping_recommendations']['homogeneous_groups']
-        for group in adapted:
-            ids = {student['student_id'] for student in group['students']}
-            mapped = {sid for entry in group.get('support_breakdown', []) for sid in entry['student_ids']}
-            self.assertTrue(mapped <= ids)
-            for entry in group.get('support_breakdown', []):
-                for sid in entry['student_ids']:
-                    if sid != 's0':
-                        self.assertEqual(entry['support'], '支持' + sid)
-
-    def test_invalid_roster_is_not_guessed_or_repaired(self):
-        report = make_report(4)
-        report['grouping_recommendations']['homogeneous_groups'][1]['students'] = copy.deepcopy(report['grouping_recommendations']['homogeneous_groups'][0]['students'])
-        self.assertEqual(practical_grouping(report), report)
-
-    def test_already_practical_groups_are_not_changed(self):
-        report = make_report(6)
-        groups = report['grouping_recommendations']['homogeneous_groups']
-        groups[0]['students'] = [g['students'][0] for g in groups]
-        report['grouping_recommendations']['homogeneous_groups'] = groups[:1]
-        self.assertEqual(practical_grouping(report), report)
+        ids = [s['student_id'] for g in groups for s in g['students']]
+        self.assertEqual(len(ids), 10)
+        self.assertEqual(len(set(ids)), 10)
+        self.assertEqual(groups[0]['group_name'], '问题一')
+        self.assertEqual(groups[0]['progression_direction'], '共同支持')
+        self.assertFalse(any('support_breakdown' in g for g in groups))
 
     def test_existing_report_view_and_future_goal_design_use_same_grouping(self):
         from backend.app import goal_path_api

@@ -97,95 +97,47 @@ def _complete_nonoverlapping_groups(groups, source_ids):
 
 
 def practical_grouping(result):
-    """Make existing group proposals easier to use without inventing student needs."""
+    """Group by verified SOLO level, subdividing large levels by evidenced difficulties."""
     view = deepcopy(result)
     grouping = view.get('grouping_recommendations') or {}
     distribution = view.get('class_summary', {}).get('distribution', [])
-    levels = {s['student_id']: row['level'] for row in distribution for s in row.get('students', [])}
-    source_ids = set(levels)
-    changed = False
-    for key in ('homogeneous_groups', 'heterogeneous_groups'):
-        original = grouping.get(key, [])
-        if not _complete_nonoverlapping_groups(original, source_ids):
+    analyses = {row['level']: row for row in view.get('level_analyses', [])}
+    groups = []
+    for row in distribution:
+        students = row.get('students', [])
+        if not students:
             continue
-        if not any(len(g['students']) < 3 for g in original) or len(source_ids) < 2:
-            continue
-        buckets = [{'entries': [(student, index) for student in group['students']]} for index, group in enumerate(original)]
-        # Prefer students at the same or adjacent level, while preserving all IDs.
-        def distance(left, right):
-            return min(abs(LEVELS.index(levels[a['student_id']]) - LEVELS.index(levels[b['student_id']]))
-                       for a, _ in left['entries'] for b, _ in right['entries'])
-        while True:
-            small = next((b for b in buckets if len(b['entries']) < 3), None)
-            if small is None or len(buckets) == 1:
-                break
-            candidates = [b for b in buckets if b is not small and len(b['entries']) + len(small['entries']) <= 6]
-            if candidates:
-                target = min(candidates, key=lambda b: (distance(small, b), len(b['entries'])))
-                target['entries'].extend(small['entries'])
-                buckets.remove(small)
-                continue
-            donors = [b for b in buckets if b is not small and len(b['entries']) > 3]
-            if not donors:
-                break
-            donor = min(donors, key=lambda b: (distance(small, b), -len(b['entries'])))
-            small['entries'].append(donor['entries'].pop())
-        adapted = []
-        for index, bucket in enumerate(buckets, 1):
-            entries = bucket['entries']
-            origin_ids = list(dict.fromkeys(origin for _, origin in entries))
-            group = deepcopy(original[origin_ids[0]])
-            group['group_id'] = f"{'H' if key == 'homogeneous_groups' else 'X'}{index}"
-            group['students'] = [student for student, _ in entries]
-            current_ids = {student['student_id'] for student, _ in entries}
-            if group.get('support_breakdown'):
-                group['support_breakdown'] = [
-                    {**part, 'student_ids': [sid for sid in part['student_ids'] if sid in current_ids]}
-                    for part in group['support_breakdown'] if any(sid in current_ids for sid in part['student_ids'])
-                ]
-                if not group['support_breakdown']:
-                    group.pop('support_breakdown')
-            if group.get('support_unmapped_student_ids'):
-                group['support_unmapped_student_ids'] = [sid for sid in group['support_unmapped_student_ids'] if sid in current_ids]
-            if len(origin_ids) > 1:
-                group['group_name'] = f'第{index}学习小组'
-                support_by_text, unmapped = {}, []
-                support_field = 'progression_direction' if key == 'homogeneous_groups' else 'collaboration_direction'
-                for student, origin in entries:
-                    prior = original[origin]
-                    matched = [entry['support'].strip() for entry in prior.get('support_breakdown', []) if student['student_id'] in entry['student_ids'] and entry['support'].strip()]
-                    was_mixed = (prior.get('common_characteristics') == '本组由不同学习需要的学生组成，请按具体需要提供支持。'
-                                 or prior.get('grouping_rationale') == '为便于课堂组织合并，成员的学习需要可能不同。')
-                    if not matched and not prior.get('support_breakdown') and not was_mixed:
-                        matched = [prior.get(support_field, '').strip()]
-                    if not any(matched):
-                        unmapped.append(student['student_id'])
-                    for support in matched:
-                        if support:
-                            support_by_text.setdefault(support, []).append(student['student_id'])
-                if support_by_text:
-                    group['support_breakdown'] = [{'student_ids': ids, 'support': support} for support, ids in support_by_text.items()]
-                else:
-                    group.pop('support_breakdown', None)
-                if unmapped:
-                    group['support_unmapped_student_ids'] = unmapped
-                else:
-                    group.pop('support_unmapped_student_ids', None)
-                if key == 'homogeneous_groups':
-                    group['common_characteristics'] = '本组由不同学习需要的学生组成，请按具体需要提供支持。'
-                    directions = list(dict.fromkeys(original[i]['progression_direction'].strip() for i in origin_ids if original[i]['progression_direction'].strip()))
-                    group['progression_direction'] = '；'.join(directions)
-                    group['use_case'] = '共同任务中按学生需要提供差异化支持，教师可调整分组。'
-                else:
-                    group['grouping_rationale'] = '为便于课堂组织合并，成员的学习需要可能不同。'
-                    group['collaboration_direction'] = '先独立思考，再围绕共同任务交流；教师按需要支持。'
-                    group['shared_product'] = '由教师结合共同任务确定。'
-            adapted.append(group)
-        grouping[key] = adapted
-        changed = True
-    if changed:
-        note = '为便于课堂组织，已优先合并人数较少的小组；合并后请根据学生的具体需要提供支持。'
-        grouping['usage_note'] = (grouping.get('usage_note') or '').strip() + ' ' + note
+        analysis = analyses.get(row['level'], {})
+        by_id = {student['student_id']: student for student in students}
+        assigned = set()
+        buckets = []
+        if len(students) > 6:
+            for difficulty in analysis.get('difficulty_groups', []):
+                ids = [sid for sid in difficulty.get('student_ids', []) if sid in by_id and sid not in assigned]
+                if ids:
+                    assigned.update(ids)
+                    buckets.append((ids, difficulty.get('problem_label') or '学习重点', difficulty.get('problem_description') or '', difficulty.get('teaching_suggestion') or ''))
+        remaining = [student['student_id'] for student in students if student['student_id'] not in assigned]
+        if remaining:
+            buckets.append((remaining, row['level'] + ' 层级', analysis.get('main_performance') or '本组学生处于同一 SOLO 层级。', analysis.get('teaching_suggestion') or analysis.get('teaching_design', {}).get('task') or '结合学生实际表现安排学习任务。'))
+        for ids, name, needs, support in buckets:
+            count = (len(ids) + 5) // 6
+            base, extra = divmod(len(ids), count)
+            pos = 0
+            for i in range(count):
+                size = base + (i < extra)
+                members = ids[pos:pos + size]
+                pos += size
+                groups.append({'group_id': f'H{len(groups)+1}', 'group_name': name,
+                    'students': [by_id[sid] for sid in members],
+                    'common_characteristics': needs or '依据本层级学生的实际困难安排。',
+                    'progression_direction': support or '结合学生实际表现安排学习任务。',
+                    'use_case': '教师可根据课堂情况调整。'})
+    if groups:
+        grouping['homogeneous_groups'] = groups
+        grouping['heterogeneous_groups'] = []
+        grouping['heterogeneous_not_recommended_reason'] = '本方案按 SOLO 层级组织。'
+        grouping['usage_note'] = '按 SOLO 层级分组；同一层级人数较多时，结合已有困难分析进一步分组。人数较少时请教师结合课堂情况安排。'
     return view
 
 

@@ -949,15 +949,9 @@ function renderClassReport(payload) {
     return [...buckets.values()].map(bucket => {
       const identical = normalizedGroupText(bucket.needs) === normalizedGroupText(bucket.support);
       const rosters = bucket.groups.map(group => {
-        const byId = new Map(group.students.map(student => [student.student_id, student]));
-        const entries = group.support_breakdown.map(entry => ({...entry, students:entry.student_ids.map(id => byId.get(id)).filter(Boolean)})).filter(entry => entry.students.length);
-        const mappedIds = new Set(entries.flatMap(entry => entry.students.map(student => student.student_id)));
-        const missing = bucket.combinedNeeds ? group.students.filter(student => !mappedIds.has(student.student_id)) : [];
-        const details = entries.length ? `<details class="class-basis-details"><summary>查看组内支持安排</summary><ul>${entries.map(entry => `<li><b>${studentNames(entry.students)}：</b>${escapeHTML(entry.support)}</li>`).join("")}</ul></details>` : "";
-        const note = missing.length ? `<p class="class-report-warning">${studentNames(missing)}的组内支持尚未明确对应，请查看个体诊断后安排。</p>` : "";
-        return `<div><p><b>${escapeHTML(group.title)}：</b>${studentNames(group.students)}</p>${details}${note}</div>`;
+        return `<div><p><b>${escapeHTML(group.title)}：</b>${studentNames(group.students)}</p></div>`;
       }).join("");
-      const supportText = bucket.combinedNeeds ? '请查看每组内不同学生对应的支持安排。' : bucket.support;
+      const supportText = bucket.support;
       return `<article class="teaching-group"><h4>${escapeHTML(bucket.name)}</h4>${bucket.task ? `<p><b>学习任务：</b>${escapeHTML(bucket.task)}</p>` : ""}${identical && !bucket.combinedNeeds ? `<p><b>学习重点：</b>${escapeHTML(bucket.needs)}</p>` : `<p><b>学习需要：</b>${escapeHTML(bucket.needs)}</p><p><b>教学支持：</b>${escapeHTML(supportText)}</p>`}<div class="teaching-group-rosters">${rosters}</div></article>`;
     }).join("");
   };
