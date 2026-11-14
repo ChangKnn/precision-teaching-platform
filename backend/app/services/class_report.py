@@ -173,6 +173,9 @@ def validate_class_result(result: dict, payload: dict) -> None:
     if {item["level"] for item in result["level_analyses"]} != nonempty:
         raise ValueError("班级报告的分层分析与非空层级不一致")
     source_by_id = {item["student"]["student_id"]: item for item in payload["student_diagnosis_results"]}
+    for issue in result.get('common_issues', []):
+        if not set(issue['basis_student_ids']) <= source_ids:
+            raise ValueError('班级共性问题引用了未知学生')
     for item in result["level_analyses"]:
         members = {student["student_id"] for student in item["students"]}
         expected_members = {
@@ -182,6 +185,9 @@ def validate_class_result(result: dict, payload: dict) -> None:
         }
         if members != expected_members or item["count"] != len(members):
             raise ValueError(f"{item['level']} 层级学生名单或人数与上游报告不符")
+        for difficulty in item.get('difficulty_groups', []):
+            if not set(difficulty['student_ids']) <= members:
+                raise ValueError('困难分析引用了不属于该层级的学生')
         used_evidence = set()
         verified_evidence = []
         for evidence in item["typical_evidence"]:
@@ -210,6 +216,11 @@ def validate_class_result(result: dict, payload: dict) -> None:
         if not verified_evidence:
             raise ValueError("班级报告缺少可追溯的典型证据")
         item["typical_evidence"] = verified_evidence
+    for alert in result.get('individual_attention', []):
+        student = source_by_id.get(alert['student_id'])
+        sources = (student or {}).get('student_statements', []) + [(student or {}).get('submitted_text', '')]
+        if not student or not any(alert['evidence_quote'] in text for text in sources):
+            raise ValueError('个体关注依据未匹配该学生原始表达')
     trace = result["traceability"]
     if set(trace["output_student_ids"]) != source_ids or trace["input_student_count"] != len(source_ids):
         raise ValueError("班级报告的追溯学生名单不完整")
@@ -252,6 +263,18 @@ def with_student_case_summaries(result: dict, payload: dict | None) -> dict:
         text = str(text or '').strip()
         # Keep a complete first sentence, rather than cutting off an explanation mid-sentence.
         return re.split(r'(?<=[。！？!?])', text, maxsplit=1)[0].strip()
+    for issue in view.get('common_issues', []):
+        if payload is None and 'case_summaries' in issue:
+            continue
+        issue['case_summaries'] = []
+        for student_id in issue.get('basis_student_ids', [])[:2]:
+            student = students.get(student_id)
+            if student:
+                issue['case_summaries'].append({
+                    'student_name': student['student']['student_name'],
+                    'level_reason': concise(student.get('diagnosis', {}).get('rationale')),
+                    'obstacle': concise(student.get('progression', {}).get('main_obstacle')),
+                })
     for level in view.get('level_analyses', []):
         if payload is None and 'student_cases' in level:
             continue
@@ -439,6 +462,9 @@ def _queue_class_report_locked(
         )
         if source_job:
             previous_input = json.loads(source_job["input_json"])
+            for student in previous_input.get('student_diagnosis_results', []):
+                student.pop('student_statements', None)
+                student.pop('submitted_text', None)
             previous_evidence = {key: value for key, value in previous_input.items() if key != "precision_teaching_context"}
             current_evidence = {key: value for key, value in payload.items() if key != "precision_teaching_context"}
             if previous_evidence == current_evidence:
@@ -496,6 +522,20 @@ def generate_class_report(
             payload, current_hash, names = class_report_input(teaching_id, classroom_id)
             if not payload or current_hash != expected_hash:
                 raise ValueError("诊断输入已变化，请重新生成班级报告。原报告已保留。")
+            # Supply actual student expressions for attention alerts without changing
+            # the existing source hash or automatically invalidating historical reports.
+            statements = fetch_all('''SELECT sts.student_id, sts.submitted_text, m.content
+                FROM student_task_sessions sts JOIN students s ON s.id=sts.student_id
+                LEFT JOIN student_messages m ON m.session_id=sts.id AND m.role='student'
+                WHERE sts.teaching_id=? AND s.classroom_id=? AND sts.status='submitted'
+                ORDER BY m.id''', (teaching_id, classroom_id))
+            by_student = {}
+            for statement in statements:
+                item = by_student.setdefault(statement['student_id'], {'student_statements': [], 'submitted_text': statement['submitted_text'] or ''})
+                if statement['content']:
+                    item['student_statements'].append(statement['content'])
+            for student in payload.get('student_diagnosis_results', []):
+                student.update(by_student.get(student['student']['student_id'], {'student_statements': [], 'submitted_text': ''}))
             skill = load_skill("solo_class_diagnosis_intervention")
             job_id = task.token
             with database() as connection:

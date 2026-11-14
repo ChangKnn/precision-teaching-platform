@@ -877,6 +877,24 @@ function singletonGroupingNote(groups) {
     ? '分组中含单人支持安排，请结合学生需要决定保留、并组或调整；合作活动需另行安排同伴。' : '';
 }
 
+let classNavigationObserver;
+function initializeClassFeedbackNavigation(panel) {
+  classNavigationObserver?.disconnect();
+  const links = [...panel.querySelectorAll('.class-toc a')];
+  links.forEach(link => link.addEventListener('click', event => {
+    event.preventDefault();
+    panel.querySelector(link.getAttribute('href'))?.scrollIntoView({behavior: 'smooth', block: 'start'});
+    if (matchMedia('(max-width: 850px)').matches) link.closest('details').open = false;
+  }));
+  if (!('IntersectionObserver' in window)) return;
+  classNavigationObserver = new IntersectionObserver(entries => {
+    const current = entries.filter(entry => entry.isIntersecting).sort((a, b) => b.boundingClientRect.top - a.boundingClientRect.top)[0];
+    if (!current) return;
+    links.forEach(link => link.classList.toggle('active', link.getAttribute('href') === `#${current.target.id}`));
+  }, {rootMargin: '-90px 0px -65% 0px'});
+  links.forEach(link => { const section = panel.querySelector(link.getAttribute('href')); if (section) classNavigationObserver.observe(section); });
+}
+
 function renderClassReport(payload) {
   const classrooms = payload.classrooms || [];
   const select = document.getElementById("feedbackClassSelect");
@@ -895,7 +913,7 @@ function renderClassReport(payload) {
     return;
   }
   const stateText = { preparing: "正在分析全体已提交学生", queued: "等待生成", running: "正在生成", failed: "生成失败", ready: "AI 初判 · 教师核对" }[report.status] || "等待生成";
-  if (!report.result || ['preparing','failed'].includes(report.status)) {
+  if (!report.result) {
     panel.innerHTML = `<article class="card stage-empty-state"><span>SOLO 班级分析</span><h2>${stateText}</h2><p>${report.error ? escapeHTML(report.error) : "正在准备全部已提交学生的诊断并汇总班级报告；失败项目可重试，已成功结果会复用。"}</p>${report.status === "failed" ? '<button class="button primary" id="retryClassReport">重新生成班级报告</button>' : ""}</article>` + renderCustomClassReport(payload);
     return;
   }
@@ -913,19 +931,33 @@ function renderClassReport(payload) {
     return ids.length === diagnosedIds.size && new Set(ids).size === ids.length && ids.every(id => diagnosedIds.has(id));
   };
   const groupingReady = coversEveryone(groups.homogeneous_groups) && (!groups.heterogeneous_groups.length || coversEveryone(groups.heterogeneous_groups));
-  panel.innerHTML = `<article class="card class-report-card">
-    <div class="card-heading"><div><span class="section-kicker">班级诊断 · ${data.class_summary.total_students} 份个体报告</span><h2>班级学生思维结构情况</h2></div><span class="status ${report.status === "ready" ? "warning" : "neutral"}">${stateText}</span></div>
-    ${report.status === "failed" ? `<p class="class-report-warning">本次自动更新失败：${escapeHTML(report.error || "未知错误")}。下方为上一次报告。</p><button class="button" id="retryClassReport">重新生成</button>` : ""}
-    ${["preparing", "queued", "running"].includes(report.status) ? '<p class="class-report-warning">正在更新报告；下方暂显示上一版本。</p>' : ""}
-    <div class="class-distribution">${distribution.map(item => `<section class="solo-step level-${item.level.toLowerCase()}"><header><span>${item.level}</span><b>${escapeHTML(item.level_name)}</b><strong>${item.count} 人 · ${Math.round(item.proportion * 100)}%</strong></header><p>${studentNames(item.students)}</p><small>${escapeHTML(item.level_meaning)}</small></section>`).join("")}</div>
-    <p class="solo-note">SOLO 层级只表示学生在本次任务中的思维结构，不是固定能力标签。</p>
-  </article>
-  <article class="card class-report-card"><h2>整体与分层分析</h2><p>${escapeHTML(data.overall_diagnosis.overall_characteristics)}</p><p><b>下一步重点：</b>${escapeHTML(data.overall_diagnosis.main_progression_direction)}</p>
-    <div class="class-report-grid">${data.level_analyses.map(item => `<section><h3>${item.level}（${escapeHTML(item.level_name)}）· ${item.count} 人</h3><p><b>当前表现：</b>${escapeHTML(item.main_performance)}</p><p><b>主要困难：</b>${escapeHTML(item.main_obstacles[0] || "暂无")}</p><p><b>教学建议：</b>${escapeHTML(item.teaching_suggestion || "旧版报告尚无分层教学建议，请重新生成班级报告。")}</p>${basisDetails("查看典型学生分析", (item.student_cases || []).map(caseItem => `${caseItem.student_name}：${caseItem.level_reason}${caseItem.obstacle ? ` 主要困难：${caseItem.obstacle}` : ""}`))}</section>`).join("")}</div>
-  </article>
-  <article class="card class-report-card"><h2>教学重难点</h2><div class="class-report-grid">${priorityCard("教学重点", priorities.teaching_focus)}${priorityCard("教学难点", priorities.teaching_difficulty)}</div></article>
-  <article class="card class-report-card"><h2>临时分组建议</h2>${groupingReady ? `<p>${escapeHTML(groups.usage_note)}</p>${singletonGroupingNote(groups) ? `<p class="class-report-warning">${singletonGroupingNote(groups)}</p>` : ""}<div class="class-report-grid"><section><h3>同质分组</h3>${groups.homogeneous_groups.map(item => groupCard(item, "homogeneous")).join("")}</section><section><h3>异质分组</h3>${groups.heterogeneous_groups.length ? groups.heterogeneous_groups.map(item => groupCard(item, "heterogeneous")).join("") : `<p>${escapeHTML(groups.heterogeneous_not_recommended_reason || "本轮不建议异质分组。")}</p>`}</section></div>` : `<p class="class-report-warning">这份旧版分组建议未覆盖全部已诊断学生，请重新生成后查看完整分组。</p><button class="button" id="retryClassReport">重新生成班级报告</button>`}</article>
-  ${renderCustomClassReport(payload)}`;
+  const analyzedIds = new Set(distribution.flatMap(level => level.students.map(student => student.student_id)));
+  const analyzed = classroomResults.filter(item => analyzedIds.has(item.student.id));
+  const turns = analyzed.map(item => (item.messages || []).filter(message => message.role === "student").length);
+  const total = turns.reduce((sum, count) => sum + count, 0);
+  const stats = turns.length ? `${Math.max(...turns)} 次 / ${Math.min(...turns)} 次 / ${(total / turns.length).toFixed(1)} 次` : "暂无数据";
+  const currentIds = new Set(classroomResults.map(item => item.student.id));
+  const missing = [...currentIds].filter(id => !analyzedIds.has(id)).length;
+  const namesById = new Map(distribution.flatMap(level => level.students.map(student => [student.student_id, student.student_name])));
+  const levelMenu = data.level_analyses.map(item => `<a href="#class-level-${escapeHTML(item.level)}">${escapeHTML(item.level_name)}</a>`).join("");
+  const difficulties = data.level_analyses.map(item => `<section id="class-level-${escapeHTML(item.level)}" class="class-level-section"><h3>${escapeHTML(item.level_name)}（${item.count} 人）</h3><p>${escapeHTML(item.main_performance)}</p><div class="class-table-wrap"><table><thead><tr><th>典型困难</th><th>相关学生</th><th>教学建议</th></tr></thead><tbody>${item.difficulty_groups?.length ? item.difficulty_groups.map(row => `<tr><td>${escapeHTML(row.difficulty)}</td><td>${row.student_ids.map(id => escapeHTML(namesById.get(id) || "未知学生")).join("、")}</td><td>${escapeHTML(row.teaching_suggestion)}</td></tr>`).join("") : `<tr><td>${escapeHTML((item.main_obstacles || []).join("；") || "暂无")}</td><td>旧报告暂未分类关联学生</td><td>${escapeHTML(item.teaching_suggestion || "暂无")}</td></tr>`}</tbody></table></div>${basisDetails("查看典型学生分析", (item.student_cases || []).map(c => `${c.student_name}：${c.level_reason}${c.obstacle ? ` 主要困难：${c.obstacle}` : ""}`))}</section>`).join("");
+  const alerts = data.individual_attention;
+  panel.innerHTML = `<div class="class-feedback-layout"><div class="class-feedback-content">
+    <article id="class-interaction" class="card class-report-card"><h2>一、学生交互情况</h2><p>已提交 ${classroomResults.length} 人 · 本报告分析 ${data.class_summary.total_students} 人</p><p>学生发言次数：最高 / 最低 / 平均 ${stats}</p>${missing ? `<p class="class-report-warning">有 ${missing} 名已提交学生尚未纳入本报告。</p>` : ""}<small>统计范围：本报告中的学生；按学生发言次数计算。</small></article>
+    <article id="class-overview" class="card class-report-card"><div class="card-heading"><h2>二、班级整体学情</h2><span class="status warning">${escapeHTML(stateText)}</span></div>
+      ${report.status === "failed" ? `<p class="class-report-warning">更新失败，以下为上次报告：${escapeHTML(report.error || "未知错误")}</p>` : ""}
+      ${["preparing", "queued", "running"].includes(report.status) ? '<p class="class-report-warning">正在更新，以下为上次报告。</p>' : ""}
+      <section id="class-distribution"><h3>SOLO 层级分布</h3><div class="class-distribution-bar" aria-label="SOLO 层级分布">${distribution.filter(item => item.count).map(item => `<button type="button" style="flex:${item.count}" class="distribution-segment level-${item.level.toLowerCase()}" data-distribution-level="${escapeHTML(item.level)}" title="${escapeHTML(item.level_name)}：${item.count} 人 · ${studentNames(item.students)}">${escapeHTML(item.level_name)} ${item.count}人</button>`).join("")}</div><div class="distribution-details">${distribution.filter(item => item.count).map(item => `<details id="distribution-${escapeHTML(item.level)}"><summary>${escapeHTML(item.level_name)} · ${item.count} 人 · ${Math.round(item.proportion * 100)}%</summary><p>${studentNames(item.students)}</p><p>${escapeHTML(item.level_meaning)}</p></details>`).join("")}</div><p class="solo-note">层级反映本次任务中的思维结构，不是固定能力标签。</p></section>
+      <section id="class-common"><h3>班级共性问题</h3>${data.common_issues?.length ? data.common_issues.map(issue => `<p>${escapeHTML(issue.issue)}</p>${basisDetails("查看典型依据", (issue.case_summaries || []).map(c => `${c.student_name}：${c.level_reason}${c.obstacle ? `；困难：${c.obstacle}` : ""}`))}`).join("") : `<p>${escapeHTML(data.overall_diagnosis.overall_characteristics)}</p><small>旧报告未按问题分类列出依据。</small>`}</section>
+      <section id="class-direction"><h3>教学方向与重难点</h3><p><b>进阶方向：</b>${escapeHTML(data.overall_diagnosis.main_progression_direction)}</p><p><b>教学重点：</b>${escapeHTML(priorities.teaching_focus.statement)}</p><p><b>教学难点：</b>${escapeHTML(priorities.teaching_difficulty.statement)}</p>${basisDetails("查看诊断依据", [...priorities.teaching_focus.diagnosis_basis, ...priorities.teaching_difficulty.diagnosis_basis])}</section></article>
+    <article id="class-levels" class="card class-report-card"><h2>三、学生分层学情</h2>${difficulties}</article>
+    <article id="class-support" class="card class-report-card"><h2>四、教学干预建议</h2><section id="class-whole"><h3>全班教学建议</h3><p>${escapeHTML(data.overall_diagnosis.main_progression_direction)}</p><p>${escapeHTML(priorities.teaching_focus.statement)}</p></section><section id="class-groups"><h3>小组教学建议</h3>${groupingReady ? `<p>${escapeHTML(groups.usage_note)}</p>${singletonGroupingNote(groups) ? `<p class="class-report-warning">${singletonGroupingNote(groups)}</p>` : ""}<div class="class-report-grid">${groups.homogeneous_groups.map(item => groupCard(item, "homogeneous")).join("")}</div>${groups.heterogeneous_groups.length ? `<details><summary>查看异质分组备选方案</summary>${groups.heterogeneous_groups.map(item => groupCard(item, "heterogeneous")).join("")}</details>` : ""}` : '<p>分组未覆盖全部已诊断学生，请重新生成后查看。</p><button class="button" id="retryClassReport">重新生成班级报告</button>'}</section><section id="class-individual"><h3>个体关注建议</h3>${!alerts ? '<p>旧报告暂未包含个体关注建议，可重新生成后查看。</p>' : alerts.length ? alerts.map(a => `<p${a.category === "安全关注" ? ' class="class-report-warning"' : ""}><b>${escapeHTML(namesById.get(a.student_id) || "学生")} · ${escapeHTML(a.category)}：</b>${escapeHTML(a.observation)}<br><small>依据：${escapeHTML(a.evidence_quote)}；建议：${escapeHTML(a.teacher_action)}</small></p>`).join("") : '<p>本次没有需要特别提醒的情况，请结合实际持续关注。</p>'}</section></article>${renderCustomClassReport(payload)}</div>
+    <nav class="class-toc" aria-label="班级反馈目录"><details open><summary>本页目录</summary><a href="#class-interaction">一、学生交互情况</a><a href="#class-overview">二、班级整体学情</a><a href="#class-distribution">SOLO 层级分布</a><a href="#class-common">班级共性问题</a><a href="#class-direction">教学方向与重难点</a><a href="#class-levels">三、学生分层学情</a>${levelMenu}<a href="#class-support">四、教学干预建议</a><a href="#class-whole">全班教学建议</a><a href="#class-groups">小组教学建议</a><a href="#class-individual">个体关注建议</a></details></nav></div>`;
+  panel.querySelectorAll('[data-distribution-level]').forEach(button => button.addEventListener('click', () => {
+    const details = document.getElementById(`distribution-${button.dataset.distributionLevel}`);
+    if (details) details.open = !details.open;
+  }));
+  initializeClassFeedbackNavigation(panel);
 }
 
 function renderStudentResults(payload) {

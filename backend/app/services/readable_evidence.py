@@ -3,7 +3,7 @@ import re
 
 _REFERENCE = re.compile(r'(?<![A-Za-z0-9_])(?:turn|urn)[-–—－]\d+(?![A-Za-z0-9_])', re.I)
 _QUOTED = re.compile(r'(“[^”]*”|‘[^’]*’|"[^"\n]*")')
-_RAW_KEYS = {'quote', 'ref', 'source_ref', 'source_id', 'turn_id', 'student_id', 'student_name', 'student_evidence_refs', 'output_student_ids'}
+_RAW_KEYS = {'quote', 'evidence_quote', 'ref', 'source_ref', 'source_id', 'turn_id', 'student_id', 'student_name', 'student_evidence_refs', 'output_student_ids'}
 
 
 def readable_text(value: str) -> str:

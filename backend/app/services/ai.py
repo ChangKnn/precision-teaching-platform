@@ -786,6 +786,7 @@ def run_class_diagnosis_report(
             "教师页面与导出报告由平台根据这些字段排版。"
             "只能引用输入中的个体诊断，不得重新定级，也不要设计具体课堂活动。"
             "本轮不输出class_summary、traceability或level_analyses内的students/count；这些统计和完整名单由程序据全体输入生成。其他字段保持完整但简洁，每层只选1—2条典型证据，避免重复复述。"
+            "common_issues归纳1至3条具体共性困难并填写有依据的学生ID。每层difficulty_groups归纳1至4项实际困难及对应学生ID和一句具体教学建议，不强行分类。individual_attention仅记录有明确原话依据的情绪表达、学习支持、新思路或安全关注，每项evidence_quote须逐字摘自该学生student_statements或submitted_text；无依据时返回空数组。不得臆测心理和给学生贴标签，明确安全风险时建议教师及时关注。所有描述每项尽量一句话。分组优先同层级并结合困难，每组4至6人仅为参考，不得遗漏或重复学生。"
         ),
     )
     if payload.get('student_diagnosis_results'):

@@ -1600,3 +1600,24 @@ body { font-size: 16px; }
 .submitted-photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 180px)); gap: 12px; }
 .submitted-photo-grid a { display: block; }
 .submitted-photo-grid img { display: block; width: 100%; height: 150px; object-fit: contain; border: 1px solid #dbe3e0; border-radius: 8px; background: #f5f8f7; }
+
+/* 班级反馈：正文与目录 */
+.class-feedback-layout { display: grid; grid-template-columns: minmax(0, 1fr) 200px; align-items: start; gap: 16px; }
+.class-feedback-content { min-width: 0; }
+.class-feedback-content section, .class-feedback-content article { scroll-margin-top: 90px; }
+.class-feedback-content article > section { padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--line); }
+.class-feedback-content h3 { font-size: 15px; color: var(--teal-dark); }
+.class-toc { position: sticky; top: 88px; padding: 15px; border: 1px solid var(--line); border-radius: 10px; background: white; font-size: 13px; }
+.class-toc summary { font-weight: 700; cursor: pointer; margin-bottom: 8px; }
+.class-toc a { display: block; padding: 5px 8px; color: #536b66; text-decoration: none; border-left: 2px solid transparent; }
+.class-toc a.active { color: var(--teal-dark); border-left-color: var(--teal); font-weight: 700; background: #eff8f5; }
+.class-distribution-bar { display: flex; gap: 2px; min-height: 38px; overflow-x: auto; }
+.class-distribution-bar button { min-width: 70px; border: 0; padding: 8px; cursor: pointer; color: #174f4a; background: #d6eee6; }
+.class-distribution-bar button:nth-child(2n) { background: #bde0d5; }
+.distribution-details { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 8px; font-size: 13px; }
+.distribution-details summary { cursor: pointer; }
+.class-table-wrap { width: 100%; overflow-x: auto; }
+.class-table-wrap table { width: 100%; border-collapse: collapse; }
+.class-table-wrap th, .class-table-wrap td { border: 1px solid var(--line); padding: 9px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.class-table-wrap th { background: #f2f8f6; }
+@media (max-width: 850px) { .class-feedback-layout { display: flex; flex-direction: column-reverse; } .class-feedback-content, .class-toc { width: 100%; } .class-toc { position: static; box-sizing: border-box; } }

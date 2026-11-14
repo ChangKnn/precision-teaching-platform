@@ -15,18 +15,28 @@
     "traceability"
   ],
   "properties": {
-    "schema_version": {"const": "1.1"},
+    "schema_version": {
+      "const": "1.1"
+    },
     "class_summary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["total_students", "distribution"],
+      "required": [
+        "total_students",
+        "distribution"
+      ],
       "properties": {
-        "total_students": {"type": "integer", "minimum": 1},
+        "total_students": {
+          "type": "integer",
+          "minimum": 1
+        },
         "distribution": {
           "type": "array",
           "minItems": 5,
           "maxItems": 5,
-          "items": {"$ref": "#/$defs/distributionItem"}
+          "items": {
+            "$ref": "#/$defs/distributionItem"
+          }
         }
       }
     },
@@ -45,16 +55,30 @@
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": {"$ref": "#/$defs/levelCode"}
+          "items": {
+            "$ref": "#/$defs/levelCode"
+          }
         },
-        "overall_characteristics": {"type": "string", "minLength": 1},
-        "differentiation_summary": {"type": "string", "minLength": 1},
-        "main_progression_direction": {"type": "string", "minLength": 1},
+        "overall_characteristics": {
+          "type": "string",
+          "minLength": 1
+        },
+        "differentiation_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "main_progression_direction": {
+          "type": "string",
+          "minLength": 1
+        },
         "basis_student_ids": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": {"type": "string", "minLength": 1}
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -62,15 +86,24 @@
       "type": "array",
       "minItems": 1,
       "maxItems": 5,
-      "items": {"$ref": "#/$defs/levelAnalysis"}
+      "items": {
+        "$ref": "#/$defs/levelAnalysis"
+      }
     },
     "teaching_priorities": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["teaching_focus", "teaching_difficulty"],
+      "required": [
+        "teaching_focus",
+        "teaching_difficulty"
+      ],
       "properties": {
-        "teaching_focus": {"$ref": "#/$defs/priorityItem"},
-        "teaching_difficulty": {"$ref": "#/$defs/priorityItem"}
+        "teaching_focus": {
+          "$ref": "#/$defs/priorityItem"
+        },
+        "teaching_difficulty": {
+          "$ref": "#/$defs/priorityItem"
+        }
       }
     },
     "grouping_recommendations": {
@@ -85,20 +118,34 @@
       "properties": {
         "homogeneous_groups": {
           "type": "array",
-          "items": {"$ref": "#/$defs/homogeneousGroup"}
+          "items": {
+            "$ref": "#/$defs/homogeneousGroup"
+          }
         },
         "heterogeneous_groups": {
           "type": "array",
-          "items": {"$ref": "#/$defs/heterogeneousGroup"}
+          "items": {
+            "$ref": "#/$defs/heterogeneousGroup"
+          }
         },
-        "heterogeneous_not_recommended_reason": {"type": ["string", "null"]},
-        "usage_note": {"type": "string", "minLength": 1}
+        "heterogeneous_not_recommended_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "usage_note": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "intervention_design_basis": {
       "type": "array",
       "minItems": 1,
-      "items": {"$ref": "#/$defs/interventionDesignBasisItem"}
+      "items": {
+        "$ref": "#/$defs/interventionDesignBasisItem"
+      }
     },
     "traceability": {
       "type": "object",
@@ -112,13 +159,21 @@
         "teaching_context_fields_used"
       ],
       "properties": {
-        "source_skill": {"const": "solo-student-diagnosis-feedback"},
-        "input_student_count": {"type": "integer", "minimum": 1},
+        "source_skill": {
+          "const": "solo-student-diagnosis-feedback"
+        },
+        "input_student_count": {
+          "type": "integer",
+          "minimum": 1
+        },
         "output_student_ids": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": {"type": "string", "minLength": 1}
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
         "level_assignments": {
           "type": "array",
@@ -126,14 +181,24 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["student_id", "original_level"],
+            "required": [
+              "student_id",
+              "original_level"
+            ],
             "properties": {
-              "student_id": {"type": "string", "minLength": 1},
-              "original_level": {"$ref": "#/$defs/levelCode"}
+              "student_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "original_level": {
+                "$ref": "#/$defs/levelCode"
+              }
             }
           }
         },
-        "levels_unchanged": {"const": true},
+        "levels_unchanged": {
+          "const": true
+        },
         "teaching_context_fields_used": {
           "type": "array",
           "minItems": 6,
@@ -146,8 +211,78 @@
               "precision_teaching_topic",
               "precision_teaching_goals",
               "precision_teaching_content",
-              "education_stage", "course_name", "major"
+              "education_stage",
+              "course_name",
+              "major"
             ]
+          }
+        }
+      }
+    },
+    "individual_attention": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "student_id",
+          "category",
+          "observation",
+          "evidence_quote",
+          "teacher_action"
+        ],
+        "properties": {
+          "student_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "情绪表达",
+              "学习支持",
+              "新思路",
+              "安全关注"
+            ]
+          },
+          "observation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_quote": {
+            "type": "string",
+            "minLength": 1
+          },
+          "teacher_action": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "common_issues": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "issue",
+          "basis_student_ids"
+        ],
+        "properties": {
+          "issue": {
+            "type": "string",
+            "minLength": 1
+          },
+          "basis_student_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         }
       }
@@ -156,61 +291,271 @@
   "$defs": {
     "levelCode": {
       "type": "string",
-      "enum": ["P", "U", "M", "R", "EA"]
+      "enum": [
+        "P",
+        "U",
+        "M",
+        "R",
+        "EA"
+      ]
     },
     "studentRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["student_id", "student_name"],
+      "required": [
+        "student_id",
+        "student_name"
+      ],
       "properties": {
-        "student_id": {"type": "string", "minLength": 1},
-        "student_name": {"type": "string", "minLength": 1}
+        "student_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "student_name": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "distributionItem": {
       "type": "object",
       "additionalProperties": false,
       "allOf": [
-        {"if": {"properties": {"level": {"const": "P"}}}, "then": {"properties": {"level_name": {"const": "前结构"}}}},
-        {"if": {"properties": {"level": {"const": "U"}}}, "then": {"properties": {"level_name": {"const": "单点结构"}}}},
-        {"if": {"properties": {"level": {"const": "M"}}}, "then": {"properties": {"level_name": {"const": "多点结构"}}}},
-        {"if": {"properties": {"level": {"const": "R"}}}, "then": {"properties": {"level_name": {"const": "关联结构"}}}},
-        {"if": {"properties": {"level": {"const": "EA"}}}, "then": {"properties": {"level_name": {"const": "拓展抽象结构"}}}}
+        {
+          "if": {
+            "properties": {
+              "level": {
+                "const": "P"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "level_name": {
+                "const": "前结构"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "level": {
+                "const": "U"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "level_name": {
+                "const": "单点结构"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "level": {
+                "const": "M"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "level_name": {
+                "const": "多点结构"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "level": {
+                "const": "R"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "level_name": {
+                "const": "关联结构"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "level": {
+                "const": "EA"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "level_name": {
+                "const": "拓展抽象结构"
+              }
+            }
+          }
+        }
       ],
-      "required": ["level", "level_name", "level_meaning", "count", "proportion", "students"],
+      "required": [
+        "level",
+        "level_name",
+        "level_meaning",
+        "count",
+        "proportion",
+        "students"
+      ],
       "properties": {
-        "level": {"$ref": "#/$defs/levelCode"},
-        "level_name": {"type": "string", "minLength": 1},
-        "level_meaning": {"type": "string", "minLength": 1},
-        "count": {"type": "integer", "minimum": 0},
-        "proportion": {"type": "number", "minimum": 0, "maximum": 1},
+        "level": {
+          "$ref": "#/$defs/levelCode"
+        },
+        "level_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "level_meaning": {
+          "type": "string",
+          "minLength": 1
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "proportion": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
         "students": {
           "type": "array",
-          "items": {"$ref": "#/$defs/studentRef"}
+          "items": {
+            "$ref": "#/$defs/studentRef"
+          }
         }
       }
     },
     "evidenceRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["student_id", "student_name", "source_ref", "quote", "interpretation"],
+      "required": [
+        "student_id",
+        "student_name",
+        "source_ref",
+        "quote",
+        "interpretation"
+      ],
       "properties": {
-        "student_id": {"type": "string", "minLength": 1},
-        "student_name": {"type": "string", "minLength": 1},
-        "source_ref": {"type": "string", "minLength": 1},
-        "quote": {"type": "string", "minLength": 1},
-        "interpretation": {"type": "string", "minLength": 1}
+        "student_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "student_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quote": {
+          "type": "string",
+          "minLength": 1
+        },
+        "interpretation": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "levelAnalysis": {
       "type": "object",
       "additionalProperties": false,
       "allOf": [
-        {"if": {"properties": {"level": {"const": "P"}}}, "then": {"properties": {"level_name": {"const": "前结构"}}}},
-        {"if": {"properties": {"level": {"const": "U"}}}, "then": {"properties": {"level_name": {"const": "单点结构"}}}},
-        {"if": {"properties": {"level": {"const": "M"}}}, "then": {"properties": {"level_name": {"const": "多点结构"}}}},
-        {"if": {"properties": {"level": {"const": "R"}}}, "then": {"properties": {"level_name": {"const": "关联结构"}}}},
-        {"if": {"properties": {"level": {"const": "EA"}}}, "then": {"properties": {"level_name": {"const": "拓展抽象结构"}}}}
+        {
+          "if": {
+            "properties": {
+              "level": {
+                "const": "P"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "level_name": {
+                "const": "前结构"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "level": {
+                "const": "U"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "level_name": {
+                "const": "单点结构"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "level": {
+                "const": "M"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "level_name": {
+                "const": "多点结构"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "level": {
+                "const": "R"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "level_name": {
+                "const": "关联结构"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "level": {
+                "const": "EA"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "level_name": {
+                "const": "拓展抽象结构"
+              }
+            }
+          }
+        }
       ],
       "required": [
         "level",
@@ -224,79 +569,198 @@
         "main_obstacles"
       ],
       "properties": {
-        "level": {"$ref": "#/$defs/levelCode"},
-        "level_name": {"type": "string", "minLength": 1},
-        "level_meaning": {"type": "string", "minLength": 1},
-        "count": {"type": "integer", "minimum": 1},
+        "level": {
+          "$ref": "#/$defs/levelCode"
+        },
+        "level_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "level_meaning": {
+          "type": "string",
+          "minLength": 1
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1
+        },
         "students": {
           "type": "array",
           "minItems": 1,
-          "items": {"$ref": "#/$defs/studentRef"}
+          "items": {
+            "$ref": "#/$defs/studentRef"
+          }
         },
-        "main_performance": {"type": "string", "minLength": 1},
-        "teaching_suggestion": {"type": "string", "minLength": 1},
+        "main_performance": {
+          "type": "string",
+          "minLength": 1
+        },
+        "teaching_suggestion": {
+          "type": "string",
+          "minLength": 1
+        },
         "typical_evidence": {
           "type": "array",
           "minItems": 1,
-          "items": {"$ref": "#/$defs/evidenceRef"}
+          "items": {
+            "$ref": "#/$defs/evidenceRef"
+          }
         },
         "main_obstacles": {
           "type": "array",
           "minItems": 1,
-          "items": {"type": "string", "minLength": 1}
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "difficulty_groups": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "difficulty",
+              "student_ids",
+              "teaching_suggestion"
+            ],
+            "properties": {
+              "difficulty": {
+                "type": "string",
+                "minLength": 1
+              },
+              "student_ids": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "teaching_suggestion": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
         }
       }
     },
     "priorityItem": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["statement", "diagnosis_basis", "goal_basis"],
+      "required": [
+        "statement",
+        "diagnosis_basis",
+        "goal_basis"
+      ],
       "properties": {
-        "statement": {"type": "string", "minLength": 1},
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
         "diagnosis_basis": {
           "type": "array",
           "minItems": 1,
-          "items": {"type": "string", "minLength": 1}
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
         "goal_basis": {
           "type": "array",
           "minItems": 1,
-          "items": {"type": "string", "minLength": 1}
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
     "homogeneousGroup": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["group_id", "group_name", "students", "common_characteristics", "progression_direction", "use_case"],
+      "required": [
+        "group_id",
+        "group_name",
+        "students",
+        "common_characteristics",
+        "progression_direction",
+        "use_case"
+      ],
       "properties": {
-        "group_id": {"type": "string", "pattern": "^H[1-9][0-9]*$"},
-        "group_name": {"type": "string", "minLength": 2, "maxLength": 30},
+        "group_id": {
+          "type": "string",
+          "pattern": "^H[1-9][0-9]*$"
+        },
+        "group_name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 30
+        },
         "students": {
           "type": "array",
           "minItems": 1,
-          "items": {"$ref": "#/$defs/studentRef"}
+          "items": {
+            "$ref": "#/$defs/studentRef"
+          }
         },
-        "common_characteristics": {"type": "string", "minLength": 1},
-        "progression_direction": {"type": "string", "minLength": 1},
-        "use_case": {"type": "string", "minLength": 1}
+        "common_characteristics": {
+          "type": "string",
+          "minLength": 1
+        },
+        "progression_direction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "use_case": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "heterogeneousGroup": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["group_id", "group_name", "students", "grouping_rationale", "collaboration_direction", "shared_product"],
+      "required": [
+        "group_id",
+        "group_name",
+        "students",
+        "grouping_rationale",
+        "collaboration_direction",
+        "shared_product"
+      ],
       "properties": {
-        "group_id": {"type": "string", "pattern": "^X[1-9][0-9]*$"},
-        "group_name": {"type": "string", "minLength": 2, "maxLength": 30},
+        "group_id": {
+          "type": "string",
+          "pattern": "^X[1-9][0-9]*$"
+        },
+        "group_name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 30
+        },
         "students": {
           "type": "array",
           "minItems": 1,
-          "items": {"$ref": "#/$defs/studentRef"}
+          "items": {
+            "$ref": "#/$defs/studentRef"
+          }
         },
-        "grouping_rationale": {"type": "string", "minLength": 1},
-        "collaboration_direction": {"type": "string", "minLength": 1},
-        "shared_product": {"type": "string", "minLength": 1}
+        "grouping_rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "collaboration_direction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "shared_product": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "interventionDesignBasisItem": {
@@ -310,18 +774,32 @@
         "design_requirements"
       ],
       "properties": {
-        "basis_id": {"type": "string", "pattern": "^D[1-9][0-9]*$"},
+        "basis_id": {
+          "type": "string",
+          "pattern": "^D[1-9][0-9]*$"
+        },
         "target_students": {
           "type": "array",
           "minItems": 1,
-          "items": {"$ref": "#/$defs/studentRef"}
+          "items": {
+            "$ref": "#/$defs/studentRef"
+          }
         },
-        "diagnostic_finding": {"type": "string", "minLength": 1},
-        "intended_cognitive_change": {"type": "string", "minLength": 1},
+        "diagnostic_finding": {
+          "type": "string",
+          "minLength": 1
+        },
+        "intended_cognitive_change": {
+          "type": "string",
+          "minLength": 1
+        },
         "design_requirements": {
           "type": "array",
           "minItems": 1,
-          "items": {"type": "string", "minLength": 1}
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     }
