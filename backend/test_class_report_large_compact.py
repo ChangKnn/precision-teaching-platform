@@ -10,6 +10,57 @@ from backend.app.services.skills import load_skill
 
 
 class LargeClassCompactTest(unittest.TestCase):
+    def test_overview_retries_invented_common_issue_student_id(self):
+        from backend.app.services.compact_outputs import class_transport_schema
+        skill = load_skill('solo_class_diagnosis_intervention')
+        path = skill.path.parent
+        payload = json.loads((path / 'tests/sample-input.json').read_text())
+        schema = json.loads((path / 'assets/class-diagnosis-output.schema.json').read_text())
+        output = json.loads((path / 'tests/sample-output.json').read_text())
+        for key in ('class_summary', 'traceability', 'grouping_recommendations'):
+            output.pop(key)
+        for row in output['level_analyses']:
+            row.pop('students'); row.pop('count')
+            for evidence in row['typical_evidence']:
+                for key in ('student_name', 'quote', 'interpretation'):
+                    evidence.pop(key)
+        valid_id = payload['student_diagnosis_results'][0]['student']['student_id']
+        output['common_issues'] = [{'issue':'依据需要补充','basis_student_ids':[valid_id]}]
+        invalid = copy.deepcopy(output)
+        invalid['common_issues'][0]['basis_student_ids'] = ['invented-student']
+        response = lambda value: {'choices':[{'message':{'content':json.dumps(value, ensure_ascii=False)}}]}
+        with patch.object(ai, 'settings', replace(ai.settings, ai_api_key='test-key', ai_model='test-model')), patch.object(ai, '_post_json', side_effect=[response(invalid), response(output)]) as post:
+            result = ai._run_rubric_compatible(skill, payload, class_transport_schema(schema, compact_large=True, separate_problems=True), 'class_overview', '')
+        self.assertEqual(result['common_issues'][0]['basis_student_ids'], [valid_id])
+        self.assertEqual(post.call_count, 2)
+        self.assertIn('未知学生', post.call_args_list[1].args[1]['messages'][-1]['content'])
+
+    def test_unverified_common_issue_is_omitted_after_retry(self):
+        from backend.app.services.compact_outputs import class_transport_schema
+        skill = load_skill('solo_class_diagnosis_intervention')
+        path = skill.path.parent
+        payload = json.loads((path / 'tests/sample-input.json').read_text())
+        schema = json.loads((path / 'assets/class-diagnosis-output.schema.json').read_text())
+        output = json.loads((path / 'tests/sample-output.json').read_text())
+        for key in ('class_summary', 'traceability', 'grouping_recommendations'):
+            output.pop(key)
+        for row in output['level_analyses']:
+            row.pop('students'); row.pop('count')
+            for evidence in row['typical_evidence']:
+                for key in ('student_name', 'quote', 'interpretation'):
+                    evidence.pop(key)
+        valid_id = payload['student_diagnosis_results'][0]['student']['student_id']
+        output['common_issues'] = [
+            {'issue':'有部分可核对的依据','basis_student_ids':[valid_id, 'unknown']},
+            {'issue':'完全无法核对','basis_student_ids':['unknown']},
+        ]
+        response = {'choices':[{'message':{'content':json.dumps(output, ensure_ascii=False)}}]}
+        with patch.object(ai, 'settings', replace(ai.settings, ai_api_key='test-key', ai_model='test-model')), patch.object(ai, '_post_json', return_value=response) as post:
+            result = ai._run_rubric_compatible(skill, payload, class_transport_schema(schema, compact_large=True, separate_problems=True), 'class_overview', '')
+        self.assertEqual(post.call_count, 2)
+        self.assertEqual(result['common_issues'], [{'issue':'有部分可核对的依据','basis_student_ids':[valid_id]}])
+        self.assertIn('未通过核验', result['common_issue_warning'])
+
     def test_large_class_recovers_verified_evidence_and_complete_groups(self):
         skill = load_skill('solo_class_diagnosis_intervention')
         path = skill.path.parent

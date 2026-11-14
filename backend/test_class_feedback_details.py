@@ -34,6 +34,20 @@ class ClassFeedbackDetailsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '未匹配'):
             validate_class_result(copy.deepcopy(self.result), self.payload)
 
+    def test_overview_does_not_silently_discard_unverified_attention(self):
+        from backend.app.services.ai import _validate_class_overview_refs, _discard_unknown_common_issue_refs
+        result = {'individual_attention':[{'student_id':'unknown','evidence_quote':'虚构内容'}]}
+        _discard_unknown_common_issue_refs(result, self.payload)
+        with self.assertRaisesRegex(ValueError, '个体关注'):
+            _validate_class_overview_refs(result, self.payload)
+
+    def test_common_issue_with_no_valid_student_is_not_fabricated(self):
+        from backend.app.services.ai import _discard_unknown_common_issue_refs
+        result = {'common_issues':[{'issue':'问题','basis_student_ids':['unknown']}]}
+        _discard_unknown_common_issue_refs(result, self.payload)
+        self.assertNotIn('common_issues', result)
+        self.assertIn('未通过核验', result['common_issue_warning'])
+
     def test_difficulty_cannot_reference_another_level(self):
         level = self.result['level_analyses'][0]
         other = next(s for s in self.payload['student_diagnosis_results'] if s['diagnosis']['level'] != level['level'])

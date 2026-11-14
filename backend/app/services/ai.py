@@ -520,6 +520,10 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
                 validate_task_rubric(skill, result, require_complete=True)
             if output_name == 'student_brief':
                 _validate_student_brief_evidence(result, payload)
+            if output_name in ('solo_class_diagnosis', 'class_overview'):
+                if repaired:
+                    _discard_unknown_common_issue_refs(result, payload)
+                _validate_class_overview_refs(result, payload)
             if output_name in ('solo_class_diagnosis', 'class_level_problems'):
                 _validate_class_problem_groups(result, payload)
                 if output_name == 'solo_class_diagnosis' and 'grouping_recommendations' not in result:
@@ -779,6 +783,41 @@ def _validate_student_brief_evidence(result, payload):
                 raise ValueError('证据quote必须逐字复制对应学生发言或提交文本中的连续原文，不得引用AI发言、改写、拼接或增加省略号；请检查source并重新输出')
 
 
+def _discard_unknown_common_issue_refs(result, payload):
+    """After a model repair, retain only verifiable references; never invent a match."""
+    valid_ids = {student['student']['student_id'] for student in payload.get('student_diagnosis_results', [])}
+    if 'common_issues' not in result:
+        return
+    kept, changed = [], False
+    for issue in result['common_issues']:
+        ids = issue.get('basis_student_ids', [])
+        valid = list(dict.fromkeys(student_id for student_id in ids if student_id in valid_ids))
+        changed = changed or len(valid) != len(ids)
+        if valid:
+            kept.append({**issue, 'basis_student_ids': valid})
+        else:
+            changed = True
+    if changed:
+        if kept:
+            result['common_issues'] = kept
+        else:
+            result.pop('common_issues', None)
+        result['common_issue_warning'] = '部分共性问题的学生依据未通过核验，未展示无法核实的内容。'
+
+
+def _validate_class_overview_refs(result, payload):
+    """Reject invented identifiers early so the model can correct its own output."""
+    source = {student['student']['student_id']: student for student in payload.get('student_diagnosis_results', [])}
+    for issue in result.get('common_issues', []):
+        if not set(issue.get('basis_student_ids', [])) <= set(source):
+            raise ValueError('班级共性问题引用了未知学生。请仅从输入的student.student_id逐字复制编号，不要使用姓名、序号或示例编号。')
+    for alert in result.get('individual_attention', []):
+        student = source.get(alert.get('student_id'))
+        statements = (student or {}).get('student_statements', []) + [(student or {}).get('submitted_text', '')]
+        if not student or not any(alert.get('evidence_quote', '') and alert['evidence_quote'] in text for text in statements):
+            raise ValueError('个体关注须引用输入中真实学生编号，并逐字引用该学生的原始表达；无依据则不要生成该提醒。')
+
+
 def _validate_class_problem_groups(result, payload):
     expected = {}
     for student in payload.get('student_diagnosis_results', []):
@@ -889,6 +928,7 @@ def _run_large_class_in_stages(skill, payload, provider, full_schema):
         overview_schema = class_transport_schema(full_schema, compact_large=True, separate_problems=True)
         suffix = ('本次只生成班级整体与层级概览，不输出difficulty_groups或grouping_recommendations，平台会单独生成。'
             '典型证据仅输出student_id和该学生真实source_ref；不要输出原话、姓名或解释。'
+            'common_issues的basis_student_ids及individual_attention的student_id必须逐字复制输入中student.student_id，禁止用姓名、序号或示例编号代替。'
             '每项简短，individual_attention只列有明确原话依据的必要提醒；不得编造。')
         return _run_rubric_compatible(skill, payload, overview_schema, 'class_overview', suffix)
     with ThreadPoolExecutor(max_workers=3) as pool:

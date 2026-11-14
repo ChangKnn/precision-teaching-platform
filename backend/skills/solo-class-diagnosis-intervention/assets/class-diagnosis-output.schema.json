@@ -293,6 +293,10 @@
         "1.0",
         "1.1"
       ]
+    },
+    "common_issue_warning": {
+      "type": "string",
+      "minLength": 1
     }
   },
   "$defs": {
