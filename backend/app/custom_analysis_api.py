@@ -116,6 +116,7 @@ def build_custom_input(teaching_id: str, mode: str, subject_id: str) -> tuple[di
 
 
 def custom_report_for(teaching_id: str, mode: str, subject_id: str) -> dict | None:
+    from .services.readable_evidence import readable_narrative
     row = fetch_one(
         "SELECT * FROM teacher_analysis_reports WHERE teaching_id = ? AND scope = ? AND subject_id = ?",
         (teaching_id, mode, subject_id),
@@ -153,7 +154,7 @@ def custom_report_for(teaching_id: str, mode: str, subject_id: str) -> dict | No
         "subject_id": subject_id,
         "status": status,
         "provider": row["provider"],
-        "result": json.loads(row["result_json"]),
+        "result": readable_narrative(json.loads(row["result_json"])),
         "generated_at": row["generated_at"],
     }
 

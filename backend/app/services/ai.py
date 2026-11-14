@@ -464,6 +464,8 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
                            output_name: str, instruction_suffix: str) -> dict:
     """At most four requests: two format fallbacks and one validation repair."""
     is_rubric = skill.key == 'solo_task_rubric_builder'
+    if skill.key in {'solo_student_diagnosis_feedback', 'solo_class_diagnosis_intervention'}:
+        instruction_suffix += '\n面向教师或学生的分析与说明使用“对话记录”等自然表述，不在文字中展示 turn-数字、urn-数字等内部编号；结构化 ref、source_ref 等定位字段仍须准确填写，不改变学生原话。'
     label, retained = {
         'solo_task_rubric_builder': ('量规', '原量规已保留'),
         'precision_intervention_goal_path_design': ('目标与路径', '原目标与路径已保留'),

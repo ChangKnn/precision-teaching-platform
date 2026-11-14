@@ -243,6 +243,8 @@ def singleton_grouping_note(grouping: dict) -> str:
 
 
 def render_class_markdown(result: dict) -> str:
+    from .readable_evidence import readable_narrative
+    result = readable_narrative(result)
     summary = result["class_summary"]
     overall = result["overall_diagnosis"]
     priorities = result["teaching_priorities"]
@@ -271,7 +273,7 @@ def render_class_markdown(result: dict) -> str:
     ]
     for item in result["level_analyses"]:
         evidence = "；".join(
-            f"{entry['student_name']} {entry['source_ref']}：“{entry['quote']}”（{entry['interpretation']}）"
+            f"{entry['student_name']}的表述：“{entry['quote']}”（{entry['interpretation']}）"
             for entry in item["typical_evidence"]
         )
         lines += [
@@ -327,6 +329,7 @@ def render_class_markdown(result: dict) -> str:
 
 
 def report_row(teaching_id: str, classroom_id: str) -> dict | None:
+    from .readable_evidence import readable_narrative, readable_text
     from .class_teaching_suggestions import latest_suggestions
     row = fetch_one(
         "SELECT * FROM class_diagnosis_reports WHERE teaching_id = ? AND classroom_id = ?",
@@ -334,6 +337,11 @@ def report_row(teaching_id: str, classroom_id: str) -> dict | None:
     )
     if not row:
         return None
+    result = json.loads(row['generated_json']) if row['generated_json'] else None
+    try:
+        display_text = render_class_markdown(result) if result else readable_text(row['report_text'] or '')
+    except (KeyError, TypeError, ValueError):
+        display_text = readable_text(row['report_text'] or '')
     return {
         "teaching_id": teaching_id,
         "classroom_id": classroom_id,
@@ -342,8 +350,8 @@ def report_row(teaching_id: str, classroom_id: str) -> dict | None:
         "provider": row["provider"],
         "status": row["status"],
         "source_hash": row["source_hash"],
-        "result": json.loads(row["generated_json"]) if row["generated_json"] else None,
-        "report_text": row["report_text"],
+        "result": readable_narrative(result) if result else None,
+        "report_text": display_text,
         "error": row["error"],
         "generated_at": row["generated_at"],
         "updated_at": row["updated_at"],

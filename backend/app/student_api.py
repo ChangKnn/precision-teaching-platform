@@ -272,9 +272,10 @@ def serialize_session(session: dict) -> dict:
 
 
 def student_feedback_for_row(report: dict) -> str:
+    from .services.readable_evidence import readable_text
     saved = (report.get("student_feedback_text") or "").strip()
     if saved:
-        return saved
+        return readable_text(saved)
     # Earlier reports predate a separately generated student version. Present
     # their existing diagnosis in student-facing language without a model call.
     result = json.loads(report["generated_json"])
@@ -324,7 +325,7 @@ def student_feedback_for_row(report: dict) -> str:
             text = text.replace(before, after)
         text = re.sub(r"(?<![A-Za-z])(?:P|U|M|R|EA)（[^）]*）", "下一步", text)
         text = re.sub(r"(?<![A-Za-z])(?:P|U|M|R|EA)(?=\s*(?:表现|判断|要求))", "相应", text)
-        return text
+        return readable_text(text)
 
     summary = student_language(result.get("thinking_structure_summary") or "")
     for before, after in (
@@ -353,6 +354,7 @@ def student_feedback_for_row(report: dict) -> str:
 
 
 def serialize_student_report(session_id: str) -> dict | None:
+    from .services.readable_evidence import readable_narrative, readable_text
     report = fetch_one("SELECT * FROM student_diagnosis_reports WHERE session_id = ?", (session_id,))
     if not report:
         return None
@@ -363,8 +365,8 @@ def serialize_student_report(session_id: str) -> dict | None:
         "skill_version": report["skill_version"],
         "provider": report["provider"],
         "status": report["status"],
-        "result": json.loads(report["generated_json"]),
-        "report_text": report["report_text"],
+        "result": readable_narrative(json.loads(report["generated_json"])),
+        "report_text": readable_text(report["report_text"] or ''),
         "student_feedback_text": student_feedback_for_row(report),
         "generated_at": report["generated_at"],
         "reviewed_at": report["reviewed_at"],
