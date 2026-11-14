@@ -946,7 +946,7 @@ function renderClassReport(payload) {
         return `<div><p><b>${escapeHTML(group.title)}：</b>${studentNames(group.students)}</p></div>`;
       }).join("");
       const supportText = bucket.support;
-      return `<article class="teaching-group"><h4>${escapeHTML(bucket.name)}</h4><p><b>学情：</b>${escapeHTML(bucket.needs)}</p>${bucket.task && normalizedGroupText(bucket.task) !== normalizedGroupText(bucket.name) ? `<p><b>学习任务：</b>${escapeHTML(bucket.task)}</p>` : ""}${supportText && normalizedGroupText(supportText) !== normalizedGroupText(bucket.task) ? `<p><b>教学支持：</b>${escapeHTML(supportText)}</p>` : ""}<div class="teaching-group-rosters">${rosters}</div></article>`;
+      return `<article class="teaching-group"><h4>${escapeHTML(bucket.name)}</h4><p><b>学情：</b>${escapeHTML(bucket.needs)}</p>${bucket.task ? `<p><b>学习任务：</b>${escapeHTML(bucket.task)}</p>` : ""}${supportText && normalizedGroupText(supportText) !== normalizedGroupText(bucket.task) ? `<p><b>教学支持：</b>${escapeHTML(supportText)}</p>` : ""}<div class="teaching-group-rosters">${rosters}</div></article>`;
     }).join("");
   };
   const diagnosedIds = new Set(classroomResults.filter(item => item.report?.result).map(item => item.student.id));

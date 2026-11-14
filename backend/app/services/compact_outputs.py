@@ -1,5 +1,6 @@
 """Small model contracts with deterministic platform metadata."""
 from copy import deepcopy
+import re
 
 LEVELS = ('P','U','M','R','EA')
 LEVEL_NAMES = {'P':'任务入门', 'U':'单一要素', 'M':'要素梳理', 'R':'关系建构', 'EA':'拓展迁移'}
@@ -97,6 +98,18 @@ def _complete_nonoverlapping_groups(groups, source_ids):
     return len(members) == len(set(members)) and set(members) == source_ids
 
 
+def _task_group_name(analysis, trusted_name):
+    """Use a generated task title; otherwise retain a complete task clause."""
+    if trusted_name:
+        name = str(analysis.get('level_group_name') or '').strip()
+        if name:
+            return name
+    task = str(analysis.get('teaching_design', {}).get('task') or '').strip()
+    if task:
+        return re.split(r'[，,；;。！？!?\n]', task, maxsplit=1)[0].strip() or task
+    return '学习小组'
+
+
 def practical_grouping(result):
     """Group by verified SOLO level, subdividing large levels by evidenced difficulties."""
     view = deepcopy(result)
@@ -133,7 +146,7 @@ def practical_grouping(result):
                 size = base + (i < extra)
                 members = ids[pos:pos + size]
                 pos += size
-                groups.append({'group_id': f'H{len(groups)+1}', 'group_name': (analysis.get('level_group_name') if view.get('task_group_names_version') == '1' else None) or analysis.get('teaching_design', {}).get('task') or '学习任务',
+                groups.append({'group_id': f'H{len(groups)+1}', 'group_name': _task_group_name(analysis, view.get('task_group_names_version') == '1'),
                     'students': [by_id[sid] for sid in members],
                     'common_characteristics': needs or '依据本层级学生的实际困难安排。',
                     'progression_direction': support or '结合学生实际表现安排学习任务。',
