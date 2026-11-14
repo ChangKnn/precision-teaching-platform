@@ -24,6 +24,26 @@ class LargeClassCompactTest(unittest.TestCase):
         self.assertNotIn('private conversation', detail)
         self.assertIn('班级概览', detail)
 
+    def test_unverified_alerts_do_not_block_report_after_one_repair(self):
+        skill = load_skill('solo_class_diagnosis_intervention')
+        payload = {'student_diagnosis_results':[{'student':{'student_id':'real'}, 'student_statements':['我有些头疼，想休息。']}]}
+        valid = {'student_id':'real', 'evidence_quote':'有些头疼'}
+        output = {'individual_attention':[valid, {'student_id':'unknown','evidence_quote':'有些头疼'},
+                     {'student_id':'real','evidence_quote':'改写过的表述'}]}
+        response = {'choices':[{'message':{'content':json.dumps(output,ensure_ascii=False)}}]}
+        with patch.object(ai, 'settings', replace(ai.settings, ai_api_key='test-key', ai_model='test-model')), patch.object(ai, '_post_json', return_value=response) as post:
+            result = ai._run_rubric_compatible(skill, payload, {'type':'object'}, 'class_overview', '')
+        self.assertEqual(post.call_count, 2)
+        self.assertEqual(result['individual_attention'], [valid])
+        self.assertIn('未能核实', result['individual_attention_warning'])
+        ai._validate_class_overview_refs(result, payload)
+
+    def test_all_unverified_alerts_are_not_misrepresented_as_no_concerns(self):
+        result = {'individual_attention':[{'student_id':'unknown', 'evidence_quote':'无法核实'}]}
+        ai._discard_unverified_individual_attention(result, {'student_diagnosis_results':[]})
+        self.assertEqual(result['individual_attention'], [])
+        self.assertTrue(result['individual_attention_warning'])
+
     def test_overview_retries_invented_common_issue_student_id(self):
         from backend.app.services.compact_outputs import class_transport_schema
         skill = load_skill('solo_class_diagnosis_intervention')

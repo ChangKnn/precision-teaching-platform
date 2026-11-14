@@ -543,6 +543,7 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
             if output_name in ('solo_class_diagnosis', 'class_overview'):
                 if repaired:
                     _discard_unknown_common_issue_refs(result, payload)
+                    _discard_unverified_individual_attention(result, payload)
                 _validate_class_overview_refs(result, payload)
             if output_name in ('solo_class_diagnosis', 'class_level_problems'):
                 _validate_class_problem_groups(result, payload)
@@ -825,6 +826,22 @@ def _discard_unknown_common_issue_refs(result, payload):
         else:
             result.pop('common_issues', None)
         result['common_issue_warning'] = '部分共性问题的学生依据未通过核验，未展示无法核实的内容。'
+
+
+def _discard_unverified_individual_attention(result, payload):
+    """Omit unsupported optional alerts after one repair; keep verified alerts intact."""
+    source = {student['student']['student_id']: student for student in payload.get('student_diagnosis_results', [])}
+    alerts = result.get('individual_attention', [])
+    kept = []
+    for alert in alerts:
+        student = source.get(alert.get('student_id'))
+        quote = alert.get('evidence_quote', '')
+        statements = (student or {}).get('student_statements', []) + [(student or {}).get('submitted_text', '')]
+        if student and quote.strip() and any(quote in text for text in statements):
+            kept.append(alert)
+    if len(kept) != len(alerts):
+        result['individual_attention'] = kept
+        result['individual_attention_warning'] = '部分个体关注提醒未能核实学生编号或原话，未予展示；请结合学生对话核对。'
 
 
 def _validate_class_overview_refs(result, payload):

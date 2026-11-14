@@ -305,6 +305,10 @@
       "enum": [
         "1"
       ]
+    },
+    "individual_attention_warning": {
+      "type": "string",
+      "minLength": 1
     }
   },
   "$defs": {

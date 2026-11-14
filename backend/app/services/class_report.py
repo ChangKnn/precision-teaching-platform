@@ -403,6 +403,8 @@ def render_class_markdown(result: dict, payload: dict | None = None) -> str:
         "| 面向学生 | 诊断发现 | 需要促进的认知变化 | 后续设计需要满足的条件 |",
         "|---|---|---|---|",
     ]
+    if result.get("individual_attention_warning"):
+        lines += ["", result["individual_attention_warning"], ""]
     for item in result["intervention_design_basis"]:
         lines.append(
             f"| {names(item['target_students'])} | {item['diagnostic_finding']} | "
