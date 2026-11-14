@@ -862,7 +862,7 @@ def run_class_diagnosis_report(
     compact_instruction = (
         '本次输入较长：不得输出grouping_recommendations，平台会依据问题分类和完整学生名单生成分组。'
         '典型证据只输出student_id与source_ref，必须对应该学生个体诊断中的真实ref；不要输出学生姓名、原话或解释。'
-        'difficulty_groups中只写problem_label、problem_description、student_ids和teaching_suggestion，不输出重复的difficulty字段。'
+        'difficulty_groups中只写problem_label、problem_description、student_ids、group_name和teaching_suggestion，不输出重复的difficulty字段。'
         '问题分类、具体困难、教学建议及必要的个体关注均保持简洁且完整。'
     ) if compact_large else ''
     result = _run_structured_skill(
@@ -919,7 +919,7 @@ def _run_large_class_in_stages(skill, payload, provider, full_schema):
         suffix = ('本次只归纳这一个SOLO层级的问题，不生成班级报告、分组或其他层级。'
             '比较同层级学生的主要障碍，优先归纳一个有代表性的主要问题；只有确实需要不同教学支持时才增加第二个，'
             '不得为了覆盖每个人强行分类。每项包含18字以内problem_label、一句话problem_description、'
-            '有依据的student_ids及一句teaching_suggestion；不要输出difficulty字段。'
+            '有依据的student_ids及一句teaching_suggestion；group_name应结合具体学科内容和学生要完成的任务，用一线教师易懂的短语命名，例如“梳理东汉衰亡因素组”，不要使用SOLO术语、笼统能力标签或层级名；不要输出difficulty字段。'
             'main_performance用2至4句概括具体作答表现及有依据的差异。problem_description必须依据学生实际表达写出本题具体的问题，不得只改写SOLO定义或虚构事实。'
             'teaching_design依教师提供的SOLO进阶设计依据分别写content（材料内容）、task（学习任务）、scaffold（必要支架），每项一句，具体贴合本次任务和障碍，支架不代替学生作答。')
         result = _run_rubric_compatible(skill, inp, level_schema, 'class_level_problems', suffix)

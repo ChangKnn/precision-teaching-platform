@@ -873,8 +873,8 @@ function renderCustomClassReport(payload) {
 
 function singletonGroupingNote(groups) {
   return ["homogeneous_groups", "heterogeneous_groups"].some(key =>
-    (groups?.[key] || []).some(group => group.students?.length === 1))
-    ? '分组中含单人支持安排，请结合学生需要决定保留、并组或调整；合作活动需另行安排同伴。' : '';
+    (groups?.[key] || []).some(group => group.students?.length < 3))
+    ? '参与人数较少，请教师结合课堂情况安排结伴或个别支持。' : '';
 }
 
 let classNavigationObserver;
@@ -924,7 +924,14 @@ function renderClassReport(payload) {
   const studentNames = items => (items || []).map(item => escapeHTML(item.student_name)).join("、") || "无";
   const basisDetails = (title, items) => `<details class="class-basis-details"><summary>${title}</summary><ul>${(items || []).map(item => `<li>${escapeHTML(item)}</li>`).join("")}</ul></details>`;
   const priorityCard = (title, item) => `<article><h3>${title}</h3><p>${escapeHTML(item.statement)}</p>${basisDetails("诊断依据", item.diagnosis_basis)}${basisDetails("目标依据", item.goal_basis)}</article>`;
-  const groupCard = (group, type) => `<article><h4>${escapeHTML(group.group_name || group.group_id)}</h4><p class="group-members">${studentNames(group.students)}</p><p><b>${type === "homogeneous" ? "共同点" : "分组依据"}：</b>${escapeHTML(type === "homogeneous" ? group.common_characteristics : group.grouping_rationale)}</p><small><b>教学建议：</b>${escapeHTML(type === "homogeneous" ? group.progression_direction : group.collaboration_direction)}</small></article>`;
+  const groupCard = (group, type, index) => {
+    const title = group.students.length === 1 ? "个别支持安排" : `第${index + 1}小组`;
+    const name = group.group_name || "";
+    const concreteName = name && !/^(第[0-9]+学习小组|(?:P|U|M|R|EA)(?:组|$)|前结构|单点结构|多点结构|关联结构|拓展抽象)/i.test(name.replace(/\s/g, "")) ? name : "";
+    const levelIds = new Set(group.students.map(s => distribution.find(level => level.students.some(member => member.student_id === s.student_id))?.level).filter(Boolean));
+    const levelTask = levelIds.size === 1 ? data.level_analyses.find(level => level.level === [...levelIds][0])?.teaching_design?.task : "";
+    return `<article><h4>${escapeHTML(title)}${concreteName ? ` · ${escapeHTML(concreteName)}` : ""}</h4><p class="group-members">${studentNames(group.students)}</p>${levelTask ? `<p><b>学习任务：</b>${escapeHTML(levelTask)}</p>` : ""}<p><b>${type === "homogeneous" ? "学习需要" : "分组依据"}：</b>${escapeHTML(type === "homogeneous" ? group.common_characteristics : group.grouping_rationale)}</p><small><b>教学支持：</b>${escapeHTML(type === "homogeneous" ? group.progression_direction : group.collaboration_direction)}</small></article>`;
+  };
   const diagnosedIds = new Set(classroomResults.filter(item => item.report?.result).map(item => item.student.id));
   const coversEveryone = items => {
     const ids = items.flatMap(group => group.students.map(student => student.student_id));
@@ -964,7 +971,7 @@ function renderClassReport(payload) {
       <section id="class-common"><h3>班级学情概览</h3><p>${escapeHTML(data.overall_diagnosis.overall_characteristics)}</p></section>
       <section id="class-direction"><h3>教学方向与重难点</h3><p><b>进阶方向：</b>${escapeHTML(data.overall_diagnosis.main_progression_direction)}</p><p><b>教学重点：</b>${escapeHTML(priorities.teaching_focus.statement)}</p><p><b>教学难点：</b>${escapeHTML(priorities.teaching_difficulty.statement)}</p>${basisDetails("查看诊断依据", [...priorities.teaching_focus.diagnosis_basis, ...priorities.teaching_difficulty.diagnosis_basis])}</section></article>
     <article id="class-levels" class="card class-report-card"><h2>三、学生分层学情</h2>${difficulties}</article>
-    <article id="class-support" class="card class-report-card"><h2>四、教学干预建议</h2><section id="class-whole"><h3>全班教学建议</h3><p>${escapeHTML(data.overall_diagnosis.main_progression_direction)}</p><p>${escapeHTML(priorities.teaching_focus.statement)}</p></section><section id="class-groups"><h3>小组教学建议</h3>${groupingReady ? `<p>${escapeHTML(groups.usage_note)}</p>${singletonGroupingNote(groups) ? `<p class="class-report-warning">${singletonGroupingNote(groups)}</p>` : ""}<div class="class-report-grid">${groups.homogeneous_groups.map(item => groupCard(item, "homogeneous")).join("")}</div>${groups.heterogeneous_groups.length ? `<details><summary>查看异质分组备选方案</summary>${groups.heterogeneous_groups.map(item => groupCard(item, "heterogeneous")).join("")}</details>` : ""}` : '<p>分组未覆盖全部已诊断学生，请通过上方按钮重新生成。</p>'}</section><section id="class-individual"><h3>个体关注建议</h3>${!alerts ? '<p>旧报告暂未包含个体关注建议，可重新生成后查看。</p>' : alerts.length ? alerts.map(a => `<p${a.category === "安全关注" ? ' class="class-report-warning"' : ""}><b>${escapeHTML(namesById.get(a.student_id) || "学生")} · ${escapeHTML(a.category)}：</b>${escapeHTML(a.observation)}<br><small>依据：${escapeHTML(a.evidence_quote)}<br>建议：${escapeHTML(a.teacher_action)}</small></p>`).join("") : '<p>本次没有需要特别提醒的情况，请结合实际持续关注。</p>'}</section></article>${renderCustomClassReport(payload)}</div>
+    <article id="class-support" class="card class-report-card"><h2>四、教学干预建议</h2><section id="class-whole"><h3>全班教学建议</h3><p>${escapeHTML(data.overall_diagnosis.main_progression_direction)}</p><p>${escapeHTML(priorities.teaching_focus.statement)}</p></section><section id="class-groups"><h3>小组教学建议</h3>${groupingReady ? `<p>${escapeHTML(groups.usage_note)}</p>${singletonGroupingNote(groups) ? `<p class="class-report-warning">${singletonGroupingNote(groups)}</p>` : ""}<div class="class-report-grid">${groups.homogeneous_groups.map((item, index) => groupCard(item, "homogeneous", index)).join("")}</div>${groups.heterogeneous_groups.length ? `<details><summary>查看异质分组备选方案</summary>${groups.heterogeneous_groups.map((item, index) => groupCard(item, "heterogeneous", index)).join("")}</details>` : ""}` : '<p>分组未覆盖全部已诊断学生，请通过上方按钮重新生成。</p>'}</section><section id="class-individual"><h3>个体关注建议</h3>${!alerts ? '<p>旧报告暂未包含个体关注建议，可重新生成后查看。</p>' : alerts.length ? alerts.map(a => `<p${a.category === "安全关注" ? ' class="class-report-warning"' : ""}><b>${escapeHTML(namesById.get(a.student_id) || "学生")} · ${escapeHTML(a.category)}：</b>${escapeHTML(a.observation)}<br><small>依据：${escapeHTML(a.evidence_quote)}<br>建议：${escapeHTML(a.teacher_action)}</small></p>`).join("") : '<p>本次没有需要特别提醒的情况，请结合实际持续关注。</p>'}</section></article>${renderCustomClassReport(payload)}</div>
     <nav class="class-toc" aria-label="班级反馈目录"><details open><summary>本页目录</summary><a class="toc-primary" href="#class-interaction">一、学生交互情况</a><a class="toc-primary" href="#class-overview">二、班级整体学情</a><a class="toc-secondary" href="#class-distribution">SOLO 层级分布</a><a class="toc-secondary" href="#class-common">班级学情概览</a><a class="toc-secondary" href="#class-direction">教学方向与重难点</a><a class="toc-primary" href="#class-levels">三、学生分层学情</a>${levelMenu}<a class="toc-primary" href="#class-support">四、教学干预建议</a><a class="toc-secondary" href="#class-whole">全班教学建议</a><a class="toc-secondary" href="#class-groups">小组教学建议</a><a class="toc-secondary" href="#class-individual">个体关注建议</a></details></nav></div>`;
   initializeClassFeedbackNavigation(panel);
 }

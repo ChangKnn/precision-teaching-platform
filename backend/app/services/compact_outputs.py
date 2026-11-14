@@ -72,7 +72,10 @@ def expand_large_class_output(value, payload):
                     size = base + (index < extra)
                     ids = members[pos:pos + size]
                     pos += size
-                    groups.append({'group_id': f'H{len(groups)+1}', 'group_name': f"{difficulty['problem_label']}组{index+1}",
+                    name = difficulty.get('group_name') or f'第{len(groups)+1}学习小组'
+                    if n > 1 and difficulty.get('group_name'):
+                        name = f'{name}{index+1}'
+                    groups.append({'group_id': f'H{len(groups)+1}', 'group_name': name,
                         'students': [{'student_id': sid, 'student_name': students[sid]['student']['student_name']} for sid in ids],
                         'common_characteristics': difficulty['problem_description'],
                         'progression_direction': difficulty['teaching_suggestion'], 'use_case': '教师可根据课堂情况调整。'})
@@ -87,6 +90,67 @@ def _complete_nonoverlapping_groups(groups, source_ids):
         return False
     members = [student['student_id'] for group in groups for student in group['students']]
     return len(members) == len(set(members)) and set(members) == source_ids
+
+
+def practical_grouping(result):
+    """Make existing group proposals easier to use without inventing student needs."""
+    view = deepcopy(result)
+    grouping = view.get('grouping_recommendations') or {}
+    distribution = view.get('class_summary', {}).get('distribution', [])
+    levels = {s['student_id']: row['level'] for row in distribution for s in row.get('students', [])}
+    source_ids = set(levels)
+    changed = False
+    for key in ('homogeneous_groups', 'heterogeneous_groups'):
+        original = grouping.get(key, [])
+        if not _complete_nonoverlapping_groups(original, source_ids):
+            continue
+        if not any(len(g['students']) < 3 for g in original) or len(source_ids) < 2:
+            continue
+        buckets = [{'entries': [(student, index) for student in group['students']]} for index, group in enumerate(original)]
+        # Prefer students at the same or adjacent level, while preserving all IDs.
+        def distance(left, right):
+            return min(abs(LEVELS.index(levels[a['student_id']]) - LEVELS.index(levels[b['student_id']]))
+                       for a, _ in left['entries'] for b, _ in right['entries'])
+        while True:
+            small = next((b for b in buckets if len(b['entries']) < 3), None)
+            if small is None or len(buckets) == 1:
+                break
+            candidates = [b for b in buckets if b is not small and len(b['entries']) + len(small['entries']) <= 6]
+            if candidates:
+                target = min(candidates, key=lambda b: (distance(small, b), len(b['entries'])))
+                target['entries'].extend(small['entries'])
+                buckets.remove(small)
+                continue
+            donors = [b for b in buckets if b is not small and len(b['entries']) > 3]
+            if not donors:
+                break
+            donor = min(donors, key=lambda b: (distance(small, b), -len(b['entries'])))
+            small['entries'].append(donor['entries'].pop())
+        adapted = []
+        for index, bucket in enumerate(buckets, 1):
+            entries = bucket['entries']
+            origin_ids = list(dict.fromkeys(origin for _, origin in entries))
+            group = deepcopy(original[origin_ids[0]])
+            group['group_id'] = f"{'H' if key == 'homogeneous_groups' else 'X'}{index}"
+            group['students'] = [student for student, _ in entries]
+            if len(origin_ids) > 1:
+                group['group_name'] = f'第{index}学习小组'
+                if key == 'homogeneous_groups':
+                    group['common_characteristics'] = '本组由不同学习需要的学生组成，请按具体需要提供支持。'
+                    directions = list(dict.fromkeys(original[i]['progression_direction'].strip() for i in origin_ids if original[i]['progression_direction'].strip()))
+                    group['progression_direction'] = '；'.join(directions)
+                    group['use_case'] = '共同任务中按学生需要提供差异化支持，教师可调整分组。'
+                else:
+                    group['grouping_rationale'] = '为便于课堂组织合并，成员的学习需要可能不同。'
+                    group['collaboration_direction'] = '先独立思考，再围绕共同任务交流；教师按需要支持。'
+                    group['shared_product'] = '由教师结合共同任务确定。'
+            adapted.append(group)
+        grouping[key] = adapted
+        changed = True
+    if changed:
+        note = '为便于课堂组织，已优先合并人数较少的小组；合并后请根据学生的具体需要提供支持。'
+        grouping['usage_note'] = (grouping.get('usage_note') or '').strip() + ' ' + note
+    return view
 
 
 def _repair_class_grouping(result, exact):
@@ -111,9 +175,9 @@ def _repair_class_grouping(result, exact):
                 members = students[position:position + size]
                 position += size
                 analysis = analyses.get(level['level'], {})
-                groups.append({'group_id':f'H{len(groups)+1}', 'group_name':f"{level['level_name']}组{index+1}",
+                groups.append({'group_id':f'H{len(groups)+1}', 'group_name':f"第{len(groups)+1}学习小组",
                     'students':members, 'common_characteristics':analysis.get('main_performance') or '依据当前诊断处于相同层级。',
-                    'progression_direction':analysis.get('teaching_suggestion') or '结合学生的实际表现确定下一步支持。',
+                    'progression_direction':analysis.get('teaching_design', {}).get('task') or analysis.get('teaching_suggestion') or '结合学生的实际表现确定下一步支持。',
                     'use_case':'供教师结合课堂任务及学生实际情况调整。'})
         grouping['homogeneous_groups'] = groups
         repaired.append('同质分组按已有诊断层级自动整理，供教师结合实际情况调整。')
@@ -143,4 +207,4 @@ def expand_class(value,payload):
         'output_student_ids':[s['student_id'] for s in exact['level_assignments']],
         'level_assignments':exact['level_assignments'],'levels_unchanged':True,
         'teaching_context_fields_used':list(payload['precision_teaching_context'])}
-    return _repair_class_grouping(result, exact)
+    return practical_grouping(_repair_class_grouping(result, exact))

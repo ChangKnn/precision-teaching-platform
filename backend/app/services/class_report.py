@@ -414,6 +414,9 @@ def report_row(teaching_id: str, classroom_id: str) -> dict | None:
                 payload = json.loads(job['input_json'])
             except (TypeError, ValueError):
                 pass
+    if result:
+        from .compact_outputs import practical_grouping
+        result = practical_grouping(result)
     try:
         display_text = render_class_markdown(result, payload) if result else readable_text(row['report_text'] or '')
     except (KeyError, TypeError, ValueError):

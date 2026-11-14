@@ -662,6 +662,11 @@
               "problem_description": {
                 "type": "string",
                 "minLength": 1
+              },
+              "group_name": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 20
               }
             }
           }

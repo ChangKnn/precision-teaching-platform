@@ -56,6 +56,8 @@ def _source_report(teaching_id: str, classroom_id: str) -> dict:
     )
     if not report or report["status"] != "ready" or not report["generated_json"]:
         raise HTTPException(status_code=409, detail="请先生成当前班级的 SOLO 聚合诊断报告")
+    from .services.compact_outputs import practical_grouping
+    report = {**report, 'generated_json': json.dumps(practical_grouping(json.loads(report['generated_json'])), ensure_ascii=False)}
     return report
 
 

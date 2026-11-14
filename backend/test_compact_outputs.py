@@ -72,6 +72,9 @@ class CompactOutputsTest(TestCase):
         skill=load_skill('solo_class_diagnosis_intervention')
         payload=json.loads((skill.path.parent/'tests/sample-input.json').read_text())
         result=json.loads((skill.path.parent/'tests/sample-output.json').read_text())
+        original_groups = result['grouping_recommendations']['homogeneous_groups']
+        original_groups[0]['students'] = [student for group in original_groups for student in group['students']]
+        result['grouping_recommendations']['homogeneous_groups'] = original_groups[:1]
         expected=copy.deepcopy(result['grouping_recommendations'])
         for key in ('class_summary','traceability'):result.pop(key)
         for row in result['level_analyses']:row.pop('count');row.pop('students')
