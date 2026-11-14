@@ -22,6 +22,15 @@ class ReadableEvidenceTest(TestCase):
         self.assertEqual(source, before)
         self.assertEqual(readable_text('原话“turn-3232”来自turn-3232'), '原话“turn-3232”来自对话记录')
 
+    def test_duplicate_punctuation_is_cleaned_without_changing_student_quotes(self):
+        original = {'rationale':'先辨析。；再解释；；继续。',
+                    'evidence':[{'quote':'原话。；原样保留','interpretation':'说明。；建议。'}]}
+        result = readable_narrative(original)
+        self.assertEqual(result['rationale'], '先辨析。再解释；继续。')
+        self.assertEqual(result['evidence'][0]['quote'], '原话。；原样保留')
+        self.assertEqual(result['evidence'][0]['interpretation'], '说明。建议。')
+        self.assertEqual(readable_text('学生说“原话。；不变”。；教师继续。'), '学生说“原话。；不变”。教师继续。')
+
     def test_existing_student_report_is_sanitized_at_read_time(self):
         skill=load_skill('solo_student_diagnosis_feedback')
         result=json.loads((skill.path.parent/'tests/sample-output.json').read_text(encoding='utf-8'))

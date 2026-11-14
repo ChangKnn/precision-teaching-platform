@@ -349,7 +349,8 @@ def render_class_markdown(result: dict, payload: dict | None = None) -> str:
             lines.append(f"- 教学建议：{main_suggestion}")
         lines.append(f"- 典型依据：{evidence}")
         if len(groups) > 1:
-            lines.append(f"- 另一类需要：{groups[1]['problem_description']}；{groups[1]['teaching_suggestion']}")
+            lines.append(f"- 其他困难：{groups[1]['problem_description']}")
+            lines.append(f"- 针对性建议：{groups[1]['teaching_suggestion']}")
         lines.append("")
     lines += ["## 4. 教学重点与难点", ""]
     for title, item in (("教学重点", priorities["teaching_focus"]), ("教学难点", priorities["teaching_difficulty"])):
@@ -391,7 +392,8 @@ def render_class_markdown(result: dict, payload: dict | None = None) -> str:
             f"| {names(item['target_students'])} | {item['diagnostic_finding']} | "
             f"{item['intended_cognitive_change']} | {'；'.join(item['design_requirements'])} |"
         )
-    return "\n".join(lines)
+    from .readable_evidence import tidy_punctuation
+    return tidy_punctuation("\n".join(lines))
 
 
 def report_row(teaching_id: str, classroom_id: str) -> dict | None:

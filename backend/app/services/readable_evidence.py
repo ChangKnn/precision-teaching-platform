@@ -6,9 +6,19 @@ _QUOTED = re.compile(r'(“[^”]*”|‘[^’]*’|"[^"\n]*")')
 _RAW_KEYS = {'quote', 'evidence_quote', 'ref', 'source_ref', 'source_id', 'turn_id', 'student_id', 'student_name', 'student_evidence_refs', 'output_student_ids'}
 
 
+def _tidy_fragment(part: str) -> str:
+    part = re.sub(r'([。！？!?])[ \t]*[；;]+', r'\1', part)
+    return re.sub(r'；(?:[ \t]*；)+', '；', part)
+
+
+def tidy_punctuation(value: str) -> str:
+    return ''.join(part if index % 2 else _tidy_fragment(part)
+                   for index, part in enumerate(_QUOTED.split(value)))
+
+
 def readable_text(value: str) -> str:
-    parts = _QUOTED.split(value)
-    return ''.join(part if index % 2 else _REFERENCE.sub('对话记录', part) for index, part in enumerate(parts))
+    return ''.join(part if index % 2 else _tidy_fragment(_REFERENCE.sub('对话记录', part))
+                   for index, part in enumerate(_QUOTED.split(value)))
 
 
 def readable_narrative(value, key=''):
