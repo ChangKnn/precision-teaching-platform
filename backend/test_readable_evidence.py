@@ -10,6 +10,23 @@ from backend.app.services.class_report import render_class_markdown, with_studen
 
 
 class ReadableEvidenceTest(TestCase):
+    def test_student_ids_resolve_only_in_reader_narrative(self):
+        from backend.app.services.readable_evidence import readable_student_names
+        source = {'students':[{'student_id':'stu-123abc','student_name':'甲同学'}],
+                  'main_performance':'学生stu-123abc提出了方法，stu-unknown补充。',
+                  'student_ids':['stu-123abc'], 'basis_student_ids':['stu-123abc'],
+                  'quote':'stu-123abc原话', 'source_ref':'stu-123abc',
+                  'evidence':[{'student_id':'stu-123abc','interpretation':'stu-123abc说明了依据'}]}
+        shown = readable_student_names(source)
+        self.assertEqual(shown['main_performance'], '学生甲同学提出了方法，该学生补充。')
+        self.assertEqual(shown['student_ids'], ['stu-123abc'])
+        self.assertEqual(shown['basis_student_ids'], ['stu-123abc'])
+        self.assertEqual(shown['quote'], source['quote'])
+        self.assertEqual(shown['source_ref'], source['source_ref'])
+        self.assertEqual(shown['evidence'][0]['student_id'], 'stu-123abc')
+        self.assertEqual(shown['evidence'][0]['interpretation'], '甲同学说明了依据')
+        self.assertIn('stu-123abc', source['main_performance'])
+
     def test_narrative_hides_references_but_preserves_quotes_and_identifiers(self):
         source = {'rationale':'学生在turn-3232提出观点，turn–3668中补充依据。',
                   'evidence':[{'ref':'turn-3232','quote':'学生原话 turn-3232','interpretation':'见turn-3232'}]}

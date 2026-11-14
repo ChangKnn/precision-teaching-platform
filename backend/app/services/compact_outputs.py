@@ -152,7 +152,8 @@ def _task_group_name(analysis, trusted_name):
 
 def practical_grouping(result):
     """Group by verified SOLO level, subdividing large levels by evidenced difficulties."""
-    view = deepcopy(result)
+    from .readable_evidence import readable_student_names
+    view = readable_student_names(deepcopy(result))
     grouping = view.get('grouping_recommendations') or {}
     distribution = view.get('class_summary', {}).get('distribution', [])
     analyses = {row['level']: row for row in view.get('level_analyses', [])}

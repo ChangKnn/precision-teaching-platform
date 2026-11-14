@@ -304,8 +304,10 @@ def with_student_case_summaries(result: dict, payload: dict | None) -> dict:
 
 
 def render_class_markdown(result: dict, payload: dict | None = None) -> str:
+    from .readable_evidence import readable_student_names
+    result = readable_student_names(result)
     from .readable_evidence import readable_narrative
-    result = readable_narrative(with_student_case_summaries(result, payload))
+    result = readable_narrative(readable_student_names(with_student_case_summaries(result, payload)))
     summary = result["class_summary"]
     overall = result["overall_diagnosis"]
     priorities = result["teaching_priorities"]
@@ -415,7 +417,7 @@ def render_class_markdown(result: dict, payload: dict | None = None) -> str:
 
 
 def report_row(teaching_id: str, classroom_id: str) -> dict | None:
-    from .readable_evidence import readable_narrative, readable_text
+    from .readable_evidence import readable_narrative, readable_text, readable_student_names
     from .class_teaching_suggestions import latest_suggestions
     row = fetch_one(
         "SELECT * FROM class_diagnosis_reports WHERE teaching_id = ? AND classroom_id = ?",
@@ -447,7 +449,7 @@ def report_row(teaching_id: str, classroom_id: str) -> dict | None:
         "provider": row["provider"],
         "status": row["status"],
         "source_hash": row["source_hash"],
-        "result": readable_narrative(with_student_case_summaries(result, payload)) if result else None,
+        "result": readable_narrative(readable_student_names(with_student_case_summaries(result, payload))) if result else None,
         "report_text": display_text,
         "error": row["error"],
         "generated_at": row["generated_at"],
@@ -618,6 +620,8 @@ def generate_class_report(
                 for nested in value:
                     restore_names(nested)
         restore_names(result)
+        from .readable_evidence import readable_student_names
+        result = readable_student_names(result)
         result["class_summary"]["total_students"] = exact["total_students"]
         report_text = render_class_markdown(with_student_case_summaries(result, payload))
         output_json = json.dumps(result, ensure_ascii=False)
