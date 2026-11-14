@@ -10,6 +10,37 @@ from backend.app.services.skills import load_skill
 
 
 class LargeClassCompactTest(unittest.TestCase):
+    def test_representative_evidence_uses_real_source_when_model_reference_is_wrong(self):
+        from backend.app.services.compact_outputs import expand_large_class_output
+        skill = load_skill('solo_class_diagnosis_intervention')
+        payload = json.loads((skill.path.parent / 'tests/sample-input.json').read_text())
+        output = json.loads((skill.path.parent / 'tests/sample-output.json').read_text())
+        for row in output['level_analyses']:
+            row['typical_evidence'] = [{'student_id':row['students'][0]['student_id'], 'source_ref':'invented-ref'}]
+        restored = expand_large_class_output(output, payload)
+        by_id = {s['student']['student_id']: s for s in payload['student_diagnosis_results']}
+        for row in restored['level_analyses']:
+            evidence = row['typical_evidence'][0]
+            student = by_id[evidence['student_id']]
+            self.assertEqual(student['diagnosis']['level'], row['level'])
+            source = next(s for s in student['diagnosis']['evidence'] if s['ref'] == evidence['source_ref'])
+            self.assertEqual(evidence['quote'], source['quote'])
+            self.assertEqual(evidence['interpretation'], source['interpretation'])
+
+    def test_unknown_representative_is_reselected_within_correct_level(self):
+        from backend.app.services.compact_outputs import expand_large_class_output
+        skill = load_skill('solo_class_diagnosis_intervention')
+        payload = json.loads((skill.path.parent / 'tests/sample-input.json').read_text())
+        output = json.loads((skill.path.parent / 'tests/sample-output.json').read_text())
+        for row in output['level_analyses']:
+            row['typical_evidence'] = [{'student_id':'unknown', 'source_ref':'invented-ref'}]
+        restored = expand_large_class_output(output, payload)
+        by_id = {s['student']['student_id']: s for s in payload['student_diagnosis_results']}
+        for row in restored['level_analyses']:
+            self.assertTrue(row['typical_evidence'])
+            for evidence in row['typical_evidence']:
+                self.assertEqual(by_id[evidence['student_id']]['diagnosis']['level'], row['level'])
+
     def test_business_validation_failure_keeps_stage_and_reason_after_repair(self):
         skill = load_skill('solo_class_diagnosis_intervention')
         schema = {'type':'object','properties':{}}
@@ -196,7 +227,7 @@ class LargeClassCompactTest(unittest.TestCase):
                     result, _ = ai._run_large_class_in_stages(skill, payload, 'openrouter', schema)
                 self.assertTrue(all(row['teaching_design']['task'] == task for row in result['level_analyses']))
 
-    def test_unknown_evidence_reference_is_rejected(self):
+    def test_no_verified_evidence_is_rejected(self):
         from backend.app.services.compact_outputs import expand_large_class_output
-        with self.assertRaisesRegex(ValueError, '未匹配'):
-            expand_large_class_output({'level_analyses':[{'typical_evidence':[{'student_id':'wrong','source_ref':'bad'}]}]}, {'student_diagnosis_results':[]})
+        with self.assertRaisesRegex(ValueError, '缺少可核验的证据'):
+            expand_large_class_output({'level_analyses':[{'level':'P', 'typical_evidence':[{'student_id':'wrong','source_ref':'bad'}]}]}, {'student_diagnosis_results':[]})

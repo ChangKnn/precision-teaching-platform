@@ -50,6 +50,35 @@ def class_transport_schema(schema, compact_large=False, separate_problems=False)
     return result
 
 
+def _restore_typical_evidence(result, payload):
+    """Choose real representatives within each level and copy their verified evidence."""
+    students = {s['student']['student_id']: s for s in payload['student_diagnosis_results']}
+    for level in result['level_analyses']:
+        eligible = {sid: student for sid, student in students.items()
+                    if student['diagnosis']['level'] == level['level'] and student['diagnosis'].get('evidence')}
+        selected, seen = [], set()
+        for evidence in level.get('typical_evidence', []):
+            sid = evidence.get('student_id')
+            student = eligible.get(sid)
+            if not student or sid in seen:
+                continue
+            sources = student['diagnosis']['evidence']
+            source = next((entry for entry in sources if entry['ref'] == evidence.get('source_ref')), sources[0])
+            selected.append({'student_id': sid, 'student_name': student['student']['student_name'],
+                             'source_ref': source['ref'], 'quote': source['quote'], 'interpretation': source['interpretation']})
+            seen.add(sid)
+            if len(selected) == 2:
+                break
+        if not selected:
+            for sid, student in list(eligible.items())[:2]:
+                source = student['diagnosis']['evidence'][0]
+                selected.append({'student_id': sid, 'student_name': student['student']['student_name'],
+                                 'source_ref': source['ref'], 'quote': source['quote'], 'interpretation': source['interpretation']})
+        if not selected:
+            raise ValueError(f"{level['level']}层级的个体诊断缺少可核验的证据，请先更新个体诊断")
+        level['typical_evidence'] = selected
+
+
 def expand_large_class_output(value, payload):
     """Restore verified evidence and construct a single complete grouping locally."""
     result = deepcopy(value)
@@ -57,13 +86,7 @@ def expand_large_class_output(value, payload):
     for level in result['level_analyses']:
         for difficulty in level.get('difficulty_groups', []):
             difficulty['difficulty'] = difficulty['problem_description']
-        for evidence in level['typical_evidence']:
-            student = students.get(evidence['student_id'])
-            sources = (student or {}).get('diagnosis', {}).get('evidence', [])
-            source = next((s for s in sources if s['ref'] == evidence['source_ref']), None)
-            if not source:
-                raise ValueError('典型证据未匹配学生个体诊断')
-            evidence.update(student_name=student['student']['student_name'], quote=source['quote'], interpretation=source['interpretation'])
+    _restore_typical_evidence(result, payload)
     if 'grouping_recommendations' not in result:
         groups, assigned = [], set()
         for level in result['level_analyses']:
@@ -216,6 +239,7 @@ def _repair_class_grouping(result, exact):
 def expand_class(value,payload):
     from .class_report import deterministic_distribution
     result=deepcopy(value)
+    _restore_typical_evidence(result, payload)
     for group_type in ('homogeneous_groups', 'heterogeneous_groups'):
         for group in result.get('grouping_recommendations', {}).get(group_type, []):
             group.pop('support_breakdown', None)
