@@ -927,7 +927,6 @@ function renderClassReport(payload) {
   const normalizedGroupText = value => String(value || "").trim().replace(/[\s。；;，,]+/g, "");
   const renderGroupCards = (items, type) => {
     const buckets = new Map();
-    const levelNames = {P:"任务入门", U:"单一要素", M:"要素梳理", R:"关系建构", EA:"拓展迁移"};
     items.forEach((group, index) => {
       const title = group.students.length === 1 ? "个别支持" : `第${index + 1}组`;
       const levelIds = new Set(group.students.map(s => distribution.find(level => level.students.some(member => member.student_id === s.student_id))?.level).filter(Boolean));
@@ -937,8 +936,7 @@ function renderClassReport(payload) {
       const support = type === "homogeneous" ? group.progression_direction : group.collaboration_direction;
       const level = levelIds.size === 1 ? [...levelIds][0] : "";
       const key = [level, normalizedGroupText(needs), normalizedGroupText(support), normalizedGroupText(task), String(combinedNeeds)].join("|");
-      const groupName = String(group.group_name || "").trim().replace(/(?:学习)?小组$|组$/u, "");
-      const name = groupName && groupName.length <= 12 && !/^(?:P|U|M|R|EA)(?:层级)?$|^(?:前结构|单点结构|多点结构|关联结构|拓展抽象结构)$|^学习特点待核对$/i.test(groupName) ? groupName : (levelNames[level] || "学习探索");
+      const name = String(group.group_name || task || "学习任务").trim();
       if (!buckets.has(key)) buckets.set(key, {name, needs, support, task, combinedNeeds, groups:[]});
       buckets.get(key).groups.push({title, students:group.students, support_breakdown:group.support_breakdown || []});
     });
@@ -948,7 +946,7 @@ function renderClassReport(payload) {
         return `<div><p><b>${escapeHTML(group.title)}：</b>${studentNames(group.students)}</p></div>`;
       }).join("");
       const supportText = bucket.support;
-      return `<article class="teaching-group"><h4>${escapeHTML(bucket.name)}</h4><p><b>学情：</b>${escapeHTML(bucket.needs)}</p>${bucket.task ? `<p><b>学习任务：</b>${escapeHTML(bucket.task)}</p>` : ""}${supportText && normalizedGroupText(supportText) !== normalizedGroupText(bucket.task) ? `<p><b>教学支持：</b>${escapeHTML(supportText)}</p>` : ""}<div class="teaching-group-rosters">${rosters}</div></article>`;
+      return `<article class="teaching-group"><h4>${escapeHTML(bucket.name)}</h4><p><b>学情：</b>${escapeHTML(bucket.needs)}</p>${bucket.task && normalizedGroupText(bucket.task) !== normalizedGroupText(bucket.name) ? `<p><b>学习任务：</b>${escapeHTML(bucket.task)}</p>` : ""}${supportText && normalizedGroupText(supportText) !== normalizedGroupText(bucket.task) ? `<p><b>教学支持：</b>${escapeHTML(supportText)}</p>` : ""}<div class="teaching-group-rosters">${rosters}</div></article>`;
     }).join("");
   };
   const diagnosedIds = new Set(classroomResults.filter(item => item.report?.result).map(item => item.student.id));

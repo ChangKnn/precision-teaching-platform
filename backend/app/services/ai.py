@@ -870,7 +870,7 @@ def run_class_diagnosis_report(
         provider, schema_override=class_transport_schema(schema, compact_large=compact_large), instruction_suffix=(
             "\n\n只返回符合 Schema 的班级结构化分析，不额外生成文字报告。"
             "教师页面与导出报告由平台根据这些字段排版。"
-            "每层level_group_name用不超过18字的短语概括本层学生共同的实际学习特点，不使用SOLO层级名称或泛化套话；每层main_performance用2至4句概括学生实际表现和有依据的差异，区分自主提出、经AI追问后提出和仅确认AI的内容，不以少数学生代替全体。主要问题依据个体表达及本次任务，写明处理了什么、具体在哪一步受阻，不套写层级定义或推测。teaching_design分别给出content、task和scaffold，各一句，结合当前学科任务、学生障碍及SOLO进阶依据，不代学生作答。P先支持一个相关回应，U先扩展相关要素而不强求完整关系链，M按任务建立适当关系，R可根据目标和材料检验新情境或条件。不得把时间顺序或未经验证的关系写成因果结论。"
+            "每层level_group_name必须从本层teaching_design.task的具体学习任务提炼一个简短动宾短语，表明学生要做什么，不使用学生的问题、SOLO层级名或通用层级套话；每层main_performance用2至4句概括学生实际表现和有依据的差异，区分自主提出、经AI追问后提出和仅确认AI的内容，不以少数学生代替全体。主要问题依据个体表达及本次任务，写明处理了什么、具体在哪一步受阻，不套写层级定义或推测。teaching_design分别给出content、task和scaffold，各一句，结合当前学科任务、学生障碍及SOLO进阶依据，不代学生作答。P先支持一个相关回应，U先扩展相关要素而不强求完整关系链，M按任务建立适当关系，R可根据目标和材料检验新情境或条件。不得把时间顺序或未经验证的关系写成因果结论。"
             "只能引用输入中的个体诊断，不得重新定级，也不要设计具体课堂活动。"
             "本轮不输出class_summary、traceability或level_analyses内的students/count；这些统计和完整名单由程序据全体输入生成。其他字段保持完整但简洁，每层只选1—2条典型证据，避免重复复述。"
             "common_issues归纳1至3条基于学生实际表现的共同问题，不复述SOLO层级介绍，填写有依据的学生ID。每层根据学生progression.main_obstacle优先归纳一个最值得教学关注的问题，只有学生确有明显不同且需要不同支持时才写第二个；不得为了覆盖每位学生而强行分类。每项problem_label为18字以内短语，problem_description一句话，difficulty与描述相同，student_ids只列有依据的学生，teaching_suggestion给一句具体支持。individual_attention仅记录有明确原话依据的身体不适、参与状态、情绪表达、学习支持、新思路或安全关注；只凭明确表达的感受判断情绪，不能由拒答或催促推测。evidence_quote须逐字摘自该学生原始表达；无依据时返回空数组。不得臆测心理和给学生贴标签，明确安全风险时建议教师及时关注。所有描述尽量简短。分组须覆盖全体已诊断学生。"
@@ -888,6 +888,7 @@ def run_class_diagnosis_report(
     jsonschema.validate(result, schema)
     # Preserve the call signature; the caller renders the validated result locally.
     _validate_class_problem_groups(result, payload)
+    result['task_group_names_version'] = '1'
     result['problem_grouping_version'] = '1.1'
     return result, None
 
@@ -918,7 +919,7 @@ def _run_large_class_in_stages(skill, payload, provider, full_schema):
         inp = {'precision_teaching_context':payload['precision_teaching_context'], 'diagnostic_task_text':payload.get('diagnostic_task_text',''), 'student_diagnosis_results':brief}
         suffix = ('本次只归纳这一个SOLO层级的问题，不生成班级报告、分组或其他层级。'
             '比较同层级学生的主要障碍，优先归纳一个有代表性的主要问题；只有确实需要不同教学支持时才增加第二个，'
-            '每层level_group_name用不超过18字的短语概括本层共同的实际学习特点，不使用SOLO层级名称或泛化套话。不得为了覆盖每个人强行分类。每项包含18字以内problem_label、一句话problem_description、'
+            '每层level_group_name必须从teaching_design.task的具体学习任务提炼简短动宾短语，体现学生要做什么，禁止使用学生问题、SOLO层级名称或通用套话。不得为了覆盖每个人强行分类。每项包含18字以内problem_label、一句话problem_description、'
             '有依据的student_ids及一句teaching_suggestion；group_name应结合当前学科内容和学生要完成的任务，用教师易懂的短语命名，不照搬其他学科示例，不用SOLO术语或层级名；不要输出difficulty字段。'
             'main_performance用2至4句概括具体作答表现及有依据的差异。problem_description必须依据学生实际表达写出本题具体的问题，不得只改写SOLO定义或虚构事实。'
             '区分学生自主提出、经AI追问后提出和仅确认AI的内容，不把后两者都当作自主掌握。'
@@ -948,6 +949,7 @@ def _run_large_class_in_stages(skill, payload, provider, full_schema):
     _validate_class_problem_groups(overview, payload)
     result = expand_class(expand_large_class_output(overview, payload), payload)
     jsonschema.validate(result, full_schema)
+    result['task_group_names_version'] = '1'
     result['problem_grouping_version'] = '1.1'
     return result, None
 

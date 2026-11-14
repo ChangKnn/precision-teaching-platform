@@ -133,7 +133,7 @@ def practical_grouping(result):
                 size = base + (i < extra)
                 members = ids[pos:pos + size]
                 pos += size
-                groups.append({'group_id': f'H{len(groups)+1}', 'group_name': name if name and name != '学习特点待核对' and len(name) <= 12 else LEVEL_NAMES.get(row['level'], '学习探索'),
+                groups.append({'group_id': f'H{len(groups)+1}', 'group_name': (analysis.get('level_group_name') if view.get('task_group_names_version') == '1' else None) or analysis.get('teaching_design', {}).get('task') or '学习任务',
                     'students': [by_id[sid] for sid in members],
                     'common_characteristics': needs or '依据本层级学生的实际困难安排。',
                     'progression_direction': support or '结合学生实际表现安排学习任务。',

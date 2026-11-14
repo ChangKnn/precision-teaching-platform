@@ -46,18 +46,26 @@ class PracticalGroupingTest(unittest.TestCase):
         ids = [s['student_id'] for g in groups for s in g['students']]
         self.assertEqual(len(ids), 10)
         self.assertEqual(len(set(ids)), 10)
-        self.assertEqual(groups[0]['group_name'], '问题一')
+        self.assertEqual(groups[0]['group_name'], '学习任务')
         self.assertEqual(groups[0]['progression_direction'], '共同支持')
         self.assertFalse(any('support_breakdown' in g for g in groups))
 
     def test_level_name_and_support_are_based_on_analysis(self):
         report = make_report(5)
-        report['level_analyses'] = [{'level':'P', 'level_group_name':'线索辨认', 'main_performance':'正在辨认文本中的相关线索。',
+        report['task_group_names_version'] = '1'
+        report['level_analyses'] = [{'level':'P', 'level_group_name':'圈画线索', 'main_performance':'正在辨认文本中的相关线索。',
             'difficulty_groups':[], 'teaching_design':{'task':'圈画线索', 'scaffold':'提供对照表'}}]
         groups = practical_grouping(report)['grouping_recommendations']['homogeneous_groups']
-        self.assertEqual(groups[0]['group_name'], '线索辨认')
+        self.assertEqual(groups[0]['group_name'], '圈画线索')
         self.assertEqual(groups[0]['progression_direction'], '提供对照表')
-        self.assertEqual(groups[1]['group_name'], '单一要素')
+        self.assertEqual(groups[1]['group_name'], '学习任务')
+
+    def test_old_report_name_comes_from_learning_task_not_level_or_problem(self):
+        report = make_report(5)
+        report['level_analyses'] = [{'level':'R', 'level_group_name':'关系建构', 'main_performance':'已能联系多个因素。',
+            'difficulty_groups':[], 'teaching_design':{'task':'比较不同因素的影响程度', 'scaffold':'提供比较维度'}}]
+        groups = practical_grouping(report)['grouping_recommendations']['homogeneous_groups']
+        self.assertEqual(groups[3]['group_name'], '比较不同因素的影响程度')
 
     def test_existing_report_view_and_future_goal_design_use_same_grouping(self):
         from backend.app import goal_path_api
