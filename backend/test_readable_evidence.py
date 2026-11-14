@@ -6,7 +6,7 @@ from unittest.mock import patch
 from backend.app import student_api
 from backend.app.services.readable_evidence import readable_narrative, readable_text
 from backend.app.services.skills import load_skill
-from backend.app.services.class_report import render_class_markdown
+from backend.app.services.class_report import render_class_markdown, with_student_case_summaries
 
 
 class ReadableEvidenceTest(TestCase):
@@ -41,3 +41,20 @@ class ReadableEvidenceTest(TestCase):
         result['level_analyses'][0]['typical_evidence'][0]['source_ref']='turn-3668'
         result['level_analyses'][0]['main_performance']='在turn-3668解释原因'
         self.assertNotIn('turn-3668',render_class_markdown(result))
+
+    def test_cases_use_report_snapshot_not_raw_quotation_and_deduplicate(self):
+        skill = load_skill('solo_class_diagnosis_intervention')
+        result = json.loads((skill.path.parent/'tests/sample-output.json').read_text(encoding='utf-8'))
+        payload = json.loads((skill.path.parent/'tests/sample-input.json').read_text(encoding='utf-8'))
+        level = result['level_analyses'][0]
+        level['typical_evidence'].append(copy.deepcopy(level['typical_evidence'][0]))
+        student = next(s for s in payload['student_diagnosis_results'] if s['student']['student_id'] == level['typical_evidence'][0]['student_id'])
+        view = with_student_case_summaries(result, payload)
+        cases = view['level_analyses'][0]['student_cases']
+        self.assertEqual(len(cases), 1)
+        self.assertEqual(cases[0]['level_reason'], student['diagnosis']['rationale'])
+        self.assertEqual(cases[0]['obstacle'], student['progression']['main_obstacle'])
+        rendered = render_class_markdown(result, payload)
+        self.assertIn(cases[0]['obstacle'], rendered)
+        self.assertNotIn(level['typical_evidence'][0]['quote'], rendered)
+        self.assertNotIn('student_cases', result['level_analyses'][0])

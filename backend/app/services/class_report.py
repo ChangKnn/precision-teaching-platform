@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import copy
 import hashlib
 import json
+import re
 from threading import RLock
 from time import monotonic
 from uuid import uuid4
@@ -242,9 +244,39 @@ def singleton_grouping_note(grouping: dict) -> str:
     return ""
 
 
-def render_class_markdown(result: dict) -> str:
+def with_student_case_summaries(result: dict, payload: dict | None) -> dict:
+    """Build reader-facing cases from the individual diagnoses used by this report."""
+    view = copy.deepcopy(result)
+    students = {item['student']['student_id']: item for item in (payload or {}).get('student_diagnosis_results', [])}
+    def concise(text):
+        text = str(text or '').strip()
+        # Keep a complete first sentence, rather than cutting off an explanation mid-sentence.
+        return re.split(r'(?<=[。！？!?])', text, maxsplit=1)[0].strip()
+    for level in view.get('level_analyses', []):
+        if payload is None and 'student_cases' in level:
+            continue
+        cases, used = [], set()
+        for evidence in level.get('typical_evidence', []):
+            student_id = evidence.get('student_id')
+            if student_id in used:
+                continue
+            student = students.get(student_id, {})
+            diagnosis = student.get('diagnosis', {})
+            if diagnosis and diagnosis.get('level') != level.get('level'):
+                diagnosis, student = {}, {}
+            cases.append({'student_name': evidence.get('student_name', ''),
+                          'level_reason': concise(diagnosis.get('rationale') or evidence.get('interpretation')),
+                          'obstacle': concise(student.get('progression', {}).get('main_obstacle'))})
+            used.add(student_id)
+            if len(cases) == 2:
+                break
+        level['student_cases'] = cases
+    return view
+
+
+def render_class_markdown(result: dict, payload: dict | None = None) -> str:
     from .readable_evidence import readable_narrative
-    result = readable_narrative(result)
+    result = readable_narrative(with_student_case_summaries(result, payload))
     summary = result["class_summary"]
     overall = result["overall_diagnosis"]
     priorities = result["teaching_priorities"]
@@ -273,8 +305,8 @@ def render_class_markdown(result: dict) -> str:
     ]
     for item in result["level_analyses"]:
         evidence = "；".join(
-            f"{entry['student_name']}的表述：“{entry['quote']}”（{entry['interpretation']}）"
-            for entry in item["typical_evidence"]
+            f"{entry['student_name']}：{entry['level_reason']}" + (f" 主要困难：{entry['obstacle']}" if entry['obstacle'] else "")
+            for entry in item["student_cases"]
         )
         lines += [
             f"### {item['level']}（{item['level_name']}）：{item['level_meaning']}", "",
@@ -338,8 +370,16 @@ def report_row(teaching_id: str, classroom_id: str) -> dict | None:
     if not row:
         return None
     result = json.loads(row['generated_json']) if row['generated_json'] else None
+    payload = None
+    if result and row['generated_at']:
+        job = fetch_one("SELECT input_json FROM ai_jobs WHERE skill_key = ? AND status = 'completed' AND completed_at = ? AND output_json = ? ORDER BY created_at DESC LIMIT 1", (row['skill_key'], row['generated_at'], row['generated_json']))
+        if job:
+            try:
+                payload = json.loads(job['input_json'])
+            except (TypeError, ValueError):
+                pass
     try:
-        display_text = render_class_markdown(result) if result else readable_text(row['report_text'] or '')
+        display_text = render_class_markdown(result, payload) if result else readable_text(row['report_text'] or '')
     except (KeyError, TypeError, ValueError):
         display_text = readable_text(row['report_text'] or '')
     return {
@@ -350,7 +390,7 @@ def report_row(teaching_id: str, classroom_id: str) -> dict | None:
         "provider": row["provider"],
         "status": row["status"],
         "source_hash": row["source_hash"],
-        "result": readable_narrative(result) if result else None,
+        "result": readable_narrative(with_student_case_summaries(result, payload)) if result else None,
         "report_text": display_text,
         "error": row["error"],
         "generated_at": row["generated_at"],
@@ -501,7 +541,7 @@ def generate_class_report(
                     restore_names(nested)
         restore_names(result)
         result["class_summary"]["total_students"] = exact["total_students"]
-        report_text = render_class_markdown(result)
+        report_text = render_class_markdown(with_student_case_summaries(result, payload))
         output_json = json.dumps(result, ensure_ascii=False)
         completed_at = utc_now()
         latest = class_report_input(teaching_id, classroom_id)[1]
