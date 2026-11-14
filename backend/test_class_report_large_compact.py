@@ -10,6 +10,20 @@ from backend.app.services.skills import load_skill
 
 
 class LargeClassCompactTest(unittest.TestCase):
+    def test_business_validation_failure_keeps_stage_and_reason_after_repair(self):
+        skill = load_skill('solo_class_diagnosis_intervention')
+        schema = {'type':'object','properties':{}}
+        response = {'choices':[{'message':{'content':'{}'}}]}
+        with patch.object(ai, 'settings', replace(ai.settings, ai_api_key='test-key', ai_model='test-model')), patch.object(ai, '_post_json', return_value=response) as post, patch.object(ai, '_validate_class_problem_groups', side_effect=ValueError('M层级问题须关联本层级真实学生')):
+            with self.assertRaisesRegex(RuntimeError, '分层分析：M层级问题须关联本层级真实学生'):
+                ai._run_rubric_compatible(skill, {}, schema, 'class_level_problems', '')
+        self.assertEqual(post.call_count, 2)
+
+    def test_business_error_does_not_echo_unexpected_student_data(self):
+        detail = ai._class_validation_diagnostic(ValueError('unexpected private conversation'), 'class_overview')
+        self.assertNotIn('private conversation', detail)
+        self.assertIn('班级概览', detail)
+
     def test_overview_retries_invented_common_issue_student_id(self):
         from backend.app.services.compact_outputs import class_transport_schema
         skill = load_skill('solo_class_diagnosis_intervention')

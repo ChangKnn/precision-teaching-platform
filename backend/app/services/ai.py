@@ -464,6 +464,26 @@ def _rubric_format_rejected(error: Exception) -> bool:
              and any(word in message for word in ('not supported', 'unsupported', 'not available'))))
 
 
+def _class_validation_diagnostic(error, output_name):
+    stage = {'class_overview':'班级概览', 'class_level_problems':'分层分析',
+             'solo_class_diagnosis':'班级分析'}.get(output_name, '班级分析')
+    if isinstance(error, StructuredOutputError):
+        reason = error.diagnostic
+    else:
+        message = str(error)
+        known = (
+            '问题分类须覆盖所有有学生的层级',
+            '班级共性问题引用了未知学生',
+            '个体关注须引用输入中真实学生编号',
+            '典型证据未匹配学生个体诊断',
+        )
+        if re.match(r'^(P|U|M|R|EA)层级(?:须分别给出内容、任务和支架建议|需要归纳1至2类主要问题|每类问题须填写短语、描述和教学建议|问题标题须为18字以内短语|相同问题应合并为一类|问题须关联本层级真实学生)$', message):
+            reason = message
+        else:
+            reason = next((item for item in known if message.startswith(item)), '输出未通过业务校验')
+    return stage + '：' + reason
+
+
 def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
                            output_name: str, instruction_suffix: str) -> dict:
     """At most four requests: two format fallbacks and one validation repair."""
@@ -533,6 +553,8 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
         except (ValueError, RuntimeError) as error:
             if repaired:
                 detail = f'（{error.diagnostic}）' if skill.key in {'solo_class_diagnosis_intervention', 'precision_intervention_plan_integration_review'} and isinstance(error, StructuredOutputError) else ''
+                if skill.key == 'solo_class_diagnosis_intervention':
+                    detail = '（' + _class_validation_diagnostic(error, output_name) + '）'
                 if skill.key in {'solo_class_diagnosis_intervention', 'precision_intervention_plan_integration_review'} and (response.get('choices') or [{}])[0].get('finish_reason') == 'length':
                     detail = '（模型输出达到长度限制，JSON 未完整返回）'
                 raise RuntimeError(f'{label}输出校验及一次修正仍未通过{detail}，{retained}，请重试') from error
