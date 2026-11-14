@@ -930,7 +930,12 @@ function renderClassReport(payload) {
     const concreteName = name && !/^(第[0-9]+学习小组|(?:P|U|M|R|EA)(?:组|$)|前结构|单点结构|多点结构|关联结构|拓展抽象)/i.test(name.replace(/\s/g, "")) ? name : "";
     const levelIds = new Set(group.students.map(s => distribution.find(level => level.students.some(member => member.student_id === s.student_id))?.level).filter(Boolean));
     const levelTask = levelIds.size === 1 ? data.level_analyses.find(level => level.level === [...levelIds][0])?.teaching_design?.task : "";
-    return `<article><h4>${escapeHTML(title)}${concreteName ? ` · ${escapeHTML(concreteName)}` : ""}</h4><p class="group-members">${studentNames(group.students)}</p>${levelTask ? `<p><b>学习任务：</b>${escapeHTML(levelTask)}</p>` : ""}<p><b>${type === "homogeneous" ? "学习需要" : "分组依据"}：</b>${escapeHTML(type === "homogeneous" ? group.common_characteristics : group.grouping_rationale)}</p><small><b>教学支持：</b>${escapeHTML(type === "homogeneous" ? group.progression_direction : group.collaboration_direction)}</small></article>`;
+    const combinedNeeds = type === 'homogeneous'
+      ? group.common_characteristics === '本组由不同学习需要的学生组成，请按具体需要提供支持。'
+      : group.grouping_rationale === '为便于课堂组织合并，成员的学习需要可能不同。';
+    const sharedTask = data.overall_diagnosis.main_progression_direction || '围绕本课共同任务学习';
+    const taskName = combinedNeeds ? sharedTask : (levelTask || concreteName || sharedTask);
+    return `<article><h4 class="class-group-heading"><span>${escapeHTML(title)}</span><span>${escapeHTML(taskName)}</span></h4><p class="group-members">${studentNames(group.students)}</p>${levelTask && levelTask !== taskName && !combinedNeeds ? `<p><b>学习任务：</b>${escapeHTML(levelTask)}</p>` : ""}<p><b>${type === "homogeneous" ? "学习需要" : "分组依据"}：</b>${escapeHTML(type === "homogeneous" ? group.common_characteristics : group.grouping_rationale)}</p><small><b>教学支持：</b>${escapeHTML(type === "homogeneous" ? group.progression_direction : group.collaboration_direction)}</small></article>`;
   };
   const diagnosedIds = new Set(classroomResults.filter(item => item.report?.result).map(item => item.student.id));
   const coversEveryone = items => {

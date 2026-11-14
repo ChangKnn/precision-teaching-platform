@@ -610,6 +610,9 @@ td[contenteditable="true"]:focus { outline: 2px solid #b9dcd3; outline-offset: -
 .class-report-grid > section, .class-report-grid > article { min-width: 0; padding: 15px; border: 1px solid #d9e7e3; border-radius: 10px; background: #fbfefd; }
 .class-report-grid h3 { margin: 0 0 8px; font-size: 14px; }
 .class-report-grid h4 { margin: 0 0 8px; font-size: 13px; color: var(--teal-dark); }
+.class-group-heading { display: flex; align-items: baseline; gap: 8px; line-height: 1.55; }
+.class-group-heading > span:first-child { flex: none; }
+.class-group-heading > span + span { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
 .class-report-grid .group-members { margin: 0 0 10px; font-weight: 700; }
 .class-report-grid p { margin: 7px 0; line-height: 1.6; }
 .class-report-grid small { display: block; margin-top: 7px; color: #596b67; line-height: 1.6; }
