@@ -46,7 +46,7 @@ class PracticalGroupingTest(unittest.TestCase):
         ids = [s['student_id'] for g in groups for s in g['students']]
         self.assertEqual(len(ids), 10)
         self.assertEqual(len(set(ids)), 10)
-        self.assertEqual(groups[0]['group_name'], '学习小组')
+        self.assertEqual(groups[0]['group_name'], '任务探究组')
         self.assertEqual(groups[0]['progression_direction'], '共同支持')
         self.assertFalse(any('support_breakdown' in g for g in groups))
 
@@ -56,16 +56,29 @@ class PracticalGroupingTest(unittest.TestCase):
         report['level_analyses'] = [{'level':'P', 'level_group_name':'圈画线索', 'main_performance':'正在辨认文本中的相关线索。',
             'difficulty_groups':[], 'teaching_design':{'task':'圈画线索', 'scaffold':'提供对照表'}}]
         groups = practical_grouping(report)['grouping_recommendations']['homogeneous_groups']
-        self.assertEqual(groups[0]['group_name'], '圈画线索')
+        self.assertEqual(groups[0]['group_name'], '圈画线索组')
         self.assertEqual(groups[0]['progression_direction'], '提供对照表')
-        self.assertEqual(groups[1]['group_name'], '学习小组')
+        self.assertEqual(groups[1]['group_name'], '任务探究组')
 
     def test_old_report_name_comes_from_learning_task_not_level_or_problem(self):
         report = make_report(5)
         report['level_analyses'] = [{'level':'R', 'level_group_name':'关系建构', 'main_performance':'已能联系多个因素。',
             'difficulty_groups':[], 'teaching_design':{'task':'比较不同因素的影响程度，并说明比较依据', 'scaffold':'提供比较维度'}}]
         groups = practical_grouping(report)['grouping_recommendations']['homogeneous_groups']
-        self.assertEqual(groups[3]['group_name'], '比较不同因素的影响程度')
+        self.assertEqual(groups[3]['group_name'], '影响比较组')
+
+    def test_legacy_task_titles_follow_activity_not_solo(self):
+        from backend.app.services.compact_outputs import _task_group_name
+        cases = [
+            ('学生从材料中圈出一件事，用一句话说明它与东汉衰亡的关系。', '史实辨认组'),
+            ('选取一个已提出的因素，写出一条完整因果链。', '因果推演组'),
+            ('学生用句式连接相邻两个要素，并说明作用。', '关系串联组'),
+            ('学生检验已建立的因果链：标出每个环节的史料依据。', '证据检验组'),
+            ('比较两种解法的适用条件。', '方法比较组'),
+            ('分析实验数据，解释观察结果。', '数据分析组'),
+        ]
+        for task, name in cases:
+            self.assertEqual(_task_group_name({'teaching_design':{'task':task}}, False), name)
 
     def test_existing_report_view_and_future_goal_design_use_same_grouping(self):
         from backend.app import goal_path_api

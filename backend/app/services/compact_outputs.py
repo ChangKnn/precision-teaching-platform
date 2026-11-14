@@ -3,7 +3,6 @@ from copy import deepcopy
 import re
 
 LEVELS = ('P','U','M','R','EA')
-LEVEL_NAMES = {'P':'任务入门', 'U':'单一要素', 'M':'要素梳理', 'R':'关系建构', 'EA':'拓展迁移'}
 FIELDS = ('core_performance','decision_evidence','typical_expressions')
 RUBRIC_SCHEMA = {'type':'object','additionalProperties':False,'required':['levels','notes'],
     'properties':{
@@ -99,15 +98,31 @@ def _complete_nonoverlapping_groups(groups, source_ids):
 
 
 def _task_group_name(analysis, trusted_name):
-    """Use a generated task title; otherwise retain a complete task clause."""
+    """Name the learning activity, preserving the full task separately."""
     if trusted_name:
-        name = str(analysis.get('level_group_name') or '').strip()
-        if name:
-            return name
+        name = str(analysis.get('level_group_name') or '').strip().removesuffix('组')
+        if name and len(name) <= 10:
+            return name + '组'
     task = str(analysis.get('teaching_design', {}).get('task') or '').strip()
-    if task:
-        return re.split(r'[，,；;。！？!?\n]', task, maxsplit=1)[0].strip() or task
-    return '学习小组'
+    # Legacy reports have no generated title. Read task actions, never the SOLO level.
+    rules = [
+        (r'(检验|核对|标出|审查).*(史料|证据|依据)|证据.*(检验|核对)', '证据检验'),
+        (r'(比较|对比).*(方法|解法)|(方法|解法).*(比较|对比)', '方法比较'),
+        (r'(因果链|因果关系).*(完整|推演)|完整因果链|具体表现.*导致.*后果', '因果推演'),
+        (r'(连接|串联).*(要素|因素|关系)|关系.*(串联|连接)', '关系串联'),
+        (r'(比较|对比).*(影响|作用|程度)', '影响比较'),
+        (r'(圈出|辨认|识别|找出).*(事件|一件事|史实)', '史实辨认'),
+        (r'(实验|数据).*(分析|比较|检验)|(分析|比较|检验).*(实验|数据)', '数据分析'),
+        (r'(迁移|新情境|新问题)', '迁移应用'),
+        (r'(证明|论证)', '推理论证'),
+        (r'(计算|求解)', '问题求解'),
+        (r'(圈出|辨认|识别|找出)', '信息辨认'),
+        (r'(比较|对比)', '观点比较'),
+    ]
+    for pattern, name in rules:
+        if re.search(pattern, task):
+            return name + '组'
+    return '任务探究组'
 
 
 def practical_grouping(result):
