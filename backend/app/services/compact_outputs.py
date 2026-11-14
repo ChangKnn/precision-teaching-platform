@@ -116,10 +116,14 @@ def practical_grouping(result):
                 ids = [sid for sid in difficulty.get('student_ids', []) if sid in by_id and sid not in assigned]
                 if ids:
                     assigned.update(ids)
-                    buckets.append((ids, difficulty.get('problem_label') or '学习重点', difficulty.get('problem_description') or '', difficulty.get('teaching_suggestion') or ''))
+                    buckets.append((ids, difficulty.get('group_name') or difficulty.get('problem_label') or '学习特点待核对', difficulty.get('problem_description') or '', difficulty.get('teaching_suggestion') or ''))
         remaining = [student['student_id'] for student in students if student['student_id'] not in assigned]
         if remaining:
-            buckets.append((remaining, row['level'] + ' 层级', analysis.get('main_performance') or '本组学生处于同一 SOLO 层级。', analysis.get('teaching_suggestion') or analysis.get('teaching_design', {}).get('task') or '结合学生实际表现安排学习任务。'))
+            matching = next((d for d in analysis.get('difficulty_groups', []) if set(remaining) <= set(d.get('student_ids', []))), None)
+            name = (matching.get('group_name') or matching.get('problem_label')) if matching else (analysis.get('level_group_name') if len(remaining) == len(students) else None)
+            needs = matching.get('problem_description') if matching else analysis.get('main_performance')
+            support = matching.get('teaching_suggestion') if matching else analysis.get('teaching_design', {}).get('scaffold') or analysis.get('teaching_suggestion')
+            buckets.append((remaining, name or '学习特点待核对', needs or '本组学情需结合学生个体诊断进一步核对。', support or '结合学生实际表现安排学习支持。'))
         for ids, name, needs, support in buckets:
             count = (len(ids) + 5) // 6
             base, extra = divmod(len(ids), count)

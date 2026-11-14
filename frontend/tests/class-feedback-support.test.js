@@ -25,6 +25,8 @@ vm.runInNewContext(renderer+';this.render=renderClassReport;', context);
 const results = students.map(student=>({student:{id:student.student_id,classroom_id:'c'},report:{result:{}},messages:[]}));
 context.render({classrooms:[{id:'c',name:'测试班'}],results,class_reports:{c:{status:'ready',result:data}}});
 const html = get('classEvidencePanel').innerHTML;
+assert(html.includes('<b>学情：</b>'));
+assert(!html.includes('<b>学习需要：</b>'));
 assert(!html.includes('查看组内支持安排'));
 assert(!html.includes('只给第一位学生的支持'));
 assert(html.includes('学生表达（待教师核对）'));

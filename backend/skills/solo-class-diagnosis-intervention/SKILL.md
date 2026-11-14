@@ -130,3 +130,5 @@ python scripts/aggregate_distribution.py <input.json>
 - `scripts/aggregate_distribution.py`：从 JSON 输入确定性统计五级分布；
 - `scripts/validate_contract.py`：修改本 Skill 后执行契约与不变量验证；
 - `tests/behavior-cases.json`：人工或模型前向测试用的边界案例。
+
+各层级填写 level_group_name，以简短词语概括该层学生在当前任务中有依据的共同学习特点；具体困难组使用 group_name。名称不写 SOLO 代号、不写长句，不照搬其他学科内容。每组先说明学情和分组依据，再说明学习任务与教学支持；没有共同依据时如实提示教师核对。

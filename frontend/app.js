@@ -943,7 +943,7 @@ function renderClassReport(payload) {
       const needs = type === "homogeneous" ? group.common_characteristics : group.grouping_rationale;
       const support = type === "homogeneous" ? group.progression_direction : group.collaboration_direction;
       const key = [normalizedGroupText(needs), normalizedGroupText(support), normalizedGroupText(task), String(combinedNeeds)].join("|");
-      if (!buckets.has(key)) buckets.set(key, {name:shortGroupName(group) || quotedTask || "共同探究", needs, support, task, combinedNeeds, groups:[]});
+      if (!buckets.has(key)) buckets.set(key, {name:shortGroupName(group) || "学习特点待核对", needs, support, task, combinedNeeds, groups:[]});
       buckets.get(key).groups.push({title, students:group.students, support_breakdown:group.support_breakdown || []});
     });
     return [...buckets.values()].map(bucket => {
@@ -952,7 +952,7 @@ function renderClassReport(payload) {
         return `<div><p><b>${escapeHTML(group.title)}：</b>${studentNames(group.students)}</p></div>`;
       }).join("");
       const supportText = bucket.support;
-      return `<article class="teaching-group"><h4>${escapeHTML(bucket.name)}</h4>${bucket.task ? `<p><b>学习任务：</b>${escapeHTML(bucket.task)}</p>` : ""}${identical && !bucket.combinedNeeds ? `<p><b>学习重点：</b>${escapeHTML(bucket.needs)}</p>` : `<p><b>学习需要：</b>${escapeHTML(bucket.needs)}</p><p><b>教学支持：</b>${escapeHTML(supportText)}</p>`}<div class="teaching-group-rosters">${rosters}</div></article>`;
+      return `<article class="teaching-group"><h4>${escapeHTML(bucket.name)}</h4><p><b>学情：</b>${escapeHTML(bucket.needs)}</p>${bucket.task ? `<p><b>学习任务：</b>${escapeHTML(bucket.task)}</p>` : ""}${supportText && normalizedGroupText(supportText) !== normalizedGroupText(bucket.task) ? `<p><b>教学支持：</b>${escapeHTML(supportText)}</p>` : ""}<div class="teaching-group-rosters">${rosters}</div></article>`;
     }).join("");
   };
   const diagnosedIds = new Set(classroomResults.filter(item => item.report?.result).map(item => item.student.id));
