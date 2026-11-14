@@ -786,7 +786,7 @@ def run_class_diagnosis_report(
             "教师页面与导出报告由平台根据这些字段排版。"
             "只能引用输入中的个体诊断，不得重新定级，也不要设计具体课堂活动。"
             "本轮不输出class_summary、traceability或level_analyses内的students/count；这些统计和完整名单由程序据全体输入生成。其他字段保持完整但简洁，每层只选1—2条典型证据，避免重复复述。"
-            "common_issues归纳1至3条具体共性困难并填写有依据的学生ID。每层difficulty_groups必须输出1至4项实际困难，每种不同困难单独一项，分别填写对应学生ID及一句具体教学建议；确实只有一种则只输出一项，不得强行分类或把多种困难合在一项。individual_attention仅记录有明确原话依据的情绪表达、学习支持、新思路或安全关注，每项evidence_quote须逐字摘自该学生student_statements或submitted_text；无依据时返回空数组。不得臆测心理和给学生贴标签，明确安全风险时建议教师及时关注。所有描述每项尽量一句话。分组优先同层级并结合困难，每组4至6人仅为参考，不得遗漏或重复学生。"
+            "common_issues归纳1至3条基于学生实际表现的共同问题，不复述SOLO层级介绍，填写有依据的学生ID。每层依据每名学生progression.main_obstacle归纳1至4类实际问题，不同问题各一项：problem_label是18字以内短语，problem_description是一句具体描述，difficulty与problem_description相同以兼容旧格式；student_ids只列个体障碍有依据的学生并尽可能覆盖全部学生，teaching_suggestion一句话。确实只有一种则只输出一项，不得强行分类。individual_attention仅记录有明确原话依据的情绪表达、学习支持、新思路或安全关注，每项evidence_quote须逐字摘自该学生student_statements或submitted_text；无依据时返回空数组。不得臆测心理和给学生贴标签，明确安全风险时建议教师及时关注。所有描述每项尽量一句话。分组优先同层级并结合困难，每组4至6人仅为参考，不得遗漏或重复学生。"
         ),
     )
     if payload.get('student_diagnosis_results'):

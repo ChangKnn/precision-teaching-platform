@@ -2,7 +2,7 @@ import copy
 import json
 import unittest
 
-from backend.app.services.class_report import validate_class_result
+from backend.app.services.class_report import validate_class_result, with_student_case_summaries
 from backend.app.services.compact_outputs import class_transport_schema
 from backend.app.services.skills import load_skill
 
@@ -40,3 +40,20 @@ class ClassFeedbackDetailsTest(unittest.TestCase):
         level['difficulty_groups'] = [{'difficulty':'困难','student_ids':[other['student']['student_id']],'teaching_suggestion':'支持'}]
         with self.assertRaisesRegex(ValueError, '不属于该层级'):
             validate_class_result(self.result, self.payload)
+
+    def test_old_and_partially_classified_reports_use_individual_obstacles(self):
+        level = self.result['level_analyses'][0]
+        level.pop('difficulty_groups', None)
+        view = with_student_case_summaries(self.result, self.payload)
+        recovered = view['level_analyses'][0]['recovered_difficulty_groups']
+        expected = {member['student_id'] for member in level['students']}
+        self.assertEqual({sid for group in recovered for sid in group['student_ids']}, expected)
+        for group in recovered:
+            for sid in group['student_ids']:
+                student = next(s for s in self.payload['student_diagnosis_results'] if s['student']['student_id'] == sid)
+                self.assertEqual(group['problem_description'], student['progression']['main_obstacle'])
+        first = level['students'][0]['student_id']
+        level['difficulty_groups'] = [{'difficulty':'已有分类','student_ids':[first],'teaching_suggestion':'支持'}]
+        view = with_student_case_summaries(self.result, self.payload)
+        recovered_ids = {sid for group in view['level_analyses'][0]['recovered_difficulty_groups'] for sid in group['student_ids']}
+        self.assertEqual(recovered_ids, expected - {first})

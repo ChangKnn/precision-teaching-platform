@@ -642,6 +642,15 @@
               "teaching_suggestion": {
                 "type": "string",
                 "minLength": 1
+              },
+              "problem_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 18
+              },
+              "problem_description": {
+                "type": "string",
+                "minLength": 1
               }
             }
           }
