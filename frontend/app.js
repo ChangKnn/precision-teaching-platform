@@ -925,16 +925,9 @@ function renderClassReport(payload) {
   const basisDetails = (title, items) => `<details class="class-basis-details"><summary>${title}</summary><ul>${(items || []).map(item => `<li>${escapeHTML(item)}</li>`).join("")}</ul></details>`;
   const priorityCard = (title, item) => `<article><h3>${title}</h3><p>${escapeHTML(item.statement)}</p>${basisDetails("诊断依据", item.diagnosis_basis)}${basisDetails("目标依据", item.goal_basis)}</article>`;
   const normalizedGroupText = value => String(value || "").trim().replace(/[\s。；;，,]+/g, "");
-  const shortGroupName = group => {
-    const source = String(group.group_name || "").trim().replace(/\s+/g, "");
-    const short = source.replace(/(?:第?[0-9一二三四五六七八九十]+)?(?:学习)?小组(?:[0-9]+)?$/u, "").replace(/组[0-9一二三四五六七八九十]*$/u, "").trim();
-    if (!short || short.length > 18 || /^(?:P|U|M|R|EA)(?:组|$)|^(?:前结构|单点结构|多点结构|关联结构|拓展抽象)/i.test(short)) return "";
-    return short;
-  };
   const renderGroupCards = (items, type) => {
     const buckets = new Map();
-    const sharedDirection = data.overall_diagnosis.main_progression_direction || "";
-    const quotedTask = sharedDirection.match(/(?:转向|聚焦|围绕)[“「]([^”」]{2,18})[”」]/u)?.[1] || "";
+    const levelNames = {P:"前结构", U:"单点结构", M:"多点结构", R:"关联结构", EA:"拓展抽象结构"};
     items.forEach((group, index) => {
       const title = group.students.length === 1 ? "个别支持" : `第${index + 1}组`;
       const levelIds = new Set(group.students.map(s => distribution.find(level => level.students.some(member => member.student_id === s.student_id))?.level).filter(Boolean));
@@ -942,8 +935,9 @@ function renderClassReport(payload) {
       const task = !combinedNeeds && levelIds.size === 1 ? data.level_analyses.find(level => level.level === [...levelIds][0])?.teaching_design?.task || "" : "";
       const needs = type === "homogeneous" ? group.common_characteristics : group.grouping_rationale;
       const support = type === "homogeneous" ? group.progression_direction : group.collaboration_direction;
-      const key = [normalizedGroupText(needs), normalizedGroupText(support), normalizedGroupText(task), String(combinedNeeds)].join("|");
-      if (!buckets.has(key)) buckets.set(key, {name:shortGroupName(group) || "学习特点待核对", needs, support, task, combinedNeeds, groups:[]});
+      const level = levelIds.size === 1 ? [...levelIds][0] : "";
+      const key = [level, normalizedGroupText(needs), normalizedGroupText(support), normalizedGroupText(task), String(combinedNeeds)].join("|");
+      if (!buckets.has(key)) buckets.set(key, {name:levelNames[level] ? `${levelNames[level]}组` : "学习小组", needs, support, task, combinedNeeds, groups:[]});
       buckets.get(key).groups.push({title, students:group.students, support_breakdown:group.support_breakdown || []});
     });
     return [...buckets.values()].map(bucket => {

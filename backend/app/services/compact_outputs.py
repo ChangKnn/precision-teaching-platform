@@ -2,6 +2,7 @@
 from copy import deepcopy
 
 LEVELS = ('P','U','M','R','EA')
+LEVEL_NAMES = {'P':'前结构', 'U':'单点结构', 'M':'多点结构', 'R':'关联结构', 'EA':'拓展抽象结构'}
 FIELDS = ('core_performance','decision_evidence','typical_expressions')
 RUBRIC_SCHEMA = {'type':'object','additionalProperties':False,'required':['levels','notes'],
     'properties':{
@@ -132,7 +133,7 @@ def practical_grouping(result):
                 size = base + (i < extra)
                 members = ids[pos:pos + size]
                 pos += size
-                groups.append({'group_id': f'H{len(groups)+1}', 'group_name': name,
+                groups.append({'group_id': f'H{len(groups)+1}', 'group_name': LEVEL_NAMES.get(row['level'], '学习') + '组',
                     'students': [by_id[sid] for sid in members],
                     'common_characteristics': needs or '依据本层级学生的实际困难安排。',
                     'progression_direction': support or '结合学生实际表现安排学习任务。',
