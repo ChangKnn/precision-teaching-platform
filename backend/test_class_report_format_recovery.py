@@ -10,12 +10,29 @@ def compact(value):
     result=copy.deepcopy(value)
     result.pop("class_summary",None);result.pop("traceability",None)
     for row in result["level_analyses"]:
+        row["difficulty_groups"] = [{"difficulty":"任务证据运用不足","problem_label":"证据运用不足",
+            "problem_description":"学生尚未完整运用任务证据。","student_ids":[s["student_id"] for s in row["students"]],
+            "teaching_suggestion":"引导学生说明证据。"}]
         row.pop("students",None);row.pop("count",None)
     return result
 from backend.app.services.skills import load_skill
 
 
 class ClassReportFormatRecoveryTest(unittest.TestCase):
+    def test_missing_problem_groups_triggers_repair_before_saving(self):
+        skill = load_skill('solo_class_diagnosis_intervention')
+        sample = json.loads((skill.path.parent/'tests/sample-output.json').read_text())
+        payload = json.loads((skill.path.parent/'tests/sample-input.json').read_text())
+        incomplete = compact(sample)
+        del incomplete['level_analyses'][0]['difficulty_groups']
+        responses = [{'choices':[{'message':{'content':json.dumps(incomplete)}}]},
+                     {'choices':[{'message':{'content':json.dumps(compact(sample))}}]}]
+        with patch.object(ai, 'settings', replace(ai.settings, ai_api_key='test-key', ai_model='test-model')), patch.object(ai, '_post_json', side_effect=responses) as post:
+            result, _ = ai.run_class_diagnosis_report(skill, payload, 'openrouter')
+        self.assertEqual(post.call_count, 2)
+        self.assertEqual(result['problem_grouping_version'], '1.0')
+        self.assertIn('1至4类', post.call_args_list[1].args[1]['messages'][-1]['content'])
+
     def test_incomplete_json_retries_without_feeding_a_cut_off_assistant_reply(self):
         skill=load_skill('solo_class_diagnosis_intervention')
         sample=json.loads((skill.path.parent/'tests/sample-output.json').read_text(encoding='utf-8'))

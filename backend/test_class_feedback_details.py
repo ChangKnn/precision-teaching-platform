@@ -41,19 +41,25 @@ class ClassFeedbackDetailsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '不属于该层级'):
             validate_class_result(self.result, self.payload)
 
-    def test_old_and_partially_classified_reports_use_individual_obstacles(self):
+    def test_old_reports_are_not_misrepresented_as_grouped(self):
         level = self.result['level_analyses'][0]
         level.pop('difficulty_groups', None)
         view = with_student_case_summaries(self.result, self.payload)
-        recovered = view['level_analyses'][0]['recovered_difficulty_groups']
-        expected = {member['student_id'] for member in level['students']}
-        self.assertEqual({sid for group in recovered for sid in group['student_ids']}, expected)
-        for group in recovered:
-            for sid in group['student_ids']:
-                student = next(s for s in self.payload['student_diagnosis_results'] if s['student']['student_id'] == sid)
-                self.assertEqual(group['problem_description'], student['progression']['main_obstacle'])
-        first = level['students'][0]['student_id']
-        level['difficulty_groups'] = [{'difficulty':'已有分类','student_ids':[first],'teaching_suggestion':'支持'}]
-        view = with_student_case_summaries(self.result, self.payload)
-        recovered_ids = {sid for group in view['level_analyses'][0]['recovered_difficulty_groups'] for sid in group['student_ids']}
-        self.assertEqual(recovered_ids, expected - {first})
+        self.assertNotIn('recovered_difficulty_groups', view['level_analyses'][0])
+
+    def test_problem_groups_cover_students_without_per_student_fallback(self):
+        from backend.app.services.ai import _validate_class_problem_groups
+        result = copy.deepcopy(self.result)
+        for level in result['level_analyses']:
+            level['difficulty_groups'] = [{'difficulty':'表述问题','problem_label':'问题概括',
+                'problem_description':'学生在任务中表现出的相近问题。',
+                'student_ids':[s['student_id'] for s in level['students']],
+                'teaching_suggestion':'提供针对性支持。'}]
+        _validate_class_problem_groups(result, self.payload)
+        level = next(row for row in result['level_analyses'] if len(row['students']) > 1)
+        level['difficulty_groups'][0]['student_ids'].pop()
+        with self.assertRaisesRegex(ValueError, '覆盖全部学生'):
+            _validate_class_problem_groups(result, self.payload)
+        level['difficulty_groups'] = []
+        with self.assertRaisesRegex(ValueError, '1至4类'):
+            _validate_class_problem_groups(result, self.payload)

@@ -516,6 +516,8 @@ def _run_rubric_compatible(skill: SkillDefinition, payload: dict, schema: dict,
                 validate_task_rubric(skill, result, require_complete=True)
             if output_name == 'student_brief':
                 _validate_student_brief_evidence(result, payload)
+            if output_name == 'solo_class_diagnosis':
+                _validate_class_problem_groups(result, payload)
             return result
         except (ValueError, RuntimeError) as error:
             if repaired:
@@ -770,6 +772,36 @@ def _validate_student_brief_evidence(result, payload):
                 raise ValueError('证据quote必须逐字复制对应学生发言或提交文本中的连续原文，不得引用AI发言、改写、拼接或增加省略号；请检查source并重新输出')
 
 
+def _validate_class_problem_groups(result, payload):
+    expected = {}
+    for student in payload.get('student_diagnosis_results', []):
+        expected.setdefault(student['diagnosis']['level'], set()).add(student['student']['student_id'])
+    rows = result.get('level_analyses', [])
+    if set(row.get('level') for row in rows) != set(expected) or len(rows) != len(expected):
+        raise ValueError('问题分类须覆盖所有有学生的层级，每层仅一条层级分析')
+    for row in rows:
+        groups = row.get('difficulty_groups') or []
+        if not 1 <= len(groups) <= 4:
+            raise ValueError(f"{row['level']}层级需要归纳1至4类问题")
+        assigned = set()
+        labels = set()
+        for group in groups:
+            if not all(str(group.get(key, '')).strip() for key in ('problem_label', 'problem_description', 'teaching_suggestion')):
+                raise ValueError(f"{row['level']}层级每类问题须填写短语、描述和教学建议")
+            if len(group['problem_label'].strip()) > 18:
+                raise ValueError(f"{row['level']}层级问题标题须为18字以内短语")
+            label = group['problem_label'].strip()
+            if label in labels:
+                raise ValueError(f"{row['level']}层级相同问题应合并为一类")
+            labels.add(label)
+            ids = set(group.get('student_ids') or [])
+            if not ids or len(ids) != len(group['student_ids']) or not ids <= expected[row['level']]:
+                raise ValueError(f"{row['level']}层级问题须关联本层级真实学生")
+            assigned.update(ids)
+        if assigned != expected[row['level']]:
+            raise ValueError(f"{row['level']}层级问题分类须覆盖全部学生")
+
+
 def run_class_diagnosis_report(
     skill: SkillDefinition, payload: dict[str, Any], provider: str
 ) -> tuple[dict[str, Any], None]:
@@ -797,6 +829,8 @@ def run_class_diagnosis_report(
         raise RuntimeError("缺少 jsonschema 依赖，无法校验班级诊断报告") from error
     jsonschema.validate(result, schema)
     # Preserve the call signature; the caller renders the validated result locally.
+    _validate_class_problem_groups(result, payload)
+    result['problem_grouping_version'] = '1.0'
     return result, None
 
 

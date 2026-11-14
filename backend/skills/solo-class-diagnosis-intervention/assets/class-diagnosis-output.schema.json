@@ -286,6 +286,12 @@
           }
         }
       }
+    },
+    "problem_grouping_version": {
+      "type": "string",
+      "enum": [
+        "1.0"
+      ]
     }
   },
   "$defs": {

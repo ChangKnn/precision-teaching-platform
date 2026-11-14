@@ -276,23 +276,6 @@ def with_student_case_summaries(result: dict, payload: dict | None) -> dict:
                     'obstacle': concise(student.get('progression', {}).get('main_obstacle')),
                 })
     for level in view.get('level_analyses', []):
-        if students:
-            recovered = {}
-            covered = {student_id for group in level.get('difficulty_groups', []) for student_id in group.get('student_ids', [])}
-            for member in level.get('students', []):
-                if member['student_id'] in covered:
-                    continue
-                student = students.get(member['student_id'], {})
-                if student.get('diagnosis', {}).get('level') != level.get('level'):
-                    continue
-                obstacle = student.get('progression', {}).get('main_obstacle', '').strip()
-                if obstacle:
-                    recovered.setdefault(obstacle, []).append(member['student_id'])
-            level['recovered_difficulty_groups'] = [
-                {'problem_label': '个体主要障碍', 'problem_description': obstacle,
-                 'student_ids': ids, 'teaching_suggestion': level.get('teaching_suggestion', '')}
-                for obstacle, ids in recovered.items()
-            ]
         if payload is None and 'student_cases' in level:
             continue
         cases, used = [], set()

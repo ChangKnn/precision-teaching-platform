@@ -943,21 +943,13 @@ function renderClassReport(payload) {
   const namesById = new Map(distribution.flatMap(level => level.students.map(student => [student.student_id, student.student_name])));
   const levelMenu = data.level_analyses.map(item => `<a class="toc-secondary" href="#class-level-${escapeHTML(item.level)}">${escapeHTML(item.level_name)}</a>`).join("");
   const difficulties = data.level_analyses.map(item => {
-    let rows = item.difficulty_groups || [];
-    let note = "";
-    if (item.recovered_difficulty_groups?.length) {
-      note = rows.length ? "未归入典型问题的学生，依据生成报告时的个体主要障碍补充列出。" : "以下依据生成本报告时的个体主要障碍逐项列出，相同表述已合并。";
-      rows = [...rows, ...item.recovered_difficulty_groups];
-    }
-    if (!rows.length) {
-      rows = classroomResults.filter(student => student.report?.status !== "stale" && student.report?.result?.diagnosis?.level === item.level && student.report.result.progression?.main_obstacle).map(student => ({problem_label: "个体主要障碍", problem_description: student.report.result.progression.main_obstacle, student_ids: [student.student.id], teaching_suggestion: item.teaching_suggestion}));
-      if (rows.length) note = "以下依据目前已保存的个体诊断列出，可能与班级报告生成时的诊断不同。";
-    }
+    const rows = data.problem_grouping_version === "1.0" ? (item.difficulty_groups || []) : [];
+    const note = rows.length ? "" : "这份报告尚未完成问题归类，请点击上方“重新生成班级报告”；已完成的个体诊断会复用。";
     const body = rows.length ? rows.map(row => {
       const description = row.problem_description || row.difficulty || "";
       const label = row.problem_label || (row.difficulty && row.difficulty.length <= 18 ? row.difficulty : "问题分析");
       return `<tr><td>${escapeHTML(label)}</td><td>${escapeHTML(description)}</td><td>${(row.student_ids || []).map(id => escapeHTML(namesById.get(id) || "未知学生")).join("、")}</td><td>${escapeHTML(row.teaching_suggestion || "暂无")}</td></tr>`;
-    }).join("") : '<tr><td colspan="4">暂未读取到该层级的个体主要障碍，请检查个体诊断。</td></tr>';
+    }).join("") : '<tr><td colspan="4">尚无归纳后的典型问题。</td></tr>';
     return `<section id="class-level-${escapeHTML(item.level)}" class="class-level-section"><h3>${escapeHTML(item.level_name)}（${item.count} 人）</h3><p>${escapeHTML(item.main_performance)}</p>${note ? `<p class="class-problem-note">${escapeHTML(note)}</p>` : ""}<div class="class-table-wrap"><table><thead><tr><th>典型问题</th><th>问题描述</th><th>相关学生</th><th>教学建议</th></tr></thead><tbody>${body}</tbody></table></div>${basisDetails("查看典型学生分析", (item.student_cases || []).map(c => `${c.student_name}：${c.level_reason}${c.obstacle ? ` 主要障碍：${c.obstacle}` : ""}`))}</section>`;
   }).join("");
   const alerts = data.individual_attention;

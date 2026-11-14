@@ -12,6 +12,9 @@ def compact(value):
     result=copy.deepcopy(value)
     result.pop("class_summary",None);result.pop("traceability",None)
     for row in result["level_analyses"]:
+        row["difficulty_groups"] = [{"difficulty":"任务证据运用不足","problem_label":"证据运用不足",
+            "problem_description":"学生尚未完整运用任务证据。","student_ids":[s["student_id"] for s in row["students"]],
+            "teaching_suggestion":"引导学生说明证据。"}]
         row.pop("students",None);row.pop("count",None)
     return result
 from backend.app.services.class_report import render_class_markdown, validate_class_result
