@@ -784,9 +784,8 @@ def _validate_class_problem_groups(result, payload):
         raise ValueError('问题分类须覆盖所有有学生的层级，每层仅一条层级分析')
     for row in rows:
         groups = row.get('difficulty_groups') or []
-        if not 1 <= len(groups) <= 4:
-            raise ValueError(f"{row['level']}层级需要归纳1至4类问题")
-        assigned = set()
+        if not 1 <= len(groups) <= 2:
+            raise ValueError(f"{row['level']}层级需要归纳1至2类主要问题")
         labels = set()
         for group in groups:
             if not all(str(group.get(key, '')).strip() for key in ('problem_label', 'problem_description', 'teaching_suggestion')):
@@ -800,9 +799,6 @@ def _validate_class_problem_groups(result, payload):
             ids = set(group.get('student_ids') or [])
             if not ids or len(ids) != len(group['student_ids']) or not ids <= expected[row['level']]:
                 raise ValueError(f"{row['level']}层级问题须关联本层级真实学生")
-            assigned.update(ids)
-        if assigned != expected[row['level']]:
-            raise ValueError(f"{row['level']}层级问题分类须覆盖全部学生")
 
 
 def run_class_diagnosis_report(
@@ -830,7 +826,7 @@ def run_class_diagnosis_report(
             "教师页面与导出报告由平台根据这些字段排版。"
             "只能引用输入中的个体诊断，不得重新定级，也不要设计具体课堂活动。"
             "本轮不输出class_summary、traceability或level_analyses内的students/count；这些统计和完整名单由程序据全体输入生成。其他字段保持完整但简洁，每层只选1—2条典型证据，避免重复复述。"
-            "common_issues归纳1至3条基于学生实际表现的共同问题，不复述SOLO层级介绍，填写有依据的学生ID。每层依据每名学生progression.main_obstacle归纳1至4类实际问题，不同问题各一项：problem_label是18字以内短语，problem_description是一句具体描述，difficulty与problem_description相同以兼容旧格式；student_ids只列个体障碍有依据的学生并尽可能覆盖全部学生，teaching_suggestion一句话。确实只有一种则只输出一项，不得强行分类。individual_attention仅记录有明确原话依据的情绪表达、学习支持、新思路或安全关注，每项evidence_quote须逐字摘自该学生student_statements或submitted_text；无依据时返回空数组。不得臆测心理和给学生贴标签，明确安全风险时建议教师及时关注。所有描述每项尽量一句话。分组优先同层级并结合困难，每组4至6人仅为参考，不得遗漏或重复学生。"
+            "common_issues归纳1至3条基于学生实际表现的共同问题，不复述SOLO层级介绍，填写有依据的学生ID。每层根据学生progression.main_obstacle优先归纳一个最值得教学关注的问题，只有学生确有明显不同且需要不同支持时才写第二个；不得为了覆盖每位学生而强行分类。每项problem_label为18字以内短语，problem_description一句话，difficulty与描述相同，student_ids只列有依据的学生，teaching_suggestion给一句具体支持。individual_attention仅记录有明确原话依据的情绪表达、学习支持、新思路或安全关注，每项evidence_quote须逐字摘自该学生student_statements或submitted_text；无依据时返回空数组。不得臆测心理和给学生贴标签，明确安全风险时建议教师及时关注。所有描述尽量简短。分组须覆盖全体已诊断学生。"
             + compact_instruction
         ),
     )
@@ -845,7 +841,7 @@ def run_class_diagnosis_report(
     jsonschema.validate(result, schema)
     # Preserve the call signature; the caller renders the validated result locally.
     _validate_class_problem_groups(result, payload)
-    result['problem_grouping_version'] = '1.0'
+    result['problem_grouping_version'] = '1.1'
     return result, None
 
 
@@ -858,6 +854,7 @@ def _run_large_class_in_stages(skill, payload, provider, full_schema):
     levels = [level for level in ('P', 'U', 'M', 'R', 'EA') if any(s['diagnosis']['level'] == level for s in students)]
     group_schema = full_schema['$defs']['levelAnalysis']['properties']['difficulty_groups']
     group_schema = json.loads(json.dumps(group_schema))
+    group_schema['maxItems'] = 2
     group_schema['items']['required'].remove('difficulty')
     group_schema['items']['properties'].pop('difficulty')
     level_schema = {'type':'object', 'additionalProperties':False, 'required':['level_analyses'],
@@ -871,8 +868,9 @@ def _run_large_class_in_stages(skill, payload, provider, full_schema):
                   'progression':{'main_obstacle':s['progression']['main_obstacle']}} for s in subset]
         inp = {'precision_teaching_context':payload['precision_teaching_context'], 'student_diagnosis_results':brief}
         suffix = ('本次只归纳这一个SOLO层级的问题，不生成班级报告、分组或其他层级。'
-            '比较每名学生的主要障碍，将含义相近者归并为1至4类；每类包含18字以内problem_label、一句话problem_description、'
-            '对应student_ids及一句teaching_suggestion。必须覆盖所有学生，可一人多类；不要输出difficulty字段。')
+            '比较同层级学生的主要障碍，优先归纳一个有代表性的主要问题；只有确实需要不同教学支持时才增加第二个，'
+            '不得为了覆盖每个人强行分类。每项包含18字以内problem_label、一句话problem_description、'
+            '有依据的student_ids及一句teaching_suggestion；不要输出difficulty字段。')
         result = _run_rubric_compatible(skill, inp, level_schema, 'class_level_problems', suffix)
         return level, result['level_analyses'][0]['difficulty_groups']
     def overview_task():
@@ -891,7 +889,7 @@ def _run_large_class_in_stages(skill, payload, provider, full_schema):
     _validate_class_problem_groups(overview, payload)
     result = expand_class(expand_large_class_output(overview, payload), payload)
     jsonschema.validate(result, full_schema)
-    result['problem_grouping_version'] = '1.0'
+    result['problem_grouping_version'] = '1.1'
     return result, None
 
 

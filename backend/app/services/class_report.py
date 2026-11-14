@@ -327,6 +327,10 @@ def render_class_markdown(result: dict, payload: dict | None = None) -> str:
         "## 3. 各层级学生分析", "",
     ]
     for item in result["level_analyses"]:
+        groups = item.get('difficulty_groups', []) if result.get('problem_grouping_version') == '1.1' else []
+        primary = groups[0] if groups else {}
+        main_problem = primary.get('problem_description') or (item.get('main_obstacles') or ['暂无'])[0]
+        main_suggestion = primary.get('teaching_suggestion') or item['teaching_suggestion']
         evidence = "；".join(
             f"{entry['student_name']}：{entry['level_reason']}" + (f" 主要困难：{entry['obstacle']}" if entry['obstacle'] else "")
             for entry in item["student_cases"]
@@ -336,10 +340,13 @@ def render_class_markdown(result: dict, payload: dict | None = None) -> str:
             f"- 人数：{item['count']}",
             f"- 学生：{names(item['students'])}",
             f"- 主要表现：{item['main_performance']}",
-            f"- 教学建议：{item['teaching_suggestion']}",
+            f"- 主要困难：{main_problem}",
+            f"- 教学建议：{main_suggestion}",
             f"- 典型依据：{evidence}",
-            f"- 主要进阶障碍：{'；'.join(item['main_obstacles'])}", "",
         ]
+        if len(groups) > 1:
+            lines.append(f"- 另一类需要：{groups[1]['problem_description']}；{groups[1]['teaching_suggestion']}")
+        lines.append("")
     lines += ["## 4. 教学重点与难点", ""]
     for title, item in (("教学重点", priorities["teaching_focus"]), ("教学难点", priorities["teaching_difficulty"])):
         lines += [

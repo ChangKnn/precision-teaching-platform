@@ -47,7 +47,7 @@ class ClassFeedbackDetailsTest(unittest.TestCase):
         view = with_student_case_summaries(self.result, self.payload)
         self.assertNotIn('recovered_difficulty_groups', view['level_analyses'][0])
 
-    def test_problem_groups_cover_students_without_per_student_fallback(self):
+    def test_problem_groups_are_concise_without_forcing_every_student(self):
         from backend.app.services.ai import _validate_class_problem_groups
         result = copy.deepcopy(self.result)
         for level in result['level_analyses']:
@@ -58,8 +58,10 @@ class ClassFeedbackDetailsTest(unittest.TestCase):
         _validate_class_problem_groups(result, self.payload)
         level = next(row for row in result['level_analyses'] if len(row['students']) > 1)
         level['difficulty_groups'][0]['student_ids'].pop()
-        with self.assertRaisesRegex(ValueError, '覆盖全部学生'):
+        _validate_class_problem_groups(result, self.payload)
+        level['difficulty_groups'][0]['student_ids'] = ['unknown-student']
+        with self.assertRaisesRegex(ValueError, '真实学生'):
             _validate_class_problem_groups(result, self.payload)
         level['difficulty_groups'] = []
-        with self.assertRaisesRegex(ValueError, '1至4类'):
+        with self.assertRaisesRegex(ValueError, '1至2类'):
             _validate_class_problem_groups(result, self.payload)

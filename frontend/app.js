@@ -943,14 +943,13 @@ function renderClassReport(payload) {
   const namesById = new Map(distribution.flatMap(level => level.students.map(student => [student.student_id, student.student_name])));
   const levelMenu = data.level_analyses.map(item => `<a class="toc-secondary" href="#class-level-${escapeHTML(item.level)}">${escapeHTML(item.level_name)}</a>`).join("");
   const difficulties = data.level_analyses.map(item => {
-    const rows = data.problem_grouping_version === "1.0" ? (item.difficulty_groups || []) : [];
-    const note = rows.length ? "" : "这份报告尚未完成问题归类，请点击上方“重新生成班级报告”；已完成的个体诊断会复用。";
-    const body = rows.length ? rows.map(row => {
-      const description = row.problem_description || row.difficulty || "";
-      const label = row.problem_label || (row.difficulty && row.difficulty.length <= 18 ? row.difficulty : "问题分析");
-      return `<tr><td>${escapeHTML(label)}</td><td>${escapeHTML(description)}</td><td>${(row.student_ids || []).map(id => escapeHTML(namesById.get(id) || "未知学生")).join("、")}</td><td>${escapeHTML(row.teaching_suggestion || "暂无")}</td></tr>`;
-    }).join("") : '<tr><td colspan="4">尚无归纳后的典型问题。</td></tr>';
-    return `<section id="class-level-${escapeHTML(item.level)}" class="class-level-section"><h3>${escapeHTML(item.level_name)}（${item.count} 人）</h3><p>${escapeHTML(item.main_performance)}</p>${note ? `<p class="class-problem-note">${escapeHTML(note)}</p>` : ""}<div class="class-table-wrap"><table><thead><tr><th>典型问题</th><th>问题描述</th><th>相关学生</th><th>教学建议</th></tr></thead><tbody>${body}</tbody></table></div>${basisDetails("查看典型学生分析", (item.student_cases || []).map(c => `${c.student_name}：${c.level_reason}${c.obstacle ? ` 主要障碍：${c.obstacle}` : ""}`))}</section>`;
+    const groups = data.problem_grouping_version === "1.1" ? (item.difficulty_groups || []) : [];
+    const first = groups[0];
+    const mainProblem = first?.problem_description || item.main_obstacles?.[0] || "暂无";
+    const support = first?.teaching_suggestion || item.teaching_suggestion || "暂无";
+    const second = groups[1];
+    const examples = (item.student_cases || []).map(c => `<li>${escapeHTML(c.student_name)}：${escapeHTML(c.level_reason)}${c.obstacle ? `；主要障碍：${escapeHTML(c.obstacle)}` : ""}</li>`).join("");
+    return `<section id="class-level-${escapeHTML(item.level)}" class="class-level-section"><h3>${escapeHTML(item.level_name)}（${item.count} 人）</h3><p><b>当前表现：</b>${escapeHTML(item.main_performance)}</p><p><b>主要困难：</b>${escapeHTML(mainProblem)}</p><p><b>教学建议：</b>${escapeHTML(support)}</p>${second ? `<p><b>另一类需要：</b>${escapeHTML(second.problem_description)}；${escapeHTML(second.teaching_suggestion)}</p>` : ""}<details class="class-basis-details"><summary>查看学生与典型依据</summary><p><b>学生：</b>${studentNames(item.students)}</p>${examples ? `<ul>${examples}</ul>` : '<p>暂无典型学生分析。</p>'}</details></section>`;
   }).join("");
   const alerts = data.individual_attention;
   panel.innerHTML = `<div class="class-feedback-layout"><div class="class-feedback-content">

@@ -30,8 +30,8 @@ class ClassReportFormatRecoveryTest(unittest.TestCase):
         with patch.object(ai, 'settings', replace(ai.settings, ai_api_key='test-key', ai_model='test-model')), patch.object(ai, '_post_json', side_effect=responses) as post:
             result, _ = ai.run_class_diagnosis_report(skill, payload, 'openrouter')
         self.assertEqual(post.call_count, 2)
-        self.assertEqual(result['problem_grouping_version'], '1.0')
-        self.assertIn('1至4类', post.call_args_list[1].args[1]['messages'][-1]['content'])
+        self.assertEqual(result['problem_grouping_version'], '1.1')
+        self.assertIn('1至2类', post.call_args_list[1].args[1]['messages'][-1]['content'])
 
     def test_incomplete_json_retries_without_feeding_a_cut_off_assistant_reply(self):
         skill=load_skill('solo_class_diagnosis_intervention')
