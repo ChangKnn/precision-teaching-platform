@@ -218,6 +218,22 @@ window.PlatformAPI = {
     return this.request(`/api/precision-teachings/${encodeURIComponent(teachingId)}/classrooms/${encodeURIComponent(classroomId)}/integration-report`);
   },
 
+  async downloadClassFeedbackPdf(teachingId, classroomId) {
+    const response = await fetch(`/api/precision-teachings/${encodeURIComponent(teachingId)}/classrooms/${encodeURIComponent(classroomId)}/class-report.pdf`);
+    if (!response.ok) {
+      let message = `PDF 导出失败（${response.status}）`;
+      try {
+        const data = await response.json();
+        message = readableApiDetail(data.detail, message);
+      } catch (_) {
+        // Keep the status-based message for non-JSON failures.
+      }
+      if (response.status === 401) window.dispatchEvent(new Event("teacher-session-expired"));
+      throw new Error(message);
+    }
+    return response.blob();
+  },
+
   async downloadIntegrationReportPdf(teachingId, classroomId) {
     const response = await fetch(`/api/precision-teachings/${encodeURIComponent(teachingId)}/classrooms/${encodeURIComponent(classroomId)}/integration-report.pdf`);
     if (!response.ok) {

@@ -8,11 +8,11 @@ from pathlib import Path
 import re
 import unicodedata
 import jsonschema
-from urllib.parse import unquote
+from urllib.parse import unquote, quote
 from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from PIL import Image, UnidentifiedImageError
 
 from .config import settings
@@ -906,6 +906,38 @@ def student_results(teaching_id: str, background_tasks: BackgroundTasks) -> dict
     return {"teaching": teaching, "results": results, "submitted_count": len(results),
             "classrooms": classrooms, "class_reports": class_reports,
             "custom_analysis_standard": custom_standard, "custom_class_reports": custom_class_reports}
+
+
+@router.get("/precision-teachings/{teaching_id}/classrooms/{classroom_id}/class-report.pdf")
+def download_class_feedback_pdf(teaching_id: str, classroom_id: str) -> Response:
+    teaching = fetch_one("SELECT * FROM precision_teachings WHERE id = ?", (teaching_id,))
+    classroom = fetch_one("""SELECT c.* FROM classrooms c JOIN diagnosis_assignments da ON da.classroom_id=c.id
+        WHERE da.teaching_id=? AND c.id=?""", (teaching_id, classroom_id))
+    if not teaching or not classroom:
+        raise HTTPException(status_code=404, detail="精准教学或班级不存在")
+    from .services.class_report import report_row
+    from .services.class_report_pdf import render_class_feedback_pdf
+    report = report_row(teaching_id, classroom_id)
+    if not report or not report.get('result'):
+        raise HTTPException(status_code=409, detail="请先生成班级反馈报告")
+    rows = fetch_all("""SELECT sts.student_id, COUNT(CASE WHEN m.role='student' THEN 1 END) AS turns
+        FROM student_task_sessions sts JOIN students s ON s.id=sts.student_id
+        LEFT JOIN student_messages m ON m.session_id=sts.id
+        WHERE sts.teaching_id=? AND s.classroom_id=? AND sts.status='submitted'
+        GROUP BY sts.id, sts.student_id""", (teaching_id, classroom_id))
+    included = {s['student_id'] for row in report['result']['class_summary']['distribution'] for s in row['students']}
+    counts = [row['turns'] for row in rows if row['student_id'] in included]
+    interaction = {'submitted':len(rows), 'max':max(counts), 'min':min(counts),
+                   'average':round(sum(counts)/len(counts),1)} if counts else None
+    try:
+        content = render_class_feedback_pdf(report, teaching, classroom, interaction)
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    filename = quote(f"{teaching['title']}-{classroom['name']}-班级反馈.pdf", safe="")
+    return Response(content=content, media_type="application/pdf", headers={
+        "Content-Disposition": f"""attachment; filename="class-feedback.pdf"; filename*=UTF-8''{filename}""",
+        "Cache-Control":"no-store",
+    })
 
 
 @router.post("/precision-teachings/{teaching_id}/classrooms/{classroom_id}/class-report/generate")

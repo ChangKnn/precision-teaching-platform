@@ -16,20 +16,10 @@ def _markup(value: object) -> str:
     return escape(str(value), quote=False).replace("\n", "<br/>")
 
 
-def render_report_pdf(result: dict) -> bytes:
-    """Render the structured report with tables whose long rows can split across pages."""
-    try:
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import ParagraphStyle
-        from reportlab.lib.units import mm
-        from reportlab.pdfbase import pdfmetrics
-        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-        from reportlab.pdfbase.ttfonts import TTFont
-        from reportlab.platypus import CondPageBreak, HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-    except ImportError as error:
-        raise RuntimeError("PDF 导出依赖未安装，请安装项目 requirements.txt 中的 reportlab") from error
-
+def report_cjk_font() -> str:
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    from reportlab.pdfbase.ttfonts import TTFont
     windows_fonts = Path(os.getenv("WINDIR", "C:/Windows")) / "Fonts"
     font_paths = [
         os.getenv("PDF_CJK_FONT_PATH", ""),
@@ -55,6 +45,24 @@ def render_report_pdf(result: dict) -> bytes:
             continue
     if font == "STSong-Light":
         pdfmetrics.registerFont(UnicodeCIDFont(font))
+    return font
+
+
+def render_report_pdf(result: dict) -> bytes:
+    """Render the structured report with tables whose long rows can split across pages."""
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import ParagraphStyle
+        from reportlab.lib.units import mm
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+        from reportlab.pdfbase.ttfonts import TTFont
+        from reportlab.platypus import CondPageBreak, HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    except ImportError as error:
+        raise RuntimeError("PDF 导出依赖未安装，请安装项目 requirements.txt 中的 reportlab") from error
+
+    font = report_cjk_font()
     ink = colors.HexColor("#1D302E")
     teal = colors.HexColor("#16574E")
     muted = colors.HexColor("#607470")

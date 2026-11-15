@@ -987,7 +987,7 @@ function renderClassReport(payload) {
   };
   panel.innerHTML = `<div class="class-feedback-layout"><div class="class-feedback-content">
     <article id="class-interaction" class="card class-report-card"><h2>一、学生交互情况</h2><div class="interaction-stats"><div class="interaction-stat"><span>已提交</span><strong>${classroomResults.length}<small>人</small></strong></div><div class="interaction-stat"><span>纳入分析</span><strong>${data.class_summary.total_students}<small>人</small></strong></div><div class="interaction-stat"><span>最多发言</span><strong>${maxTurns}<small>次</small></strong></div><div class="interaction-stat"><span>最少发言</span><strong>${minTurns}<small>次</small></strong></div><div class="interaction-stat"><span>平均发言</span><strong>${avgTurns}<small>次</small></strong></div></div>${missing ? `<p class="class-report-warning">有 ${missing} 名已提交学生尚未纳入本报告。</p>` : ""}<small class="interaction-note">统计范围：本报告中的学生；按学生发言次数计算${turns.length < data.class_summary.total_students ? "，部分学生交互记录不可用" : ""}。</small></article>
-    <article id="class-overview" class="card class-report-card"><div class="card-heading"><h2>二、班级整体学情</h2><div><span class="status warning">${escapeHTML(stateText)}</span> <button class="button" id="retryClassReport" ${["preparing", "queued", "running"].includes(report.status) ? "disabled" : ""}>重新生成班级报告</button></div></div>
+    <article id="class-overview" class="card class-report-card"><div class="card-heading"><h2>二、班级整体学情</h2><div><span class="status warning">${escapeHTML(stateText)}</span> <button class="button" id="exportClassFeedbackPdf">导出班级反馈 PDF</button> <button class="button" id="retryClassReport" ${["preparing", "queued", "running"].includes(report.status) ? "disabled" : ""}>重新生成班级报告</button></div></div>
       ${report.status === "failed" ? `<p class="class-report-warning">更新失败，以下为上次报告：${escapeHTML(report.error || "未知错误")}</p>` : ""}
       ${["preparing", "queued", "running"].includes(report.status) ? '<p class="class-report-warning">正在更新，以下为上次报告。</p>' : ""}
       <section id="class-distribution"><h3>SOLO 层级分布</h3><div class="class-distribution">${distribution.map(item => `<section class="solo-step level-${item.level.toLowerCase()}"><header><span>${escapeHTML(item.level)}</span><b>${escapeHTML(item.level_name)}</b><strong>${item.count} 人 · ${Math.round(item.proportion * 100)}%</strong></header><p>${studentNames(item.students)}</p><small>${escapeHTML(item.level_meaning)}</small></section>`).join("")}</div><p class="solo-note">层级反映本次任务中的思维结构，不是固定能力标签。</p></section>
@@ -3982,6 +3982,33 @@ document.addEventListener("click", async event => {
   if (event.target.closest("[data-retry-student-results]")) {
     resetFeedbackLoading();
     await loadStudentResults(serverState.current_teaching_id);
+    return;
+  }
+
+  if (event.target.closest("#exportClassFeedbackPdf")) {
+    const button = event.target.closest("#exportClassFeedbackPdf");
+    const teachingId = serverState.current_teaching_id;
+    const classroomId = ui.activeClassroomId;
+    button.disabled = true;
+    button.textContent = "正在导出…";
+    try {
+      const blob = await window.PlatformAPI.downloadClassFeedbackPdf(teachingId, classroomId);
+      const title = getTeachingById(teachingId)?.title || "精准教学";
+      const classroom = serverState.studentResults?.classrooms?.find(item => item.id === classroomId)?.name || "班级";
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = (title + "-" + classroom + "-班级反馈.pdf").replace(/[\\/:*?"<>|]/g, "-");
+      document.body.append(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (error) {
+      showToast("班级反馈 PDF 导出失败：" + error.message);
+    } finally {
+      button.disabled = false;
+      button.textContent = "导出班级反馈 PDF";
+    }
     return;
   }
 
