@@ -64,6 +64,17 @@ class ClassFeedbackPdfTest(unittest.TestCase):
         self.assertGreater(len(reader.pages),5)
         self.assertIn('个体关注建议',reader.pages[-1].extract_text())
 
+    def test_long_typical_student_cells_continue_across_pages(self):
+        report=sample()
+        case=report['result']['level_analyses'][0]['student_cases'][0]
+        case['level_reason']='学生可以自主识别信息，但需要说明每一步判断的依据。'*180
+        case['obstacle']='尚未说明依据与结论之间的关系。'*150
+        content=render_class_feedback_pdf(report,{'title':'证据表分页测试','subject':'科学'},{'name':'测试班'})
+        reader=PdfReader(io.BytesIO(content))
+        text='\n'.join(page.extract_text() for page in reader.pages)
+        self.assertIn('个体关注建议',text)
+        self.assertGreater(len(reader.pages),4)
+
     @patch('backend.app.services.class_report_pdf.render_class_feedback_pdf',return_value=b'%PDF-test')
     @patch('backend.app.services.class_report.report_row')
     @patch('backend.app.student_api.fetch_all',return_value=[])

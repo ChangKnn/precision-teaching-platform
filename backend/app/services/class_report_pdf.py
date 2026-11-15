@@ -12,7 +12,7 @@ def render_class_feedback_pdf(report, teaching, classroom, interaction=None):
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.styles import ParagraphStyle
         from reportlab.lib.units import mm
-        from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle, Spacer, CondPageBreak, KeepTogether
+        from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle, Spacer, CondPageBreak, KeepTogether, HRFlowable
     except ImportError as error:
         raise RuntimeError('PDF 导出依赖未安装，请安装 reportlab') from error
     from .compact_outputs import ordered_class_levels
@@ -22,7 +22,7 @@ def render_class_feedback_pdf(report, teaching, classroom, interaction=None):
     styles = {key: ParagraphStyle(key, fontName=font, fontSize=size, leading=leading,
                                   textColor=teal if key in ('title','heading','sub') else colors.HexColor('#203330'),
                                   wordWrap='CJK', spaceAfter=6, keepWithNext=key in ('heading','sub'))
-              for key, size, leading in [('title',20,28),('heading',14,21),('sub',11,17),('body',10,16),('small',9,14)]}
+              for key, size, leading in [('title',20,28),('heading',14,21),('sub',11,17),('body',10,16),('small',9.5,15.5)]}
     flow, buffer = [], BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=17*mm, rightMargin=17*mm,
                             topMargin=16*mm, bottomMargin=17*mm, title=f"{teaching['title']}-班级集体反馈")
@@ -32,7 +32,8 @@ def render_class_feedback_pdf(report, teaching, classroom, interaction=None):
         if text:
             flow.append(Paragraph(f'<font color="#16574E">{escape(label)}：</font>{_markup(text)}', styles['body']))
     def heading(text):
-        flow.extend([CondPageBreak(75), Spacer(1,8), p(text,'heading')])
+        flow.extend([CondPageBreak(180), Spacer(1,12), p(text,'heading'),
+                     HRFlowable(width='100%', thickness=.7, color=colors.HexColor('#B8D1C7'), spaceAfter=10)])
     def table(headers, rows, widths):
         cells=[[p(x,'small') for x in headers]]+[[p(x,'small') for x in row] for row in rows]
         t=Table(cells,colWidths=[doc.width*x for x in widths],repeatRows=1,splitInRow=1,hAlign='LEFT')
@@ -42,6 +43,22 @@ def render_class_feedback_pdf(report, teaching, classroom, interaction=None):
                               ('LEFTPADDING',(0,0),(-1,-1),7),('RIGHTPADDING',(0,0),(-1,-1),7),
                               ('TOPPADDING',(0,0),(-1,-1),6),('BOTTOMPADDING',(0,0),(-1,-1),6)]))
         flow.extend([t,Spacer(1,8)])
+    def section_bar(text):
+        flow.extend([CondPageBreak(125), Spacer(1,12)])
+        bar=Table([[p(text,'sub')]],colWidths=[doc.width],hAlign='LEFT')
+        bar.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,-1),colors.HexColor('#E5F0EB')),
+                                 ('LINEBEFORE',(0,0),(0,-1),3,teal),
+                                 ('LEFTPADDING',(0,0),(-1,-1),11),
+                                 ('TOPPADDING',(0,0),(-1,-1),8),
+                                 ('BOTTOMPADDING',(0,0),(-1,-1),5)]))
+        bar.keepWithNext=True
+        flow.extend([bar,Spacer(1,9)])
+    def block(label,text):
+        if text:
+            flow.append(p(label,'sub'))
+            flow.append(p(text))
+            flow.append(Spacer(1,4))
+
     names=lambda students:'、'.join(s['student_name'] for s in students)
     flow += [p('班级集体反馈','title'),p(teaching['title'],'sub'),
              p(f"{classroom['name']} · {teaching.get('course_name') or teaching.get('subject','')} · 纳入分析 {data['class_summary']['total_students']} 人",'small')]
@@ -69,21 +86,26 @@ def render_class_feedback_pdf(report, teaching, classroom, interaction=None):
     analyses={r['level']:r for r in data['level_analyses']}
     suggestions={r['level']:r for r in (report.get('teaching_suggestions') or {}).get('items',[])}
     for r in data['level_analyses']:
-        flow += [CondPageBreak(60),p(f"{r['level_name']}（{r['count']} 人）",'sub')]
-        field('当前表现',r['main_performance'])
+        section_bar(f"{r['level_name']}（{r['count']} 人）")
+        block('当前表现',r['main_performance'])
         problems=r.get('difficulty_groups',[]) if data.get('problem_grouping_version')=='1.1' else []
-        field('主要困难',problems[0]['problem_description'] if problems else '；'.join(r.get('main_obstacles',[])))
+        block('主要困难',problems[0]['problem_description'] if problems else '；'.join(r.get('main_obstacles',[])))
         d=r.get('teaching_design') or suggestions.get(r['level']) or {}
-        for key,label in [('content','教学建议 · 内容'),('task','教学建议 · 任务'),('scaffold','教学建议 · 支架')]:
-            field(label,d.get(key) or (d.get('activity') if key=='task' else ''))
-        if not d:
-            field('教学建议',r.get('teaching_suggestion'))
+        if d:
+            table(['教学建议','具体安排'], [[label,d.get(key) or (d.get('activity') if key=='task' else '') or '—']
+                  for key,label in [('content','内容'),('task','任务'),('scaffold','支架')]], [.14,.86])
+        else:
+            block('教学建议',r.get('teaching_suggestion'))
         if len(problems)>1:
-            field('其他困难',problems[1]['problem_description'])
-            field('针对性建议',problems[1]['teaching_suggestion'])
-        field('学生',names(r['students']))
-        for case in r.get('student_cases',[]):
-            field(case['student_name'],case['level_reason']+(' 主要障碍：'+case['obstacle'] if case.get('obstacle') else ''))
+            table(['补充关注','具体说明'],[['其他困难',problems[1]['problem_description']],
+                  ['针对性建议',problems[1]['teaching_suggestion']]], [.14,.86])
+        field('本层学生',names(r['students']))
+        cases=r.get('student_cases',[])
+        if cases:
+            flow.extend([p('典型学生分析','sub')])
+            table(['学生','当前表现','主要困难'],[[case['student_name'],case['level_reason'],case.get('obstacle') or '—']
+                  for case in cases],[.13,.45,.42])
+        flow.extend([Spacer(1,8),HRFlowable(width='100%',thickness=.4,color=colors.HexColor('#D5E2DC'),spaceAfter=4)])
     heading('四、教学干预建议')
     flow.append(p('全班教学建议','sub'))
     field('进阶方向',data['overall_diagnosis']['main_progression_direction'])
@@ -94,10 +116,12 @@ def render_class_feedback_pdf(report, teaching, classroom, interaction=None):
         row=next((r for r in data['class_summary']['distribution'] if ids <= {s['student_id'] for s in r['students']}),{})
         start = len(flow)
         flow += [p(f"第{index}组 · {g['group_name']}",'sub')]
-        field('学情',g['common_characteristics'])
-        field('学习任务',analyses.get(row.get('level'),{}).get('teaching_design',{}).get('task'))
-        field('教学支持',g['progression_direction'])
-        field('学生',names(g['students']))
+        task=analyses.get(row.get('level'),{}).get('teaching_design',{}).get('task')
+        rows=[['学情',g['common_characteristics']]]
+        if task:
+            rows.append(['学习任务',task])
+        rows += [['教学支持',g['progression_direction']],['学生',names(g['students'])]]
+        table(['小组安排','具体内容'],rows,[.14,.86])
         block = flow[start:]
         flow[start:] = [KeepTogether(block)]
     flow.append(p('个体关注建议','sub'))
