@@ -50,6 +50,16 @@ class PracticalGroupingTest(unittest.TestCase):
         self.assertEqual(groups[0]['progression_direction'], '共同支持')
         self.assertFalse(any('support_breakdown' in g for g in groups))
 
+    def test_reversed_saved_levels_are_sorted_without_changing_source(self):
+        report = make_report(5)
+        report['class_summary']['distribution'].reverse()
+        report['level_analyses'] = [{'level':level} for level in ('EA','R','M','U','P')]
+        original = copy.deepcopy(report)
+        shown = practical_grouping(report)
+        self.assertEqual([r['level'] for r in shown['level_analyses']], ['P','U','M','R','EA'])
+        self.assertEqual([r['level'] for r in shown['class_summary']['distribution']], ['P','U','M','R','EA'])
+        self.assertEqual(report, original)
+
     def test_level_name_and_support_are_based_on_analysis(self):
         report = make_report(5)
         report['task_group_names_version'] = '1'

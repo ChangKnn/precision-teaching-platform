@@ -150,10 +150,19 @@ def _task_group_name(analysis, trusted_name):
     return '任务探究组'
 
 
+def ordered_class_levels(result):
+    """Normalize saved and new reports without changing level assignments."""
+    view = deepcopy(result)
+    rank = {level: index for index, level in enumerate(LEVELS)}
+    for rows in (view.get('level_analyses', []), view.get('class_summary', {}).get('distribution', [])):
+        rows.sort(key=lambda row: rank.get(row.get('level'), len(rank)))
+    return view
+
+
 def practical_grouping(result):
     """Group by verified SOLO level, subdividing large levels by evidenced difficulties."""
     from .readable_evidence import readable_student_names
-    view = readable_student_names(deepcopy(result))
+    view = readable_student_names(ordered_class_levels(result))
     grouping = view.get('grouping_recommendations') or {}
     distribution = view.get('class_summary', {}).get('distribution', [])
     analyses = {row['level']: row for row in view.get('level_analyses', [])}

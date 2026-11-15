@@ -305,7 +305,8 @@ def with_student_case_summaries(result: dict, payload: dict | None) -> dict:
 
 def render_class_markdown(result: dict, payload: dict | None = None) -> str:
     from .readable_evidence import readable_student_names
-    result = readable_student_names(result)
+    from .compact_outputs import ordered_class_levels
+    result = readable_student_names(ordered_class_levels(result))
     from .readable_evidence import readable_narrative
     result = readable_narrative(readable_student_names(with_student_case_summaries(result, payload)))
     summary = result["class_summary"]

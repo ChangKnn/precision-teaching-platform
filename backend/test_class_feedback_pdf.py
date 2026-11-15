@@ -47,6 +47,15 @@ class ClassFeedbackPdfTest(unittest.TestCase):
             self.assertIn(expected,text)
         self.assertNotIn('stu-',text)
 
+    def test_pdf_level_sections_follow_low_to_high_order(self):
+        report=sample()
+        report['result']['level_analyses'].reverse()
+        data=render_class_feedback_pdf(report,{'title':'排序检查','subject':'科学'},{'name':'测试班'})
+        text='\n'.join(p.extract_text() for p in PdfReader(io.BytesIO(data)).pages)
+        sections=text.split('三、学生分层学情',1)[1].split('四、教学干预建议',1)[0]
+        self.assertLess(sections.index('前结构'),sections.index('多点结构'))
+        self.assertLess(sections.index('多点结构'),sections.index('关联结构'))
+
     def test_long_narrative_and_roster_paginate(self):
         report=sample()
         report['result']['level_analyses'][0]['main_performance']='学生能够提出判断，但尚未独立解释依据。'*500

@@ -41,3 +41,12 @@ const taskHtml = get('classEvidencePanel').innerHTML;
 assert(taskHtml.includes('<h4>比较不同解释</h4>'));
 assert(taskHtml.includes('<b>学习任务：</b>比较不同解释'));
 console.log('组名与学习任务呈现检查通过');
+
+data.level_analyses.reverse();
+context.render({classrooms:[{id:'c',name:'测试班'}],results,class_reports:{c:{status:'ready',result:data}}});
+const sortedHtml = get('classEvidencePanel').innerHTML;
+assert(sortedHtml.indexOf('id="class-level-P"') < sortedHtml.indexOf('id="class-level-M"'));
+assert(sortedHtml.indexOf('id="class-level-M"') < sortedHtml.indexOf('id="class-level-R"'));
+assert(sortedHtml.indexOf('href="#class-level-P"') < sortedHtml.indexOf('href="#class-level-M"'));
+assert(sortedHtml.indexOf('href="#class-level-M"') < sortedHtml.indexOf('href="#class-level-R"'));
+console.log('分层学情与目录排序检查通过');

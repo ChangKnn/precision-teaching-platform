@@ -917,8 +917,9 @@ function renderClassReport(payload) {
     panel.innerHTML = `<article class="card stage-empty-state"><span>SOLO 班级分析</span><h2>${stateText}</h2><p>${report.error ? escapeHTML(report.error) : "正在准备全部已提交学生的诊断并汇总班级报告；失败项目可重试，已成功结果会复用。"}</p>${report.status === "failed" ? '<button class="button primary" id="retryClassReport">重新生成班级报告</button>' : ""}</article>` + renderCustomClassReport(payload);
     return;
   }
-  const data = report.result;
-  const distribution = data.class_summary.distribution;
+  const levelOrder = {P:0, U:1, M:2, R:3, EA:4};
+  const data = {...report.result, level_analyses:[...report.result.level_analyses].sort((a,b) => (levelOrder[a.level] ?? 5) - (levelOrder[b.level] ?? 5))};
+  const distribution = [...data.class_summary.distribution].sort((a,b) => (levelOrder[a.level] ?? 5) - (levelOrder[b.level] ?? 5));
   const priorities = data.teaching_priorities;
   const groups = data.grouping_recommendations;
   const studentNames = items => (items || []).map(item => escapeHTML(item.student_name)).join("、") || "无";

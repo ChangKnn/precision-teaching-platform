@@ -15,7 +15,8 @@ def render_class_feedback_pdf(report, teaching, classroom, interaction=None):
         from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle, Spacer, CondPageBreak, KeepTogether
     except ImportError as error:
         raise RuntimeError('PDF 导出依赖未安装，请安装 reportlab') from error
-    data = readable_narrative(readable_student_names(report['result']))
+    from .compact_outputs import ordered_class_levels
+    data = readable_narrative(readable_student_names(ordered_class_levels(report['result'])))
     font = report_cjk_font()
     teal, gray = colors.HexColor('#16574E'), colors.HexColor('#607470')
     styles = {key: ParagraphStyle(key, fontName=font, fontSize=size, leading=leading,
