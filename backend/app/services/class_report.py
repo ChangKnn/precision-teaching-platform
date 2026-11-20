@@ -451,11 +451,11 @@ def report_row(teaching_id: str, classroom_id: str) -> dict | None:
         "status": row["status"],
         "source_hash": row["source_hash"],
         "result": readable_narrative(readable_student_names(with_student_case_summaries(result, payload))) if result else None,
-        "report_text": display_text,
+        "report_text": readable_student_names({'students': (result or {}).get('class_summary', {}).get('distribution', []), 'text': display_text})['text'],
         "error": row["error"],
         "generated_at": row["generated_at"],
         "updated_at": row["updated_at"],
-        "teaching_suggestions": latest_suggestions(teaching_id, classroom_id, row["source_hash"]),
+        "teaching_suggestions": readable_student_names({'students': (result or {}).get('class_summary', {}).get('distribution', []), 'suggestions': latest_suggestions(teaching_id, classroom_id, row["source_hash"])})['suggestions'],
     }
 
 

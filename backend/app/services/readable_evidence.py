@@ -45,7 +45,7 @@ def readable_student_names(value):
                 collect(nested)
     collect(value)
     known = '|'.join(re.escape(sid) for sid in sorted(names, key=len, reverse=True))
-    pattern = re.compile(r'(?<![A-Za-z0-9_-])(?:' + (known + '|' if known else '') + r'stu-[A-Za-z0-9]+)(?![A-Za-z0-9_-])')
+    pattern = re.compile(r'(?<![A-Za-z0-9_-])(?:' + (known + '|' if known else '') + r'(?:stu|student)[-–—－_][A-Za-z0-9]+|S-\d+)(?![A-Za-z0-9_-])', re.I)
     def walk(item, key=''):
         if key in _RAW_KEYS or key.endswith(('_id', '_ids', '_refs')):
             return item
@@ -54,7 +54,8 @@ def readable_student_names(value):
         if isinstance(item, list):
             return [walk(nested, key) for nested in item]
         if isinstance(item, str):
-            return ''.join(part if index % 2 else pattern.sub(lambda match: names.get(match.group(), '该学生'), part)
-                           for index, part in enumerate(_QUOTED.split(item)))
+            # Quotation marks in model prose often surround an internal ID, not
+            # a student's verbatim words. Only explicit evidence fields are raw.
+            return pattern.sub(lambda match: names.get(match.group(), '该学生'), item)
         return item
     return walk(value)

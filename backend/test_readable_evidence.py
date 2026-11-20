@@ -10,6 +10,16 @@ from backend.app.services.class_report import render_class_markdown, with_studen
 
 
 class ReadableEvidenceTest(TestCase):
+    def test_quoted_ids_and_additional_alias_formats_are_hidden_in_narrative(self):
+        from backend.app.services.readable_evidence import readable_student_names
+        source = {'students': [{'student_id': 'stu-abc123', 'student_name': '甲同学'}],
+                  'text': '“stu-abc123”提出解释；student-deadbeef、stu－123abc和S-01补充。',
+                  'quote': '原话student-deadbeef', 'source_ref': 'stu-abc123'}
+        shown = readable_student_names(source)
+        self.assertEqual(shown['text'], '“甲同学”提出解释；该学生、该学生和该学生补充。')
+        self.assertEqual(shown['quote'], source['quote'])
+        self.assertEqual(shown['source_ref'], source['source_ref'])
+
     def test_student_ids_resolve_only_in_reader_narrative(self):
         from backend.app.services.readable_evidence import readable_student_names
         source = {'students':[{'student_id':'stu-123abc','student_name':'甲同学'}],
