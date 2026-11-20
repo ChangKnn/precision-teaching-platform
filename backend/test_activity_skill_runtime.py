@@ -20,7 +20,7 @@ class ActivitySkillRuntimeTest(TestCase):
             result = ai.run_activity_formative_design(skill, source, 'openrouter')
         request = model.call_args.args[1]
         instructions = '\n'.join(message['content'] for message in request['messages'] if message['role'] == 'system')
-        self.assertEqual(skill.version, '1.3.1')
+        self.assertEqual(skill.version, '1.3.2')
         self.assertEqual(result, output)
         self.assertIn('小凡案例', instructions)
         self.assertIn('不是学习上限', instructions)
