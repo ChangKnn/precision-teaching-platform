@@ -19,6 +19,8 @@ const ui = {
   goalPathDirty: false,
   activityFormativeDirty: false,
   activityFormativeError: null,
+  activityFormativeGeneratingKey: null,
+  activityFormativeLoadSerial: 0,
   diagnosticRecommendations: null,
   taskGenerationToken: null,
   nextInterventionActivityId: 6
@@ -1225,6 +1227,7 @@ function compactEvaluationText(value, limit = 32) {
 function renderActivityFormative(payload) {
   ui.activityFormativeDirty = false;
   const design = payload?.design;
+  const generating = ui.activityFormativeGeneratingKey === (serverState.current_teaching_id + ":" + ui.activeInterventionClassroomId);
   const ready = Boolean(payload?.goal_path_ready);
   const legacyCompleted = !design && serverState?.current_workspace?.intervention?.status === "completed";
   document.getElementById("activityFormativeSkillPanel").hidden = legacyCompleted;
@@ -1233,19 +1236,21 @@ function renderActivityFormative(payload) {
   const prerequisite = document.getElementById("activityFormativePrerequisite");
   const content = document.getElementById("activityFormativeGeneratedContent");
   const errorNotice = document.getElementById("activityFormativeError");
-  errorNotice.hidden = !ui.activityFormativeError;
+  errorNotice.hidden = generating || !ui.activityFormativeError;
   errorNotice.textContent = ui.activityFormativeError || "";
   const generate = document.getElementById("generateActivityFormative");
-  generate.disabled = !ready;
+  generate.disabled = generating || !ready;
   generate.hidden = !design;
-  generate.textContent = "AI重新生成学习活动";
+  generate.textContent = generating ? "正在生成…" : "AI重新生成学习活动";
   document.getElementById("saveActivityFormativeDraft").hidden = !design || design.status === "stale";
   document.getElementById("confirmActivityFormative").hidden = !design || design.status === "stale";
-  document.getElementById("nextFromActivityFormative").disabled = design?.status !== "teacher_confirmed" && !legacyCompleted;
+  document.getElementById("confirmActivityFormative").disabled = generating;
+  document.getElementById("saveActivityFormativeDraft").disabled = generating;
+  document.getElementById("nextFromActivityFormative").disabled = generating || (design?.status !== "teacher_confirmed" && !legacyCompleted);
   const resourceTab = document.querySelector('#interventionSteps [data-istep="4"]');
-  resourceTab.disabled = design?.status !== "teacher_confirmed" && !legacyCompleted;
+  resourceTab.disabled = generating || (design?.status !== "teacher_confirmed" && !legacyCompleted);
   resourceTab.title = resourceTab.disabled ? "请先确认学习活动与形成性评价" : "";
-  status.textContent = ui.activityFormativeError ? "生成失败" : !ready ? "等待上游目标路径" : design?.status === "stale" ? "上游目标路径已更新" :
+  status.textContent = generating ? "生成中" : ui.activityFormativeError ? "生成失败" : !ready ? "等待上游目标路径" : design?.status === "stale" ? "上游目标路径已更新" :
     design?.status === "teacher_confirmed" ? "教师已确认" : design ? "待教师确认" : "待生成";
   prerequisite.textContent = !ready
     ? "请先在第 2 步确认当前班级的目标与活动路径。已完成的旧教案仍可查看，但不会作为新 Skill 的输入。"
@@ -1255,7 +1260,9 @@ function renderActivityFormative(payload) {
   prerequisite.hidden = ready && design?.status !== "stale";
   prerequisite.className = "goal-path-notice";
   if (!design) {
-    content.innerHTML = ui.activityFormativeError
+    content.innerHTML = generating
+      ? '<div class="stage-empty-state"><span>学习活动与形成性评价</span><h2>正在生成学习活动</h2><button class="button primary" id="generateActivityFormativeEmpty" disabled>正在生成…</button></div>'
+      : ui.activityFormativeError
       ? `<div class="stage-empty-state"><span>学习活动与形成性评价</span><h2>生成失败</h2><button class="button primary" id="generateActivityFormativeEmpty" ${ready ? "" : "disabled"}>重新生成学习活动</button></div>`
       : `<div class="stage-empty-state"><span>学习活动与形成性评价</span><h2>尚未生成</h2><button class="button primary" id="generateActivityFormativeEmpty" ${ready ? "" : "disabled"}>AI生成学习活动</button></div>`;
     return;
@@ -1305,14 +1312,43 @@ function renderActivityFormative(payload) {
   initializeActivityDocumentEditing(content);
 }
 
+async function generateActivityFormativeForCurrentClass() {
+  const teachingId = serverState.current_teaching_id;
+  const classroomId = ui.activeInterventionClassroomId;
+  const key = teachingId + ":" + classroomId;
+  if (!teachingId || !classroomId || ui.activityFormativeGeneratingKey === key) return;
+  ui.activityFormativeGeneratingKey = key;
+  ui.activityFormativeLoadSerial = (ui.activityFormativeLoadSerial || 0) + 1;
+  ui.activityFormativeError = null;
+  renderActivityFormative(serverState.activityFormative);
+  try {
+    const payload = await window.PlatformAPI.generateActivityFormative(teachingId, classroomId, activityRequirementsInput());
+    if (serverState.current_teaching_id !== teachingId || ui.activeInterventionClassroomId !== classroomId) return;
+    serverState.activityFormative = {goal_path_ready: true, source_summary: serverState.activityFormative?.source_summary, design: payload.design};
+  } catch (error) {
+    if (serverState.current_teaching_id !== teachingId || ui.activeInterventionClassroomId !== classroomId) return;
+    ui.activityFormativeError = error.message.replace(/^学习活动生成失败：/, "");
+    showToast("学习活动生成失败：" + ui.activityFormativeError);
+  } finally {
+    if (ui.activityFormativeGeneratingKey === key) ui.activityFormativeGeneratingKey = null;
+    if (serverState.current_teaching_id === teachingId && ui.activeInterventionClassroomId === classroomId) renderActivityFormative(serverState.activityFormative);
+  }
+}
+
 async function loadActivityFormative(teachingId, classroomId) {
   if (!teachingId || !classroomId) return;
+  const key = teachingId + ":" + classroomId;
+  if (ui.activityFormativeGeneratingKey === key) return;
+  const serial = ui.activityFormativeLoadSerial = (ui.activityFormativeLoadSerial || 0) + 1;
   try {
     const payload = await window.PlatformAPI.getActivityFormative(teachingId, classroomId);
     if (serverState?.current_teaching_id !== teachingId || ui.activeInterventionClassroomId !== classroomId) return;
+    if (ui.activityFormativeLoadSerial !== serial || ui.activityFormativeGeneratingKey === key) return;
     serverState.activityFormative = payload;
     renderActivityFormative(payload);
   } catch (error) {
+    if (serverState?.current_teaching_id !== teachingId || ui.activeInterventionClassroomId !== classroomId) return;
+    if (ui.activityFormativeLoadSerial !== serial || ui.activityFormativeGeneratingKey === key) return;
     const prerequisite = document.getElementById("activityFormativePrerequisite");
     prerequisite.hidden = false;
     prerequisite.textContent = `无法读取学习活动方案：${error.message}`;
@@ -3710,34 +3746,7 @@ document.addEventListener("click", async event => {
     return;
   }
   if (event.target.closest("#generateActivityFormative, #generateActivityFormativeEmpty")) {
-    const button = event.target.closest("#generateActivityFormative, #generateActivityFormativeEmpty");
-    const teachingId = serverState.current_teaching_id;
-    const classroomId = ui.activeInterventionClassroomId;
-    ui.activityFormativeError = null;
-    document.getElementById("activityFormativeError").hidden = true;
-    document.getElementById("activityFormativeStatus").textContent = "生成中";
-    button.disabled = true;
-    button.textContent = "正在生成…";
-    try {
-      const payload = await window.PlatformAPI.generateActivityFormative(
-        teachingId, classroomId, activityRequirementsInput()
-      );
-      if (serverState.current_teaching_id !== teachingId || ui.activeInterventionClassroomId !== classroomId) return;
-      serverState.activityFormative = { goal_path_ready: true, source_summary: serverState?.activityFormative?.source_summary, design: payload.design };
-      renderActivityFormative(serverState.activityFormative);
-    } catch (error) {
-      if (serverState.current_teaching_id !== teachingId || ui.activeInterventionClassroomId !== classroomId) return;
-      ui.activityFormativeError = error.message.replace(/^学习活动生成失败：/, "");
-      renderActivityFormative(serverState.activityFormative);
-      showToast(`学习活动生成失败：${ui.activityFormativeError}`);
-    } finally {
-      if (button.isConnected) {
-        button.disabled = !serverState?.activityFormative?.goal_path_ready;
-        button.textContent = button.id === "generateActivityFormativeEmpty"
-          ? (ui.activityFormativeError ? "重新生成学习活动" : "AI生成学习活动")
-          : "AI重新生成学习活动";
-      }
-    }
+    await generateActivityFormativeForCurrentClass();
     return;
   }
 

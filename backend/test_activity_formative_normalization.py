@@ -88,5 +88,66 @@ class ActivityFormativeNormalizationTest(unittest.TestCase):
         self.assertEqual(result["activities"][1]["duration_minutes"], 20)
 
 
+class ActivityInteractionRegressionTest(unittest.TestCase):
+    def fixture(self):
+        source = json.loads((SAMPLES / "sample-input.json").read_text())
+        result = json.loads((SAMPLES / "sample-output.json").read_text())
+        goal = copy.deepcopy(source['goal_path_design'])
+        goal['intervention_path'] = goal['intervention_path']['primary']
+        for stage, summary in zip(goal['intervention_path']['stages'], result['activity_sequence_summary']['stages']):
+            stage['stage_name'] = summary['stage_name']
+        return source, goal, result
+
+    def test_teacher_and_material_interactions_are_valid_in_parallel_group(self):
+        from backend.app.activity_formative_api import _prepare_generated_activity
+        _, goal, result = self.fixture()
+        group = result['activities'][1]['parallel_group_tasks'][1]
+        group['dialogue_circles'] = ['师生会话圈','学生-内容会话圈','生生会话圈']
+        original_text = group['student_task']
+        _prepare_generated_activity(result, goal, {})
+        self.assertEqual(group['student_task'], original_text)
+        self.assertEqual(group['organization_form'], '同质小组干预')
+        self.assertIn('学生-内容会话圈', result['activities'][1]['dialogue_circles'])
+
+    def test_upstream_organization_overrides_model_metadata_without_changing_task(self):
+        from backend.app.activity_formative_api import _prepare_generated_activity
+        _, goal, result = self.fixture()
+        group = result['activities'][1]['parallel_group_tasks'][1]
+        group['organization_form'] = '全班集体干预'
+        original = group['student_task']
+        _prepare_generated_activity(result, goal, {})
+        self.assertEqual(group['organization_form'], '同质小组干预')
+        self.assertEqual(group['student_task'], original)
+
+    def test_bad_timing_gets_one_semantic_repair(self):
+        from unittest.mock import patch
+        from backend.app.activity_formative_api import _generate_validated_activity
+        source, goal, result = self.fixture()
+        bad = copy.deepcopy(result)
+        bad['activities'][0]['duration_minutes'] += 1
+        with patch('backend.app.activity_formative_api.run_activity_formative_design',side_effect=[bad, result]) as model:
+            fixed = _generate_validated_activity(None,source,goal,'mocked')
+        self.assertEqual(model.call_count,2)
+        self.assertIn('时长',model.call_args.kwargs['validation_feedback'])
+        _validate(fixed, goal)
+
+    def test_repair_is_bounded_and_invalid_output_is_not_accepted(self):
+        from unittest.mock import patch
+        from backend.app.activity_formative_api import _generate_validated_activity
+        source, goal, result = self.fixture()
+        result['activities'][0]['duration_minutes'] += 1
+        with patch('backend.app.activity_formative_api.run_activity_formative_design',return_value=result) as model:
+            with self.assertRaisesRegex(ValueError,'自动校正后仍未满足'):
+                _generate_validated_activity(None,source,goal,'mocked')
+        self.assertEqual(model.call_count,2)
+
+    def test_explicit_no_ai_constraint_is_not_relaxed(self):
+        from backend.app.activity_formative_api import _prepare_generated_activity
+        _, goal, result = self.fixture()
+        result['activities'][0]['dialogue_circles'] = ['师生机会话圈']
+        with self.assertRaisesRegex(ValueError,'教师明确不使用AI'):
+            _prepare_generated_activity(result,goal,{'ai_access':'none'})
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,7 +1,7 @@
 ---
 name: precision-intervention-activity-formative-regulation
 metadata:
-  version: 1.3.0
+  version: 1.3.1
 description: 将已确认的精准干预目标与课堂路径细化为教师可实施的学习活动，并在关键位置设计形成性评价及评价后的教学调整。用于精准干预方案的活动设计阶段；不重新诊断学生，不修改上游目标与路径，也不负责干预结束后的成效评价或完整方案整合。
 ---
 

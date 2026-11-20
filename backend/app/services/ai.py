@@ -1094,7 +1094,8 @@ def run_goal_path_teacher_analysis(payload: dict[str, Any], provider: str) -> di
 
 
 def run_activity_formative_design(
-    skill: SkillDefinition, payload: dict[str, Any], provider: str
+    skill: SkillDefinition, payload: dict[str, Any], provider: str,
+    *, validation_feedback: str | None = None, previous_result: dict | None = None
 ) -> dict[str, Any]:
     from .activity_scope import without_activity_rosters
     payload = without_activity_rosters(payload)
@@ -1121,6 +1122,11 @@ def run_activity_formative_design(
         "共同核心目标 CG 可以体现在活动目标文字或形成性评价中，但不要作为活动单元的额外目标编号。"
         f"并行阶段清单：{json.dumps(parallel_stages, ensure_ascii=False)}"
     )
+    circle_rules = json.loads((skill.path.parent / "assets/organization-circle-rules.json").read_text(encoding="utf-8"))
+    instructions += "\n组织形式与互动可组合，不是互斥分类。教师巡视小组使用师生会话圈，独立阅读或填写材料使用学生-内容会话圈，均不改变小组组织形式。AI仅在条件允许且实际安排时出现。规范组合：" + json.dumps(circle_rules, ensure_ascii=False)
+    if validation_feedback:
+        payload = {**payload, "previous_activity_design": previous_result, "validation_feedback": validation_feedback}
+        instructions += "\n上一版仅业务校验未通过。保留合理的活动正文和教师条件，根据validation_feedback修正相应字段，确保与已确认目标、阶段和时长一致，返回完整JSON，不重新诊断或篡改上游。"
     result = _run_structured_skill(
         skill, payload, "activity-formative-output.schema.json", "activity_formative_design",
         provider, instruction_suffix=instructions,

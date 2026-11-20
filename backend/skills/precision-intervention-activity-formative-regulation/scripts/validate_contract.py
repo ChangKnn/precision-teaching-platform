@@ -142,12 +142,8 @@ def semantic_errors(source, result):
     activity_map = {item["activity_id"]: item for item in activities}
     by_unit = defaultdict(list)
     by_stage = defaultdict(list)
-    allowed_circles = {
-        "全班集体干预": {"师生会话圈", "师生机会话圈"},
-        "同质小组干预": {"生生会话圈", "师生机会话圈"},
-        "异质小组干预": {"生生会话圈", "师生机会话圈"},
-        "个体干预": {"师生会话圈", "生机会话圈", "学生-内容会话圈"},
-    }
+    allowed_circles = {form: set(circles) for form, circles in
+                      load_json(ROOT / "assets/organization-circle-rules.json").items()}
 
     for activity in activities:
         source_units = []

@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import jsonschema
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
@@ -20,12 +21,12 @@ from .services.education_context import higher_education_fields
 router = APIRouter(prefix="/api")
 
 ORGANIZATIONS = {"全班集体干预", "同质小组干预", "异质小组干预", "个体干预"}
-ALLOWED_CIRCLES = {
-    "全班集体干预": {"师生会话圈", "师生机会话圈"},
-    "同质小组干预": {"生生会话圈", "师生机会话圈"},
-    "异质小组干预": {"生生会话圈", "师生机会话圈"},
-    "个体干预": {"师生会话圈", "生机会话圈", "学生-内容会话圈"},
-}
+ALLOWED_CIRCLES = {form: set(circles) for form, circles in json.loads(
+    (load_skill("precision_intervention_activity_formative_regulation").path.parent /
+     "assets/organization-circle-rules.json").read_text(encoding="utf-8")
+).items()}
+SOURCE_ORGANIZATIONS = {"C": "全班集体干预", "H": "同质小组干预", "X": "异质小组干预", "I": "个体干预"}
+
 
 
 class ActivityRequirements(BaseModel):
@@ -271,6 +272,55 @@ def _normalize_common_goal_mapping(result: dict, goal: dict) -> list[str]:
     return repaired
 
 
+def _normalize_activity_interactions(result: dict, goal: dict) -> None:
+    """Recover organization metadata from confirmed units, leaving teaching prose untouched."""
+    units = {unit["unit_id"]: unit for stage in goal["intervention_path"]["stages"] for unit in stage["activity_units"]}
+    for activity in result["activities"]:
+        expected = [SOURCE_ORGANIZATIONS.get(units.get(uid, {}).get("organization_code")) for uid in activity["source_unit_ids"]]
+        if expected and all(expected):
+            activity["organization_forms"] = list(dict.fromkeys(expected))
+        circles = list(activity["dialogue_circles"])
+        for group in activity["parallel_group_tasks"]:
+            form = SOURCE_ORGANIZATIONS.get(units.get(group["source_unit_id"], {}).get("organization_code"))
+            if form:
+                group["organization_form"] = form
+            group["dialogue_circles"] = list(dict.fromkeys(group["dialogue_circles"]))
+            circles.extend(group["dialogue_circles"])
+        activity["dialogue_circles"] = list(dict.fromkeys(circles))
+
+
+def _prepare_generated_activity(result: dict, goal: dict, requirements: dict) -> None:
+    result["design_status"] = "pending_teacher_confirmation"
+    result["teacher_confirmation"]["status"] = "pending_teacher_confirmation"
+    _normalize_parallel_activities(result, goal)
+    _normalize_common_goal_mapping(result, goal)
+    _normalize_activity_interactions(result, goal)
+    _validate(result, goal)
+    if requirements.get("ai_access") == "none":
+        for activity in result["activities"]:
+            ai_tags = any("机" in tag for tag in activity["dialogue_circles"])
+            ai_actions = any(action["actor"] == "AI" and action["action"].strip() for action in activity["participant_actions"])
+            if ai_tags or ai_actions:
+                raise ValueError("教师明确不使用AI，活动中不应安排AI交互")
+
+
+def _generate_validated_activity(skill, payload, goal, provider):
+    """Generate once; repair a returned design once if business constraints fail."""
+    result = run_activity_formative_design(skill, payload, provider)
+    try:
+        _prepare_generated_activity(result, goal, payload.get("teacher_activity_requirements", {}))
+    except (ValueError, jsonschema.ValidationError) as error:
+        detail = error.message if isinstance(error, jsonschema.ValidationError) else str(error)
+        result = run_activity_formative_design(skill, payload, provider,
+            validation_feedback=detail[:600], previous_result=result)
+        try:
+            _prepare_generated_activity(result, goal, payload.get("teacher_activity_requirements", {}))
+        except (ValueError, jsonschema.ValidationError) as final_error:
+            detail = final_error.message if isinstance(final_error, jsonschema.ValidationError) else str(final_error)
+            raise ValueError("活动方案自动校正后仍未满足上游约束：" + detail[:600] + "；已有方案未覆盖") from final_error
+    return result
+
+
 def goal_with_activity_timing(goal: dict, result: dict) -> dict:
     """Use teacher-edited activity timing in downstream views; keep stored path intact."""
     view = copy.deepcopy(goal)
@@ -462,12 +512,9 @@ def generate_activity_formative(teaching_id: str, classroom_id: str, request: Ac
         )
     result = None
     try:
-        result = run_activity_formative_design(skill, payload, settings.ai_provider)
-        result["design_status"] = "pending_teacher_confirmation"
-        result["teacher_confirmation"]["status"] = "pending_teacher_confirmation"
-        _normalize_parallel_activities(result, goal)
-        _normalize_common_goal_mapping(result, goal)
-        _validate(result, goal)
+        result = _generate_validated_activity(skill, payload, goal, settings.ai_provider)
+        if _source(teaching_id, classroom_id)[4] != source_hash:
+            raise HTTPException(status_code=409, detail="生成期间目标路径或诊断已更新，请基于最新信息重新生成")
         report_text = _markdown(result)
         now = utc_now()
         output_json = json.dumps(result, ensure_ascii=False)
@@ -500,6 +547,8 @@ def generate_activity_formative(teaching_id: str, classroom_id: str, request: Ac
                 "UPDATE ai_jobs SET status = 'failed', output_json = ?, error = ?, completed_at = ? WHERE id = ?",
                 (json.dumps(result, ensure_ascii=False) if isinstance(result, dict) else None, str(error), utc_now(), job_id),
             )
+        if isinstance(error, HTTPException):
+            raise
         raise HTTPException(status_code=502, detail=f"学习活动生成失败：{error}") from error
 
 

@@ -721,3 +721,44 @@ test('adopting a diagnostic proposal replaces stale design intent and saves the 
   get('diagnosisDesignIntent').value='Teacher can still edit this';
   assert.equal(get('diagnosisDesignIntent').value,'Teacher can still edit this');
 });
+
+test('activity generation has one pending request and clears busy state after failure', async () => {
+  const document=fakeDocument();
+  let rejectRequest, calls=0;
+  const pending=new Promise((resolve,reject)=>{rejectRequest=reject;});
+  const state={current_teaching_id:'t',activityFormative:{goal_path_ready:true,design:null}};
+  const uiState={activeInterventionClassroomId:'c',activityFormativeGeneratingKey:null,activityFormativeLoadSerial:0};
+  const context=loadFunctions(teacherSource,['renderActivityFormative','generateActivityFormativeForCurrentClass'],{
+    ui:uiState,serverState:state,document,activityRequirementsInput:()=>({}),showToast:()=>{},
+    window:{PlatformAPI:{generateActivityFormative:()=>{calls++;return pending;}}}
+  });
+  const first=context.generateActivityFormativeForCurrentClass();
+  await context.generateActivityFormativeForCurrentClass();
+  assert.equal(calls,1);
+  assert.equal(document.getElementById('activityFormativeStatus').textContent,'生成中');
+  assert.doesNotMatch(document.getElementById('activityFormativeGeneratedContent').innerHTML,/生成失败/);
+  rejectRequest(new Error('学习活动生成失败：测试错误'));
+  await first;
+  assert.equal(uiState.activityFormativeGeneratingKey,null);
+  assert.equal(document.getElementById('activityFormativeStatus').textContent,'生成失败');
+  assert.match(document.getElementById('activityFormativeGeneratedContent').innerHTML,/重新生成学习活动/);
+  assert.doesNotMatch(document.getElementById('activityFormativeGeneratedContent').innerHTML,/正在生成/);
+});
+
+test('a stale activity GET cannot overwrite a newly generated design', async () => {
+  let finishGet;
+  const pending=new Promise(resolve=>{finishGet=resolve;});
+  const state={current_teaching_id:'t',activityFormative:{goal_path_ready:true,design:null}};
+  const uiState={activeInterventionClassroomId:'c',activityFormativeGeneratingKey:null,activityFormativeLoadSerial:0};
+  const fresh={status:'pending_teacher_confirmation',result:{marker:'new'}};
+  const context=loadFunctions(teacherSource,['loadActivityFormative','generateActivityFormativeForCurrentClass'],{
+    ui:uiState,serverState:state,document:fakeDocument(),activityRequirementsInput:()=>({}),showToast:()=>{},
+    renderActivityFormative:()=>{},
+    window:{PlatformAPI:{getActivityFormative:()=>pending,generateActivityFormative:async()=>({design:fresh})}}
+  });
+  const old=context.loadActivityFormative('t','c');
+  await context.generateActivityFormativeForCurrentClass();
+  finishGet({goal_path_ready:true,design:null});
+  await old;
+  assert.equal(state.activityFormative.design,fresh);
+});
