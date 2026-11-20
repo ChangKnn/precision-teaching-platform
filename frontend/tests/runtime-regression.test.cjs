@@ -521,6 +521,21 @@ test("student app becomes visible before the opening is ready", async () => {
   assert.equal(loginView.hidden, true);
 });
 
+test("student entry opens the newest assigned task ahead of an older ongoing task", async () => {
+  const document = fakeDocument();
+  const opened = [];
+  const context = loadFunctions(studentSource, ["taskSubject","enterApp"], {
+    state: {}, loginView: {}, studentApp: {}, $: selector => document.querySelector(selector), subjectSelect: {},
+    populateSubjects: () => {}, renderHistory: () => {}, openTask: async id => opened.push(id)
+  });
+  await context.enterApp({ student: { name: "测试学生" }, tasks: [
+    {teaching_id:"new", subject:"科学", session_status:"submitted"},
+    {teaching_id:"old", subject:"数学", session_status:"in_progress"}
+  ]});
+  assert.deepEqual(opened, ["new"]);
+  assert.equal(context.subjectSelect.value, "科学");
+});
+
 test("opening failure stays in the learning space with an error instead of reporting failed login", async () => {
   const document = fakeDocument();
   const loginView = { hidden: false };
@@ -537,12 +552,13 @@ test("opening failure stays in the learning space with an error instead of repor
 });
 
 
-test('single-person support is a teacher notice for either grouping scheme', () => {
+test('small-group support is a teacher notice for either grouping scheme', () => {
   const context=loadFunctions(teacherSource,['singletonGroupingNote']);
   for(const key of ['homogeneous_groups','heterogeneous_groups']) {
-    assert.match(context.singletonGroupingNote({[key]:[{students:[{student_id:'s1'}]}]}),/单人支持安排/);
+    assert.match(context.singletonGroupingNote({[key]:[{students:[{student_id:'s1'}]}]}),/单人支持安排|人数较少/);
   }
-  assert.equal(context.singletonGroupingNote({homogeneous_groups:[{students:[{},{}]}]}),'');
+  assert.match(context.singletonGroupingNote({homogeneous_groups:[{students:[{},{}]}]}),/人数较少/);
+  assert.equal(context.singletonGroupingNote({homogeneous_groups:[{students:[{},{},{}]}]}),'');
   assert.equal(context.singletonGroupingNote({}), '');
 });
 

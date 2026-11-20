@@ -281,7 +281,7 @@ async function enterApp(payload) {
   loginView.hidden = true;
   studentApp.hidden = false;
   if (state.tasks.length) {
-    const preferred = state.tasks.find((task) => task.session_status === "in_progress") || state.tasks[0];
+    const preferred = state.tasks[0];
     subjectSelect.value = taskSubject(preferred);
     try { await openTask(preferred.teaching_id); }
     catch (error) { showToast("任务加载失败", error.message); }
@@ -328,10 +328,10 @@ function renderHistory() {
   list.innerHTML = state.tasks.map((task) => {
     const active = state.activeTask?.teaching_id === task.teaching_id;
     const status = task.report_status === "pushed" ? "已收到反馈" : task.session_status === "submitted" ? "已提交" : task.session_status === "in_progress" ? "进行中" : "待开始";
-    const time = task.submitted_at || task.started_at || task.updated_at;
+    const time = task.assigned_at || task.updated_at;
     return `<button class="history-item${active ? " active" : ""}" data-teaching-id="${escapeHtml(task.teaching_id)}">
       <span class="history-status ${task.session_status === "submitted" ? "done" : "live"}"></span>
-      <span><strong>${escapeHtml(studentTaskTitle(task))}</strong><small>${status} · ${escapeHtml(formatTime(time))}</small></span>
+      <span><strong>${escapeHtml(studentTaskTitle(task))}</strong><small>${status} · 布置于 ${escapeHtml(formatTime(time))}</small></span>
     </button>`;
   }).join("");
   $$('[data-teaching-id]', list).forEach((button) => button.addEventListener("click", async () => {

@@ -142,7 +142,7 @@ def task_rows(student: dict) -> list[dict]:
         """
         SELECT p.id AS teaching_id, p.title, p.subject, p.grade, p.textbook, p.course_name, p.education_stage,
                p.task_name, COALESCE(p.parent_teaching_id,p.id) AS theme_id,
-               d.diagnosis_type, d.task_text, d.duration_minutes, d.updated_at,
+               d.diagnosis_type, d.task_text, d.duration_minutes, d.updated_at, da.assigned_at,
                tw.teacher_name AS teacher_name,
                sts.id AS session_id, sts.status AS session_status,
                sts.started_at, sts.submitted_at, sts.task_version_id,
@@ -157,9 +157,7 @@ def task_rows(student: dict) -> list[dict]:
         LEFT JOIN student_diagnosis_reports sdr
           ON sdr.session_id = sts.id AND sdr.status = 'pushed'
         WHERE da.classroom_id = ? AND da.is_published = 1 AND cs.school_name = ?
-        ORDER BY CASE WHEN sts.status = 'in_progress' THEN 0
-                      WHEN sts.status IS NULL THEN 1 ELSE 2 END,
-                 d.updated_at DESC
+        ORDER BY da.assigned_at DESC, p.created_at DESC, p.id DESC
         """,
         (student["id"], student["classroom_id"], student["school_name"]),
     )

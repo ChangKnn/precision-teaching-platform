@@ -40,6 +40,24 @@ class MultipleDiagnosticTasksTest(TestCase):
         main.update_diagnosis_rubric(task_id,DiagnosisRubricUpdate(rubric={'levels':levels},confirmed=True))
         main.update_diagnosis(task_id,DiagnosisTaskUpdate(**{**values,'status':'published','classroom_ids':['class']}))
 
+    def test_student_tasks_use_assignment_time_not_status_or_draft_edits(self):
+        old_session=self.start()['session']['id']
+        child=self.add()
+        self.publish_second(child)
+        with db.database() as connection:
+            connection.execute("UPDATE diagnosis_assignments SET assigned_at='2026-11-01T10:00:00+00:00' WHERE teaching_id='pt'")
+            connection.execute("UPDATE diagnosis_assignments SET assigned_at='2026-11-20T10:00:00+00:00' WHERE teaching_id=?", (child,))
+            connection.execute("UPDATE diagnosis_tasks SET updated_at='2026-12-01T10:00:00+00:00' WHERE teaching_id='pt'")
+        rows=student_api.task_rows(self.student)
+        self.assertEqual([row['teaching_id'] for row in rows], [child,'pt'])
+        self.assertEqual(rows[0]['assigned_at'],'2026-11-20T10:00:00+00:00')
+        self.assertEqual(rows[1]['session_status'],'in_progress')
+        new_session=student_api.start_task(child,self.student)['session']['id']
+        with db.database() as connection:
+            connection.execute("UPDATE student_task_sessions SET status='submitted' WHERE id=?", (new_session,))
+        self.assertEqual([r['teaching_id'] for r in student_api.task_rows(self.student)], [child,'pt'])
+        self.assertEqual(db.fetch_one('SELECT status FROM student_task_sessions WHERE id=?',(old_session,))['status'],'in_progress')
+
     def test_new_task_is_empty_and_theme_list_stays_single(self):
         before=db.fetch_one("SELECT * FROM diagnosis_tasks WHERE teaching_id='pt'")
         child=self.add()
