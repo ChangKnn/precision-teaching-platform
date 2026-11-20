@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import Response
 
 from .activity_formative_api import _serialized as activity_serialized, goal_with_activity_timing, _presentation_text
+from .lesson_materials import attach_materials
 from .config import settings
 from .database import database, fetch_one, utc_now, write_audit
 from .goal_path_api import _aliases, _replace_names, _serialized_row as goal_serialized
@@ -200,6 +201,7 @@ def _source(teaching_id: str, classroom_id: str) -> tuple[dict, str, str]:
             "wording_density": "concise",
         },
     }
+    attach_materials(payload, teaching_id)
     raw = json.dumps(payload, ensure_ascii=False, sort_keys=True)
     source_hash = hashlib.sha256((raw + skill.version).encode("utf-8")).hexdigest()
     return payload, source_hash, skill.version

@@ -45,6 +45,7 @@ from .classroom_management import router as classroom_management_router, deleted
 from .task_attachments import router as task_attachments_router
 from .services.task_versions import preserve_published_task, preserve_legacy_task_versions
 from .services.student_dialogue_skill import _teacher_contract
+from .lesson_materials import router as lesson_materials_router
 from .role_knowledge import router as role_knowledge_router, knowledge_state
 from .services.class_teaching_suggestions import router as teaching_suggestions_router
 from .services.class_report import recover_interrupted_class_reports
@@ -77,6 +78,7 @@ app.include_router(task_materials_router)
 app.include_router(task_attachments_router)
 app.include_router(classroom_management_router)
 app.include_router(role_knowledge_router)
+app.include_router(lesson_materials_router)
 app.include_router(teaching_suggestions_router)
 app.include_router(multiple_tasks_router)
 

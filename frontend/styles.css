@@ -1642,3 +1642,12 @@ body { font-size: 16px; }
 @media (max-width: 600px) { .interaction-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .interaction-stat { padding: 12px; } .interaction-stat > strong { font-size: 23px; } }
 .level-teaching-design { margin: 12px 0; padding: 12px 14px; border-radius: 8px; background: #f3f9f6; }
 .level-teaching-design p { margin: 6px 0 0; line-height: 1.65; }
+
+.lesson-materials-card h2 { margin: 0 0 8px; font-size: 20px; }
+.lesson-materials-upload { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; font-weight: 600; }
+.lesson-materials-upload input { max-width: 100%; }
+.lesson-materials-list { list-style: none; padding: 0; margin: 14px 0; }
+.lesson-materials-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border, #dce6e3); }
+.lesson-materials-list a { overflow-wrap: anywhere; color: var(--primary, #17665d); }
+#lessonMaterialsReview label { display: grid; gap: 8px; }
+#lessonMaterialsText { width: 100%; box-sizing: border-box; }

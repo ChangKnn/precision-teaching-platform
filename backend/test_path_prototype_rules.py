@@ -69,7 +69,7 @@ class PathPrototypeRulesTest(TestCase):
     def test_live_runtime_loads_the_updated_path_reference(self):
         skill=load_skill('precision_intervention_goal_path_design')
         instructions=_skill_runtime_instructions(skill)
-        self.assertEqual(skill.version,'1.9.1')
+        self.assertEqual(skill.version,'1.10.0')
         self.assertIn('每个I内部有独立的微型学习回路',instructions)
         self.assertIn('站内可H/X/I',instructions)
         self.assertIn('单课时一般安排一个小组活动时段，最多两个',instructions)

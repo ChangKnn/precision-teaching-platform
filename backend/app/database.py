@@ -138,6 +138,18 @@ def initialize_database() -> None:
         updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS lesson_materials (
+        id TEXT PRIMARY KEY,
+        teaching_id TEXT NOT NULL REFERENCES precision_teachings(id) ON DELETE CASCADE,
+        original_filename TEXT NOT NULL, stored_filename TEXT NOT NULL,
+        content_type TEXT NOT NULL, size_bytes INTEGER NOT NULL, sha256 TEXT NOT NULL,
+        content_text TEXT NOT NULL, created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS lesson_material_reviews (
+        teaching_id TEXT PRIMARY KEY REFERENCES precision_teachings(id) ON DELETE CASCADE,
+        source_hash TEXT NOT NULL, content_text TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS ability_solo_frameworks (
         teaching_id TEXT PRIMARY KEY REFERENCES precision_teachings(id) ON DELETE CASCADE,
         ability_name TEXT NOT NULL DEFAULT '',

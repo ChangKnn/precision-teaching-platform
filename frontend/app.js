@@ -1066,6 +1066,7 @@ async function loadStudentResults(teachingId) {
 }
 
 function goalPathTeacherInput() {
+  window.LessonMaterials?.prepare();
   return {
     teacher_instructional_context: {
       teaching_content_and_curriculum_analysis: document.getElementById("teachingContentAnalysis").value.trim(),
@@ -1480,6 +1481,7 @@ function collectActivityPresentationOverrides() {
 
 async function loadGoalPath(teachingId, classroomId) {
   if (!teachingId || !classroomId) return;
+  window.LessonMaterials?.load(teachingId);
   try {
     const payload = await window.PlatformAPI.getGoalPath(teachingId, classroomId);
     if (serverState?.current_teaching_id !== teachingId || ui.activeInterventionClassroomId !== classroomId) return;
@@ -1836,6 +1838,7 @@ function applyTaskFamily(response) {
 }
 
 async function saveBeforeTaskSwitch() {
+  window.LessonMaterials?.prepare();
   const name = document.getElementById('diagnosticTaskName').value.trim();
   const saved = serverState.current_workspace.teaching.task_name || '诊断任务一';
   if (ui.currentPage === 'diagnosis') await window.TaskInput.prepareAnalysis();
@@ -3811,6 +3814,7 @@ document.addEventListener("click", async event => {
     button.disabled = true;
     button.textContent = "正在生成…";
     try {
+      window.LessonMaterials?.prepare();
       const payload = await window.PlatformAPI.generateTeacherAnalysis(
         serverState.current_teaching_id, ui.activeInterventionClassroomId
       );
@@ -3848,6 +3852,7 @@ document.addEventListener("click", async event => {
     const button = event.target.closest("#saveTeacherAnalysisAndNext");
     button.disabled = true;
     try {
+      window.LessonMaterials?.prepare();
       await window.PlatformAPI.saveTeacherAnalysis(
         serverState.current_teaching_id, ui.activeInterventionClassroomId, input
       );
@@ -3863,7 +3868,9 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("#generateGoalPath, #generateGoalPathEmpty")) {
     const button = event.target.closest("#generateGoalPath, #generateGoalPathEmpty");
-    const input = goalPathTeacherInput();
+    let input;
+    try { input = goalPathTeacherInput(); }
+    catch (error) { showToast(error.message); setInterventionStep(1); return; }
     const isRevision = Boolean(serverState?.goalPath?.design);
     const revisionRequest = document.getElementById("goalPathRevisionRequest").value.trim();
     if (isRevision && !revisionRequest) {
@@ -3877,25 +3884,25 @@ document.addEventListener("click", async event => {
       return;
     }
     if (!context.teaching_content_and_curriculum_analysis || !context.teaching_focus_and_difficulty_analysis) {
-      showToast("请先在“设计依据”填写并保存两项教学分析");
+      showToast("请先在“当前教学设计方案”填写并保存两项教学分析");
       setInterventionStep(1);
       return;
     }
     if (!context.teaching_environment_and_ai_support_conditions) {
-      showToast("请先在“设计依据”填写“课堂与技术条件”，再保存分析");
+      showToast("请先在“当前教学设计方案”填写“课堂与技术条件”，再保存分析");
       setInterventionStep(1);
       document.getElementById("teachingEnvironmentConditions").focus();
       return;
     }
     if (!Number.isInteger(context.planned_duration_minutes) || context.planned_duration_minutes < 10 || context.planned_duration_minutes > 300) {
-      showToast("请在“设计依据”填写 10–300 分钟的教学时间");
+      showToast("请在“当前教学设计方案”填写 10–300 分钟的教学时间");
       setInterventionStep(1);
       document.getElementById("interventionDurationMinutes").focus();
       return;
     }
     const savedAnalysis = serverState?.goalPath?.teacher_analysis;
     if (!savedAnalysis || savedAnalysis.content_analysis !== context.teaching_content_and_curriculum_analysis || savedAnalysis.focus_analysis !== context.teaching_focus_and_difficulty_analysis) {
-      showToast("请先在“设计依据”保存当前两项教学分析，再生成目标与路径");
+      showToast("请先在“当前教学设计方案”保存当前两项教学分析，再生成目标与路径");
       setInterventionStep(1);
       return;
     }
@@ -5210,5 +5217,14 @@ window.addEventListener("beforeunload", event => {
   if (ui.activityFormativeDirty || ui.activityFormativeSavePromise) {
     event.preventDefault();
     event.returnValue = "";
+  }
+});
+
+window.addEventListener('lesson-materials-changed', event => {
+  if (event.detail.teachingId === serverState?.current_teaching_id && ui.activeInterventionClassroomId) {
+    if (serverState.goalPath?.design) serverState.goalPath.design.status = 'stale';
+    if (serverState.activityFormative?.design) serverState.activityFormative.design.status = 'stale';
+    renderGoalPath(serverState.goalPath);
+    loadActivityFormative(serverState.current_teaching_id, ui.activeInterventionClassroomId);
   }
 });

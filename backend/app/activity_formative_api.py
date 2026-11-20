@@ -14,6 +14,7 @@ from .database import database, fetch_one, utc_now, write_audit
 from .goal_path_api import _aliases, _replace_names, _serialized_row, _student_levels
 from .services.ai import run_activity_formative_design
 from .services.skills import load_skill
+from .lesson_materials import attach_materials
 from .services.activity_scope import without_activity_rosters
 from .services.education_context import higher_education_fields
 
@@ -155,6 +156,7 @@ def _build_input(teaching_id: str, classroom_id: str, requirements: dict) -> tup
         },
         "teacher_activity_requirements": requirements,
     }
+    attach_materials(payload, teaching_id)
     return payload, goal, source_hash
 
 

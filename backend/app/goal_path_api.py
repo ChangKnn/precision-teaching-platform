@@ -12,6 +12,7 @@ from .config import settings
 from .database import database, fetch_all, fetch_one, utc_now, write_audit
 from .services.ai import run_goal_path_design, run_goal_path_teacher_analysis
 from .services.skills import load_skill
+from .lesson_materials import attach_materials, require_same_materials
 from .services.activity_scope import without_activity_rosters
 from .services.goal_text import strip_solo_suffixes, format_common_goal
 from .services.education_context import higher_education_fields, education_source_note
@@ -124,6 +125,7 @@ def _build_input(teaching_id: str, classroom_id: str, teacher_context: dict) -> 
         },
         "teacher_instructional_context": teacher_context,
     }
+    attach_materials(payload, teaching_id)
     return payload, class_result, report
 
 
@@ -330,9 +332,13 @@ def generate_teacher_analysis(teaching_id: str, classroom_id: str) -> dict:
         },
     }
     try:
+        attach_materials(payload, teaching_id)
         draft = run_goal_path_teacher_analysis(_replace_names(payload, _aliases(class_result)), settings.ai_provider)
+    except HTTPException:
+        raise
     except Exception as error:
         raise HTTPException(status_code=502, detail=f"教学分析草稿生成失败：{error}") from error
+    require_same_materials(payload, teaching_id)
     now = utc_now()
     with database() as connection:
         connection.execute(
@@ -423,6 +429,7 @@ def generate_goal_path(teaching_id: str, classroom_id: str, request: GoalPathGen
         result["design_status"] = "pending_teacher_confirmation"
         result["teacher_confirmation"]["status"] = "pending_teacher_confirmation"
         _validate_design(result, class_result, teacher_context["planned_duration_minutes"])
+        require_same_materials(payload, teaching_id)
         report_text = _markdown(result)
         now = utc_now()
         output_json = json.dumps(result, ensure_ascii=False)
@@ -459,6 +466,8 @@ def generate_goal_path(teaching_id: str, classroom_id: str, request: GoalPathGen
                 "UPDATE ai_jobs SET status = 'failed', error = ?, completed_at = ? WHERE id = ?",
                 (str(error), utc_now(), job_id),
             )
+        if isinstance(error, HTTPException):
+            raise
         raise HTTPException(status_code=502, detail=f"目标与路径生成失败：{error}") from error
 
 

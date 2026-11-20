@@ -15,6 +15,30 @@
     "integration_preferences"
   ],
   "properties": {
+    "current_lesson_materials": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_hash",
+        "filenames",
+        "text"
+      ],
+      "properties": {
+        "source_hash": {
+          "type": "string"
+        },
+        "filenames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 24000
+        }
+      }
+    },
     "schema_version": {"const": "1.2"},
     "precision_teaching_context": {"$ref": "#/$defs/precisionTeachingContext"},
     "teacher_instructional_context": {"$ref": "#/$defs/teacherContext"},

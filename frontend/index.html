@@ -6,7 +6,7 @@
   <meta name="description" content="支持教师开展精准诊断、反馈与课堂干预设计的研究原型。">
   <title>思阶｜AI 精准教学工作台</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="styles.css?v=20261120-activity-persistence-v1">
+  <link rel="stylesheet" href="styles.css?v=20261120-lesson-materials-v1">
   <link rel="stylesheet" href="/filing.css?v=20261018">
   <link rel="stylesheet" href="notifications.css?v=20261018-persistent">
   <link rel="stylesheet" href="vendor/mathlive/mathlive-fonts.css">
@@ -72,7 +72,7 @@
         <div class="nav-stage" data-nav-stage="intervention">
           <button class="nav-item" data-page="intervention"><span>3</span>教学设计</button>
           <div class="nav-stage-children" aria-label="教学设计">
-            <button type="button" class="nav-subitem" data-page="intervention" data-nav-istep="1">设计依据</button>
+            <button type="button" class="nav-subitem" data-page="intervention" data-nav-istep="1">当前教学设计方案</button>
             <button type="button" class="nav-subitem" data-page="intervention" data-nav-istep="2">目标设计与活动路径</button>
             <button type="button" class="nav-subitem" data-page="intervention" data-nav-istep="3">学习活动设计</button>
             <button type="button" class="nav-subitem" data-page="intervention" data-nav-istep="4">方案总览与导出</button>
@@ -415,9 +415,16 @@
             <label>诊断依据任务<select id="interventionTaskName" disabled><option>课前 · 围绳面积最大方案论证</option></select></label>
             <span class="status success" id="interventionEvidenceStatus">等待学生提交</span>
           </div>
-          <div class="workflow-tabs intervention-tabs four" id="interventionSteps"><button class="active" data-istep="1"><i>1</i>设计依据</button><button data-istep="2"><i>2</i>目标设计与活动路径</button><button data-istep="3"><i>3</i>学习活动设计</button><button data-istep="4"><i>4</i>方案总览与导出</button></div>
+          <div class="workflow-tabs intervention-tabs four" id="interventionSteps"><button class="active" data-istep="1"><i>1</i>当前教学设计方案</button><button data-istep="2"><i>2</i>目标设计与活动路径</button><button data-istep="3"><i>3</i>学习活动设计</button><button data-istep="4"><i>4</i>方案总览与导出</button></div>
 
           <div class="intervention-panel active" data-ipanel="1">
+            <article class="card intervention-section-card lesson-materials-card">
+              <div class="intervention-section-heading"><div><h2>当前教学设计方案</h2><p>上传现有教案或课件，以你的教学内容和思路为主线，结合学情调整任务、支架与评价。</p></div><span id="lessonMaterialsStatus" class="autosave-state" aria-live="polite">正在读取…</span></div>
+              <label class="lesson-materials-upload">上传教案或课件<input id="lessonMaterialsFile" type="file" accept=".docx,.pdf,.pptx" disabled></label>
+              <small class="muted">支持 Word（DOCX）、PDF、PPTX，最多5份，每份10MB。资料仅供教师备课使用。</small>
+              <ul id="lessonMaterialsList" class="lesson-materials-list"></ul>
+              <div id="lessonMaterialsReview" hidden><label>核对教学内容与思路<textarea id="lessonMaterialsText" rows="9" maxlength="24000" placeholder="请核对并补充本课内容、课件图表含义、教学顺序及需要保留的设计。"></textarea></label><p class="muted">图片、图表、公式和扫描页可能未完整提取，请补充后保存。当前未做图片识别。</p><div class="panel-actions right"><button type="button" class="button primary" id="confirmLessonMaterials">保存并用于教学设计</button></div></div>
+            </article>
             <article class="card intervention-section-card">
               <div class="intervention-section-heading"><div><span class="section-kicker">教学情境与条件</span><p>AI 根据精准教学资料与班级报告起草前两项分析，教师核对后用于生成目标与路径。</p></div><div><button class="button ai" id="generateTeacherAnalysis">AI生成教学分析</button><button class="help-dot" data-intervention-help="teaching-context" aria-label="查看教学情境与条件说明">?</button></div></div>
               <p id="teacherAnalysisSourceNote" class="goal-path-source" hidden></p>
@@ -633,7 +640,7 @@
     <a href="https://beian.mps.gov.cn/#/query/webSearch?code=11010802050729" target="_blank" rel="noopener noreferrer"><img src="/assets/beian.png" alt="公安备案图标" width="20" height="20">京公网安备11010802050729号</a>
   </footer>
   <script src="notifications.js?v=20261019-error-only-v1"></script>
-  <script src="api-client.js?v=20261120-activity-persistence-v1"></script>
+  <script src="api-client.js?v=20261120-lesson-materials-v1"></script>
   <script src="llm-debug.js?v=20260925-llm2"></script>
   <dialog id="taskFormulaDialog" class="task-math-dialog" aria-labelledby="taskFormulaTitle"><div class="task-dialog-heading"><h2 id="taskFormulaTitle">插入或编辑数学公式</h2><button type="button" class="button" id="taskFormulaCancel">关闭</button></div><p>用数学键盘输入公式，也可粘贴 LaTeX；插入后会在预览中显示。</p><math-field id="taskFormulaField" math-virtual-keyboard-policy="manual" aria-label="数学公式输入"></math-field><div class="task-formula-shortcuts"><button type="button" class="button" data-task-formula="\frac{#0}{#?}">分式</button><button type="button" class="button" data-task-formula="\sqrt{#0}">根号</button><button type="button" class="button" data-task-formula="#0^{#?}">上标</button><button type="button" class="button" data-task-formula="#0_{#?}">下标</button><button type="button" class="button" data-task-formula="\overrightarrow{#0}">向量</button><button type="button" class="button" data-task-formula="\begin{cases}#0\end{cases}">分段式</button></div><div id="taskFormulaKeyboard"></div><div class="panel-actions right"><button type="button" class="button primary" id="taskFormulaInsert">插入任务</button></div></dialog>
   <dialog id="taskRecognitionDialog" class="task-math-dialog" aria-labelledby="taskRecognitionTitle"><div class="task-dialog-heading"><h2 id="taskRecognitionTitle">题目识别草稿 · 待教师核对</h2><button type="button" class="button" id="cancelTaskRecognition">取消</button></div><p>核对后将题目附在完整任务之后，保留你写好的活动说明、对话要求和成果要求。</p><label for="recognizedTaskText">识别出的题目与公式</label><textarea id="recognizedTaskText" rows="7"></textarea><label for="recognizedGeometryNotes">图形条件</label><textarea id="recognizedGeometryNotes" rows="3"></textarea><h3>需要核对</h3><ul id="recognizedUncertainties"></ul><div class="panel-actions right"><button type="button" class="button primary" id="applyTaskRecognition">将题目插入诊断任务</button></div></dialog>
@@ -644,6 +651,7 @@
   <script src="role-knowledge.js?v=20261027-concise-v1"></script>
   <dialog id="goalPathGuideDialog" class="goal-path-guide-dialog" aria-labelledby="goalPathGuideTitle"><header class="goal-guide-dialog-heading"><h2 id="goalPathGuideTitle"></h2><button type="button" class="button small" data-close-goal-guide aria-label="关闭设计帮助" autofocus>关闭</button></header><div id="goalPathGuideBody"></div></dialog>
   <script src="goal-path-guides.js?v=20261101-concise-v1"></script>
-  <script src="app.js?v=20261120-activity-persistence-v1"></script>
+  <script src="lesson-materials.js?v=20261120-lesson-materials-v1"></script>
+  <script src="app.js?v=20261120-lesson-materials-v1"></script>
 </body>
 </html>
