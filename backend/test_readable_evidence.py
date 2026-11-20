@@ -10,6 +10,15 @@ from backend.app.services.class_report import render_class_markdown, with_studen
 
 
 class ReadableEvidenceTest(TestCase):
+    def test_anonymous_aliases_restore_from_authoritative_roster(self):
+        from backend.app.services.readable_evidence import readable_student_names
+        source = {'students': [{'student_id': 'stu-123fd479f', 'student_name': '匿名学生-fd479f'}],
+                  'text': '匿名学生-fd479f解释了原因，匿名学生-unknown提出补充。'}
+        shown = readable_student_names(source, {'stu-123fd479f': '甲同学'})
+        self.assertEqual(shown['students'][0]['student_name'], '甲同学')
+        self.assertEqual(shown['text'], '甲同学解释了原因，该学生提出补充。')
+        self.assertEqual(source['students'][0]['student_name'], '匿名学生-fd479f')
+
     def test_quoted_ids_and_additional_alias_formats_are_hidden_in_narrative(self):
         from backend.app.services.readable_evidence import readable_student_names
         source = {'students': [{'student_id': 'stu-abc123', 'student_name': '甲同学'}],

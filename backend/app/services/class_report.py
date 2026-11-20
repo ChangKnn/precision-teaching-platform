@@ -427,12 +427,17 @@ def report_row(teaching_id: str, classroom_id: str) -> dict | None:
     if not row:
         return None
     result = json.loads(row['generated_json']) if row['generated_json'] else None
+    names = {student['id']: student['name'] for student in fetch_all(
+        'SELECT id, name FROM students WHERE classroom_id = ?', (classroom_id,))}
+    if result:
+        result = readable_student_names(result, names)
     payload = None
     if result and row['generated_at']:
         job = fetch_one("SELECT input_json FROM ai_jobs WHERE skill_key = ? AND status = 'completed' AND completed_at = ? AND output_json = ? ORDER BY created_at DESC LIMIT 1", (row['skill_key'], row['generated_at'], row['generated_json']))
         if job:
             try:
                 payload = json.loads(job['input_json'])
+                payload = readable_student_names(payload, names)
             except (TypeError, ValueError):
                 pass
     if result:
@@ -455,7 +460,7 @@ def report_row(teaching_id: str, classroom_id: str) -> dict | None:
         "error": row["error"],
         "generated_at": row["generated_at"],
         "updated_at": row["updated_at"],
-        "teaching_suggestions": readable_student_names({'students': (result or {}).get('class_summary', {}).get('distribution', []), 'suggestions': latest_suggestions(teaching_id, classroom_id, row["source_hash"])})['suggestions'],
+        "teaching_suggestions": readable_student_names({'students': (result or {}).get('class_summary', {}).get('distribution', []), 'suggestions': latest_suggestions(teaching_id, classroom_id, row["source_hash"])}, names)['suggestions'],
     }
 
 
@@ -622,7 +627,7 @@ def generate_class_report(
                     restore_names(nested)
         restore_names(result)
         from .readable_evidence import readable_student_names
-        result = readable_student_names(result)
+        result = readable_student_names(result, names)
         result["class_summary"]["total_students"] = exact["total_students"]
         report_text = render_class_markdown(with_student_case_summaries(result, payload))
         output_json = json.dumps(result, ensure_ascii=False)

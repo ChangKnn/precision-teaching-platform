@@ -31,7 +31,7 @@ def readable_narrative(value, key=''):
     return readable_text(value) if isinstance(value, str) else value
 
 
-def readable_student_names(value):
+def readable_student_names(value, student_names=None):
     """Resolve IDs only in narrative; retain identifiers and verbatim evidence."""
     names = {}
     def collect(item):
@@ -44,13 +44,26 @@ def readable_student_names(value):
             for nested in item:
                 collect(nested)
     collect(value)
+    stored_names = dict(names)
+    names.update(student_names or {})
+    aliases = {}
+    for sid, name in names.items():
+        if not name.startswith('匿名学生-'):
+            aliases['匿名学生-' + sid[-6:]] = name
+            previous = stored_names.get(sid, '')
+            if previous.startswith('匿名学生-'):
+                aliases[previous] = name
+    names.update(aliases)
     known = '|'.join(re.escape(sid) for sid in sorted(names, key=len, reverse=True))
-    pattern = re.compile(r'(?<![A-Za-z0-9_-])(?:' + (known + '|' if known else '') + r'(?:stu|student)[-–—－_][A-Za-z0-9]+|S-\d+)(?![A-Za-z0-9_-])', re.I)
+    pattern = re.compile(r'(?<![A-Za-z0-9_-])(?:' + (known + '|' if known else '') + r'匿名学生-[A-Za-z0-9]+|(?:stu|student)[-–—－_][A-Za-z0-9]+|S-\d+)(?![A-Za-z0-9_-])', re.I)
     def walk(item, key=''):
         if key in _RAW_KEYS or key.endswith(('_id', '_ids', '_refs')):
             return item
         if isinstance(item, dict):
-            return {name: walk(nested, name) for name, nested in item.items()}
+            shown = {name: walk(nested, name) for name, nested in item.items()}
+            if item.get('student_id') in (student_names or {}) and 'student_name' in item:
+                shown['student_name'] = student_names[item['student_id']]
+            return shown
         if isinstance(item, list):
             return [walk(nested, key) for nested in item]
         if isinstance(item, str):
