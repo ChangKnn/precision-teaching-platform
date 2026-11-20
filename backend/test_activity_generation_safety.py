@@ -40,6 +40,19 @@ class ActivityGenerationSafetyTest(TestCase):
         self.assertEqual(caught.exception.status_code,502)
         self.assert_saved()
 
+    def test_generated_draft_survives_fresh_reads_and_upstream_changes(self):
+        source,goal=self.prepare()
+        result=json.loads((SAMPLES/'sample-output.json').read_text())
+        with patch.object(api,'_build_input',return_value=(source,goal,'old')), patch.object(api,'_generate_validated_activity',return_value=result), patch.object(api,'_source',return_value=(goal,{}, {}, {},'old')):
+            generated=api.generate_activity_formative('pt','class',api.ActivityGenerateRequest())
+            reopened=api.get_activity_formative('pt','class')
+        self.assertEqual(reopened['design']['result'],generated['design']['result'])
+        with patch.object(api,'_source',side_effect=HTTPException(status_code=409,detail='上游待确认')):
+            reopened=api.get_activity_formative('pt','class')
+        self.assertFalse(reopened['goal_path_ready'])
+        self.assertEqual(reopened['design']['status'],'stale')
+        self.assertEqual(reopened['design']['result'],generated['design']['result'])
+
     def test_upstream_change_during_generation_rejects_stale_result(self):
         source,goal=self.prepare()
         result=json.loads((SAMPLES/'sample-output.json').read_text())

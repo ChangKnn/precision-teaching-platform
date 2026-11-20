@@ -762,3 +762,43 @@ test('a stale activity GET cannot overwrite a newly generated design', async () 
   await old;
   assert.equal(state.activityFormative.design,fresh);
 });
+
+test('activity autosave persists edits made while the previous save is pending', async () => {
+  const ui={activityFormativeDirty:true,activityFormativeEditSerial:1};
+  const state={current_teaching_id:'t',activityFormative:{design:{}}};
+  ui.activeInterventionClassroomId='c';
+  let resolveFirst, text='first';
+  const sent=[];
+  const context=loadFunctions(teacherSource,['saveActivityFormativeEdits'],{
+    ui, serverState:state, document:{getElementById:()=>({textContent:''})},
+    collectActivityFormativeEdits:()=>({text}),collectActivityPresentationOverrides:()=>({}),
+    window:{clearTimeout(){},PlatformAPI:{saveActivityFormative:(t,c,result)=>{
+      sent.push({t,c,result});
+      if(sent.length===1)return new Promise(resolve=>{resolveFirst=resolve;});
+      return Promise.resolve({design:{text:result.text}});
+    }}}
+  });
+  const pending=context.saveActivityFormativeEdits();
+  text='latest';ui.activityFormativeEditSerial++;
+  resolveFirst({design:{text:'first'}});
+  await pending;
+  assert.deepEqual(sent.map(x=>x.result.text),['first','latest']);
+  assert.equal(ui.activityFormativeDirty,false);
+  assert.equal(state.activityFormative.design.text,'latest');
+});
+
+test('activity autosave failure leaves edits dirty for retry and avoids overwriting them on load', async () => {
+  const ui={activityFormativeDirty:true,activeInterventionClassroomId:'c'};
+  let loads=0;
+  const context=loadFunctions(teacherSource,['saveActivityFormativeEdits','loadActivityFormative'],{
+    ui,serverState:{current_teaching_id:'t'},document:{getElementById:()=>({})},
+    collectActivityFormativeEdits:()=>({}),collectActivityPresentationOverrides:()=>({}),
+    window:{clearTimeout(){},PlatformAPI:{saveActivityFormative:()=>Promise.reject(new Error('offline')),
+      getActivityFormative:()=>{loads++;}}}
+  });
+  await assert.rejects(context.saveActivityFormativeEdits(),/offline/);
+  assert.equal(ui.activityFormativeDirty,true);
+  assert.equal(ui.activityFormativeSavePromise,null);
+  await context.loadActivityFormative('t','c');
+  assert.equal(loads,0);
+});

@@ -1128,7 +1128,7 @@ function renderGoalPath(payload) {
   document.getElementById("generateTeacherAnalysis").disabled = !available;
   next.disabled = !design || design.status === "stale";
   const activityTab = document.querySelector('#interventionSteps [data-istep="3"]');
-  activityTab.disabled = design?.status !== "teacher_confirmed" && !legacyCompleted;
+  activityTab.disabled = !serverState?.activityFormative?.design && design?.status !== "teacher_confirmed" && !legacyCompleted;
   activityTab.title = activityTab.disabled ? "请先生成并确认目标与路径" : "";
   const resourceTab = document.querySelector('#interventionSteps [data-istep="4"]');
   resourceTab.disabled = serverState?.activityFormative?.design?.status !== "teacher_confirmed" && !legacyCompleted;
@@ -1267,6 +1267,7 @@ function renderActivityFormative(payload) {
       : `<div class="stage-empty-state"><span>学习活动与形成性评价</span><h2>尚未生成</h2><button class="button primary" id="generateActivityFormativeEmpty" ${ready ? "" : "disabled"}>AI生成学习活动</button></div>`;
     return;
   }
+  document.querySelector('#interventionSteps [data-istep="3"]').disabled = false;
   const result = design.result;
   const presentationOverrides = design.presentation_overrides || {};
   const goalNames = new Map([["CG", "共同核心目标"], ...(serverState?.goalPath?.design?.result?.progression_goals || []).map(item => [item.goal_id, item.target_level_name])]);
@@ -1335,20 +1336,55 @@ async function generateActivityFormativeForCurrentClass() {
   }
 }
 
+function scheduleActivityFormativeSave() {
+  window.clearTimeout(ui.activityFormativeSaveTimer);
+  ui.activityFormativeEditSerial = (ui.activityFormativeEditSerial || 0) + 1;
+  ui.activityFormativeSaveTimer = window.setTimeout(() => {
+    saveActivityFormativeEdits().catch(error => {
+      document.getElementById("activityFormativeStatus").textContent = "保存失败，修改尚未同步";
+      showToast("学习活动自动保存失败：" + error.message);
+    });
+  }, 700);
+}
+
+async function saveActivityFormativeEdits(confirmed = false) {
+  window.clearTimeout(ui.activityFormativeSaveTimer);
+  while (ui.activityFormativeSavePromise) await ui.activityFormativeSavePromise;
+  if (!ui.activityFormativeDirty && !confirmed) return;
+  const teachingId = serverState.current_teaching_id, classroomId = ui.activeInterventionClassroomId;
+  const serial = ui.activityFormativeEditSerial || 0;
+  const request = window.PlatformAPI.saveActivityFormative(teachingId, classroomId,
+    collectActivityFormativeEdits(), confirmed, collectActivityPresentationOverrides());
+  ui.activityFormativeSavePromise = request;
+  document.getElementById("activityFormativeStatus").textContent = "正在保存…";
+  try {
+    const payload = await request;
+    if (serverState.current_teaching_id !== teachingId || ui.activeInterventionClassroomId !== classroomId) return;
+    serverState.activityFormative.design = payload.design;
+    if ((ui.activityFormativeEditSerial || 0) === serial) {
+      ui.activityFormativeDirty = false;
+      document.getElementById("activityFormativeStatus").textContent = confirmed ? "教师已确认 · 已保存" : "草稿已自动保存";
+    }
+  } finally {
+    if (ui.activityFormativeSavePromise === request) ui.activityFormativeSavePromise = null;
+  }
+  if (ui.activityFormativeDirty) await saveActivityFormativeEdits();
+}
+
 async function loadActivityFormative(teachingId, classroomId) {
   if (!teachingId || !classroomId) return;
   const key = teachingId + ":" + classroomId;
-  if (ui.activityFormativeGeneratingKey === key) return;
+  if (ui.activityFormativeGeneratingKey === key || ui.activityFormativeDirty || ui.activityFormativeSavePromise) return;
   const serial = ui.activityFormativeLoadSerial = (ui.activityFormativeLoadSerial || 0) + 1;
   try {
     const payload = await window.PlatformAPI.getActivityFormative(teachingId, classroomId);
     if (serverState?.current_teaching_id !== teachingId || ui.activeInterventionClassroomId !== classroomId) return;
-    if (ui.activityFormativeLoadSerial !== serial || ui.activityFormativeGeneratingKey === key) return;
+    if (ui.activityFormativeLoadSerial !== serial || ui.activityFormativeGeneratingKey === key || ui.activityFormativeDirty || ui.activityFormativeSavePromise) return;
     serverState.activityFormative = payload;
     renderActivityFormative(payload);
   } catch (error) {
     if (serverState?.current_teaching_id !== teachingId || ui.activeInterventionClassroomId !== classroomId) return;
-    if (ui.activityFormativeLoadSerial !== serial || ui.activityFormativeGeneratingKey === key) return;
+    if (ui.activityFormativeLoadSerial !== serial || ui.activityFormativeGeneratingKey === key || ui.activityFormativeDirty || ui.activityFormativeSavePromise) return;
     const prerequisite = document.getElementById("activityFormativePrerequisite");
     prerequisite.hidden = false;
     prerequisite.textContent = `无法读取学习活动方案：${error.message}`;
@@ -1480,7 +1516,7 @@ async function loadGoalPath(teachingId, classroomId) {
       : payload.teacher_analysis?.source_note || "";
     note.hidden = !note.textContent;
     renderGoalPath(payload);
-    if (payload.design?.status === "teacher_confirmed") loadActivityFormative(teachingId, classroomId);
+    await loadActivityFormative(teachingId, classroomId);
   } catch (error) {
     document.getElementById("goalPathPrerequisite").textContent = `无法读取目标与路径设计：${error.message}`;
   }
@@ -1805,11 +1841,7 @@ async function saveBeforeTaskSwitch() {
   if (ui.currentPage === 'diagnosis') await window.TaskInput.prepareAnalysis();
   if (name && name !== saved) applyTaskFamily(await PlatformAPI.renameDiagnosticTask(serverState.current_teaching_id,name));
   if (ui.goalPathDirty) await saveGoalPathEdits();
-  if (ui.activityFormativeDirty) {
-    await PlatformAPI.saveActivityFormative(serverState.current_teaching_id,ui.activeInterventionClassroomId,
-      collectActivityFormativeEdits(),false,collectActivityPresentationOverrides());
-    ui.activityFormativeDirty = false;
-  }
+  await saveActivityFormativeEdits();
   if (customAnalysisDirty()) await saveCustomAnalysisStandard();
   window.clearTimeout(rubricSaveTimer);
   if (ui.currentPage === 'diagnosis' && ui.diagnosisStep === 3 && serverState.current_workspace.rubric) {
@@ -2658,7 +2690,7 @@ function setInterventionStep(step) {
   if (targetStep >= 3 && targetStep <= 4) {
     const design = serverState?.goalPath?.design;
     const legacyCompleted = !design && serverState?.current_workspace?.intervention?.status === "completed";
-    if (design?.status !== "teacher_confirmed" && !legacyCompleted) {
+    if (design?.status !== "teacher_confirmed" && !legacyCompleted && !(targetStep === 3 && serverState?.activityFormative?.design)) {
       showToast("请先生成并确认目标与活动路径");
       return;
     }
@@ -3755,11 +3787,8 @@ document.addEventListener("click", async event => {
     const confirmed = button.id === "confirmActivityFormative";
     button.disabled = true;
     try {
-      const payload = await window.PlatformAPI.saveActivityFormative(
-        serverState.current_teaching_id, ui.activeInterventionClassroomId,
-        collectActivityFormativeEdits(), confirmed, collectActivityPresentationOverrides()
-      );
-      serverState.activityFormative.design = payload.design;
+      ui.activityFormativeDirty = true;
+      await saveActivityFormativeEdits(confirmed);
       renderActivityFormative(serverState.activityFormative);
     } catch (error) {
       showToast(`保存学习活动失败：${error.message}`);
@@ -4121,6 +4150,10 @@ document.addEventListener("click", async event => {
       try { await saveGoalPathEdits(Number(pageButton.dataset.navIstep) >= 3); }
       catch (error) { showToast(`请先完成当前修改：${error.message}`); return; }
     }
+    if (ui.activityFormativeDirty || ui.activityFormativeSavePromise) {
+      try { await saveActivityFormativeEdits(); }
+      catch (error) { showToast(`保存学习活动失败：${error.message}`); return; }
+    }
     if (ui.currentPage === "diagnosis" && customAnalysisDirty()) {
       try {
         await saveCustomAnalysisStandard();
@@ -4210,6 +4243,10 @@ document.addEventListener("click", async event => {
     if (ui.interventionStep === 2 && targetStep !== 2 && ui.goalPathDirty) {
       try { await saveGoalPathEdits(targetStep >= 3); }
       catch (error) { showToast(`请先完成当前修改：${error.message}`); return; }
+    }
+    if (ui.activityFormativeDirty || ui.activityFormativeSavePromise) {
+      try { await saveActivityFormativeEdits(); }
+      catch (error) { showToast(`保存学习活动失败：${error.message}`); return; }
     }
     setInterventionStep(interventionStep.dataset.istep || interventionStep.dataset.istepTarget);
     return;
@@ -4958,7 +4995,8 @@ document.addEventListener("input", event => {
     if (field) syncActivityDocumentField(field);
     ui.activityFormativeDirty = true;
     document.getElementById("nextFromActivityFormative").disabled = true;
-    document.getElementById("activityFormativeStatus").textContent = "有未保存的修改";
+    document.getElementById("activityFormativeStatus").textContent = "正在编辑…";
+    scheduleActivityFormativeSave();
     document.querySelector('#interventionSteps [data-istep="4"]').disabled = true;
   }
   if (event.target.closest("#goalPathGeneratedContent")) {
@@ -5009,6 +5047,8 @@ document.addEventListener("change", async event => {
     return;
   }
   if (event.target.id === "interventionClassSelect") {
+    try { await saveActivityFormativeEdits(); }
+    catch (error) { event.target.value = ui.activeInterventionClassroomId; showToast(error.message); return; }
     if (ui.goalPathDirty) {
       try { await saveGoalPathEdits(); }
       catch (error) {
@@ -5160,3 +5200,15 @@ window.setInterval(() => {
     loadStudentResults(serverState.current_teaching_id);
   }
 }, 7000);
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && ui.activityFormativeDirty) {
+    saveActivityFormativeEdits().catch(error => showToast("学习活动保存失败：" + error.message));
+  }
+});
+window.addEventListener("beforeunload", event => {
+  if (ui.activityFormativeDirty || ui.activityFormativeSavePromise) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+});
