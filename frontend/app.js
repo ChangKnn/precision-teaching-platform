@@ -1820,7 +1820,7 @@ function renderDiagnosticTaskSelectors() {
   const workspace = serverState?.current_workspace;
   if (!workspace) return;
   const tasks = workspace.diagnostic_tasks || [workspace.teaching];
-  for (const id of ['diagnosticTaskSelect','feedbackDiagnosticTaskSelect','feedbackTaskName','interventionDiagnosticTaskSelect']) {
+  for (const id of ['diagnosticTaskSelect','feedbackTaskName','interventionDiagnosticTaskSelect']) {
     const select = document.getElementById(id);
     if (!select) continue;
     select.replaceChildren(...tasks.map((task,index) => new Option(
@@ -1898,7 +1898,7 @@ document.getElementById('saveDiagnosticTaskName').addEventListener('click', asyn
   } catch (error) { showToast(error.message); }
 });
 
-for (const id of ['diagnosticTaskSelect','feedbackDiagnosticTaskSelect','feedbackTaskName','interventionDiagnosticTaskSelect']) {
+for (const id of ['diagnosticTaskSelect','feedbackTaskName','interventionDiagnosticTaskSelect']) {
   document.getElementById(id).addEventListener('change', event => switchDiagnosticTask(event.target.value));
 }
 
