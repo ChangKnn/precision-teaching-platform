@@ -1651,3 +1651,14 @@ body { font-size: 16px; }
 .lesson-materials-list a { overflow-wrap: anywhere; color: var(--primary, #17665d); }
 #lessonMaterialsReview label { display: grid; gap: 8px; }
 #lessonMaterialsText { width: 100%; box-sizing: border-box; }
+
+.learning-sharing-card { margin-bottom: 18px; }
+.learning-sharing-card details { margin-top: 12px; }
+.learning-sharing-card summary { cursor: pointer; font-weight: 650; color: #176761; }
+.sharing-controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; padding: 16px 0; }
+.sharing-controls label { display: grid; gap: 8px; flex: 1 1 220px; min-width: 0; }
+.sharing-controls select { width: 100%; }
+.sharing-preview { max-height: 420px; overflow: auto; padding: 16px; border: 1px solid #dbe6e3; border-radius: 12px; background: #f6faf9; }
+.sharing-message { padding: 12px; margin: 10px 0; border-left: 3px solid #86bcb4; background: white; }
+.sharing-message.student { border-left-color: #176761; }
+.sharing-message p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 0; }

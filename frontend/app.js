@@ -907,6 +907,8 @@ function renderClassReport(payload) {
     `<option value="${escapeHTML(item.id)}" ${item.id === ui.activeClassroomId ? "selected" : ""}>${escapeHTML(item.name)}</option>`
   ).join("");
   const classroomResults = (payload.results || []).filter(item => item.student.classroom_id === ui.activeClassroomId);
+  window.LearningSharing?.load(serverState.current_teaching_id, ui.activeClassroomId,
+    classroomResults.map(item => `${item.id}:${item.report?.updated_at || ''}`).join('|'));
   document.getElementById("feedbackSubmissionStatus").textContent = `${classroomResults.length} 人已提交`;
   const report = payload.class_reports?.[ui.activeClassroomId];
   const panel = document.getElementById("classEvidencePanel");

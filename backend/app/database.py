@@ -428,6 +428,20 @@ def initialize_database() -> None:
         UNIQUE(teaching_id, revision)
     );
 
+    CREATE TABLE IF NOT EXISTS student_learning_feedback (
+        session_id TEXT PRIMARY KEY REFERENCES student_task_sessions(id) ON DELETE CASCADE,
+        report_text TEXT NOT NULL,
+        pushed_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS class_dialogue_examples (
+        teaching_id TEXT NOT NULL REFERENCES precision_teachings(id) ON DELETE CASCADE,
+        classroom_id TEXT NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE,
+        task_version_id TEXT NOT NULL DEFAULT '',
+        examples_json TEXT NOT NULL,
+        pushed_at TEXT NOT NULL,
+        PRIMARY KEY (teaching_id,classroom_id,task_version_id)
+    );
+
     CREATE TABLE IF NOT EXISTS student_task_openings (
         task_version_id TEXT PRIMARY KEY REFERENCES diagnosis_task_versions(id) ON DELETE CASCADE,
         content TEXT NOT NULL,

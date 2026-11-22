@@ -161,7 +161,10 @@ def task_rows(student: dict) -> list[dict]:
         """,
         (student["id"], student["classroom_id"], student["school_name"]),
     )
+    from .learning_feedback import feedback_status
     for row in rows:
+        row['learning_feedback'] = feedback_status({'id': row.get('session_id'), 'status': row.get('session_status'),
+            'teaching_id': row['teaching_id'], 'classroom_id': student['classroom_id'], 'task_version_id': row.get('task_version_id')})
         current_task_name = row.get('task_name','')
         version = get_version(row['task_version_id']) if row.get('task_version_id') else published_version(row['teaching_id'])
         if version:

@@ -19,7 +19,7 @@ data.grouping_recommendations.heterogeneous_groups = [];
 data.individual_attention = [{student_id:second.student_id,category:'情绪表达',observation:'不应展示未经核对的情绪判断',evidence_quote:'快一点',teacher_action:'询问需要'}];
 const elements = new Map();
 const get = id => { if (!elements.has(id)) elements.set(id, {innerHTML:'',textContent:'',querySelectorAll:()=>[]}); return elements.get(id); };
-const context = {document:{getElementById:get},ui:{activeClassroomId:'c'},serverState:{current_workspace:{}},
+const context = {window:{},document:{getElementById:get},ui:{activeClassroomId:'c'},serverState:{current_workspace:{}},
   escapeHTML:value=>String(value??''),singletonGroupingNote:()=>'',renderCustomClassReport:()=>'',initializeClassFeedbackNavigation:()=>{}};
 vm.runInNewContext(renderer+';this.render=renderClassReport;', context);
 const results = students.map(student=>({student:{id:student.student_id,classroom_id:'c'},report:{result:{}},messages:[]}));

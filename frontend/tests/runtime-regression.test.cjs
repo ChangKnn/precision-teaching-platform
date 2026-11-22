@@ -170,7 +170,7 @@ test('active student polling keeps its task version and unsent composer', async 
   const latest = {id:'s1',status:'in_progress',task_version_id:'v2',task:{teaching_id:'t1',task_text:'新任务'},messages:[]};
   const calls = [];
   const context = loadFunctions(studentSource,['stopReportPolling','startReportPolling'],{
-    state,messageInput:composer,
+    state,messageInput:composer,document:{hidden:false},
     window:{clearInterval:()=>{},setInterval:fn=>{poll=fn;return 1;}},
     api:async(url,options)=>{calls.push([url,options?.method]);return options ? {session:latest} : latest;},
     renderTask:()=>{},renderHistory:()=>{},renderMessages:()=>{},showToast:()=>{}
@@ -187,7 +187,7 @@ test('republish polling cannot overwrite a conversation while a student is sendi
   let poll, calls=0;
   const state={session:{id:'s1',status:'in_progress'},typing:true};
   const context=loadFunctions(studentSource,['stopReportPolling','startReportPolling'],{
-    state,window:{clearInterval:()=>{},setInterval:fn=>{poll=fn;return 1;}},api:async()=>{calls++;}
+    state,document:{hidden:false},window:{clearInterval:()=>{},setInterval:fn=>{poll=fn;return 1;}},api:async()=>{calls++;}
   });
   context.startReportPolling();await poll();assert.equal(calls,0);
 });
@@ -198,7 +198,7 @@ test('polling recovers a late AI reply after refresh even without a diagnosis re
   const state={session:{id:'s1',status:'in_progress',task_version_id:'v1',messages:[]},activeTask:{teaching_id:'t1'},tasks:[{teaching_id:'t1'}],typing:false};
   const latest={id:'s1',status:'in_progress',task_version_id:'v1',messages:[{id:1,role:'student',content:'原话'},{id:2,role:'assistant',content:'迟到的回复'}]};
   const context=loadFunctions(studentSource,['stopReportPolling','startReportPolling'],{
-    state,messageInput:composer,window:{clearInterval(){},setInterval(fn){poll=fn;return 1;}},
+    state,messageInput:composer,document:{hidden:false},window:{clearInterval(){},setInterval(fn){poll=fn;return 1;}},
     api:async()=>latest,renderTask(){},renderHistory(){},renderMessages(){renders++;}
   });
   context.startReportPolling();await poll();

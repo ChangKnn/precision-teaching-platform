@@ -32,6 +32,7 @@ from .services.skills import list_skills, load_skill, sync_skills
 from .services.education_context import higher_education_fields
 from .services.manual_rubric import teacher_rubric, require_complete_levels
 from .student_api import router as student_router
+from .learning_feedback import router as learning_feedback_router
 from .goal_path_api import router as goal_path_router
 from .activity_formative_api import router as activity_formative_router
 from .intervention_integration_api import router as intervention_integration_router
@@ -64,6 +65,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+app.include_router(learning_feedback_router)
 app.include_router(student_router)
 app.include_router(student_asr_router)
 app.include_router(goal_path_router)

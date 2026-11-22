@@ -329,11 +329,19 @@ function renderHistory() {
     const active = state.activeTask?.teaching_id === task.teaching_id;
     const status = task.report_status === "pushed" ? "已收到反馈" : task.session_status === "submitted" ? "已提交" : task.session_status === "in_progress" ? "进行中" : "待开始";
     const time = task.assigned_at || task.updated_at;
-    return `<button class="history-item${active ? " active" : ""}" data-teaching-id="${escapeHtml(task.teaching_id)}">
+    const feedback = task.learning_feedback || {};
+    const submitted = task.session_status === "submitted";
+    return `<div class="history-task"><button class="history-item${active ? " active" : ""}" data-teaching-id="${escapeHtml(task.teaching_id)}">
       <span class="history-status ${task.session_status === "submitted" ? "done" : "live"}"></span>
       <span><strong>${escapeHtml(studentTaskTitle(task))}</strong><small>${status} · 布置于 ${escapeHtml(formatTime(time))}</small></span>
-    </button>`;
+    </button><div class="task-feedback-actions" aria-label="任务学习反馈">
+      <button type="button" data-feedback-task="${escapeHtml(task.teaching_id)}" data-learning-kind="thinking" class="task-feedback-button${submitted && feedback.thinking_ready ? ' ready' : ''}" ${submitted && feedback.thinking_ready ? '' : 'disabled'}>我的思维反馈</button>
+      <button type="button" data-feedback-task="${escapeHtml(task.teaching_id)}" data-learning-kind="examples" class="task-feedback-button${submitted && feedback.examples_ready ? ' ready' : ''}" ${submitted && feedback.examples_ready ? '' : 'disabled'}>优秀对话示例</button>
+    </div></div>`;
   }).join("");
+  $$('[data-learning-kind]', list).forEach(button => button.addEventListener('click', () => {
+    openLearningFeedback(button.dataset.feedbackTask, button.dataset.learningKind).catch(error => showToast('读取失败', error.message));
+  }));
   $$('[data-teaching-id]', list).forEach((button) => button.addEventListener("click", async () => {
     try {
       await openTask(button.dataset.teachingId);
@@ -394,6 +402,7 @@ async function openTask(teachingId) {
     updateSubmissionSummary();
     startTimer();
     startReportPolling();
+    refreshLearningFeedbackStatus().catch(() => {});
   } catch (error) {
     if (request !== taskOpenRequest || !state.token) return;
     messages.innerHTML = '<p role="alert">对话准备失败，请重试。</p><button class="secondary-button" id="retryTaskOpening">重试</button>';
@@ -489,15 +498,53 @@ function renderMessages(scrollToLatest = false) {
   });
 }
 
-function openReport() {
-  const report = state.session?.report;
-  if (!report) return;
-  $("#reportTaskTitle").textContent = state.activeTask?.title || "本次诊断任务";
-  $("#reportPushedAt").textContent = `教师于 ${new Date(report.pushed_at).toLocaleString("zh-CN")} 推送`;
-  $("#studentReportText").innerHTML = renderReportMarkdown(report.report_text);
-  TaskMath.typeset($("#studentReportText"));
-  $("#reportDialog").showModal();
+async function refreshLearningFeedbackStatus() {
+  const session = state.session;
+  if (!session || session.status !== 'submitted') return;
+  const latest = await api(`/api/student/sessions/${encodeURIComponent(session.id)}/learning-feedback/status`);
+  if (state.session?.id !== session.id) return;
+  const task = state.tasks.find(item => item.teaching_id === session.teaching_id);
+  if (task) task.learning_feedback = latest;
+  renderHistory();
 }
+
+let learningPanelRequest = 0;
+async function openLearningFeedback(teachingId, kind) {
+  const request = ++learningPanelRequest;
+  if (state.activeTask?.teaching_id !== teachingId) await openTask(teachingId);
+  const sessionId = state.session?.id;
+  if (!sessionId || state.session.status !== 'submitted') return;
+  const value = await api(`/api/student/sessions/${encodeURIComponent(sessionId)}/learning-feedback`);
+  if (request !== learningPanelRequest || state.session?.id !== sessionId) return;
+  const task = state.tasks.find(item => item.teaching_id === teachingId);
+  if (task) task.learning_feedback = value.status;
+  renderHistory();
+  if (kind === 'thinking') {
+    const report = value.thinking_feedback;
+    if (!report) { showToast('老师还未推送思维反馈'); return; }
+    $('#studentReportTitle').textContent = '我的思维反馈';
+    $('#reportTaskTitle').textContent = studentTaskTitle(state.activeTask);
+    $('#reportPushedAt').textContent = `教师于 ${new Date(report.pushed_at).toLocaleString('zh-CN')} 推送`;
+    $('#studentReportText').innerHTML = renderReportMarkdown(report.report_text);
+    TaskMath.typeset($('#studentReportText'));
+    if (!$('#reportDialog').open) $('#reportDialog').showModal();
+  } else {
+    if (!value.examples.length) { showToast('老师还未推送对话示例'); return; }
+    $('#examplesTaskTitle').textContent = studentTaskTitle(state.activeTask);
+    $('#dialogueExamples').innerHTML = value.examples.map((example, index) => `<details class="dialogue-example" ${index === 0?'open':''}><summary>${escapeHtml(example.title)} · ${escapeHtml(example.level_name)}</summary><div>${example.messages.map(message => `<article class="example-message ${message.role === 'student'?'student':'ai'}"><b>${message.role === 'student'?'同学':'AI'}</b><div>${renderReportMarkdown(message.content)}</div></article>`).join('')}</div></details>`).join('');
+    TaskMath.typeset($('#dialogueExamples'));
+    if (!$('#examplesDialog').open) $('#examplesDialog').showModal();
+  }
+  closeSidebar();
+}
+
+function openReport() {
+  if (state.activeTask) openLearningFeedback(state.activeTask.teaching_id, 'thinking').catch(error => showToast('读取失败', error.message));
+}
+$$('[data-close-examples]').forEach(button => button.addEventListener('click', () => $('#examplesDialog').close()));
+$('#examplesDialog').addEventListener('click', event => { if (event.target === $('#examplesDialog')) $('#examplesDialog').close(); });
+window.addEventListener('focus', () => refreshLearningFeedbackStatus().catch(() => {}));
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshLearningFeedbackStatus().catch(() => {}); });
 
 messages.addEventListener("click", (event) => {
   if (event.target.closest("[data-open-report]")) openReport();
@@ -515,10 +562,14 @@ function stopReportPolling() {
 
 function startReportPolling() {
   stopReportPolling();
-  if (!state.session || (state.session.status === "submitted" && state.session.report)) return;
+  if (!state.session) return;
   const sessionId = state.session.id;
   state.reportPollId = window.setInterval(async () => {
-    if (state.typing || state.photoBusy || state.session?.id !== sessionId) return;
+    if (document.hidden || state.typing || state.photoBusy || state.session?.id !== sessionId) return;
+    if (state.session.status === 'submitted') {
+      await refreshLearningFeedbackStatus().catch(() => {});
+      return;
+    }
     try {
       let latest = await api(`/api/student/sessions/${encodeURIComponent(sessionId)}`);
       if (state.typing || state.photoBusy || state.session?.id !== sessionId) return;
@@ -535,14 +586,14 @@ function startReportPolling() {
       state.tasks = state.tasks.map((task) => task.teaching_id === state.activeTask.teaching_id
         ? { ...task, ...(latest.task || {}), ...(latest.report ? {report_status: "pushed", report_pushed_at: latest.report.pushed_at} : {}) }
         : task);
-      if (latest.status === 'submitted' && latest.report) stopReportPolling();
+
       renderTask();
       renderHistory();
       renderMessages();
     } catch (_) {
       // 网络短暂波动时继续轮询，不打断学生当前页面。
     }
-  }, 8000);
+  }, 20000);
 }
 
 function resizeComposer() {

@@ -7,7 +7,7 @@ function fixture(api) {
   const elements = new Map();
   const element = selector => { if (!elements.has(selector)) elements.set(selector, {textContent:'',innerHTML:'',addEventListener(){}});return elements.get(selector); };
   const context = vm.createContext({taskOpenRequest:0, state:{token:'logged-in',tasks:[{teaching_id:'task-a'},{teaching_id:'task-b'}]},
-    window:{clearInterval(){}},stopReportPolling(){},renderTask(){},renderHistory(){},renderMessages(){},updateSubmissionSummary(){},startTimer(){},startReportPolling(){},resizeComposer(){},
+    window:{clearInterval(){}},stopReportPolling(){},renderTask(){},renderHistory(){},renderMessages(){},updateSubmissionSummary(){},startTimer(){},startReportPolling(){},resizeComposer(){},refreshLearningFeedbackStatus:async()=>{},
     messages:{innerHTML:''},$:element,api,encodeURIComponent});
   vm.runInContext(source.match(/async function openTask\([^]*?\n\}/)[0],context);
   return context;
