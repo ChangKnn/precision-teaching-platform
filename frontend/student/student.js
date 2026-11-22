@@ -329,19 +329,11 @@ function renderHistory() {
     const active = state.activeTask?.teaching_id === task.teaching_id;
     const status = task.report_status === "pushed" ? "已收到反馈" : task.session_status === "submitted" ? "已提交" : task.session_status === "in_progress" ? "进行中" : "待开始";
     const time = task.assigned_at || task.updated_at;
-    const feedback = task.learning_feedback || {};
-    const submitted = task.session_status === "submitted";
-    return `<div class="history-task"><button class="history-item${active ? " active" : ""}" data-teaching-id="${escapeHtml(task.teaching_id)}">
+    return `<button class="history-item${active ? " active" : ""}" data-teaching-id="${escapeHtml(task.teaching_id)}">
       <span class="history-status ${task.session_status === "submitted" ? "done" : "live"}"></span>
       <span><strong>${escapeHtml(studentTaskTitle(task))}</strong><small>${status} · 布置于 ${escapeHtml(formatTime(time))}</small></span>
-    </button><div class="task-feedback-actions" aria-label="任务学习反馈">
-      <button type="button" data-feedback-task="${escapeHtml(task.teaching_id)}" data-learning-kind="thinking" class="task-feedback-button${submitted && feedback.thinking_ready ? ' ready' : ''}" ${submitted && feedback.thinking_ready ? '' : 'disabled'}>我的思维反馈</button>
-      <button type="button" data-feedback-task="${escapeHtml(task.teaching_id)}" data-learning-kind="examples" class="task-feedback-button${submitted && feedback.examples_ready ? ' ready' : ''}" ${submitted && feedback.examples_ready ? '' : 'disabled'}>优秀对话示例</button>
-    </div></div>`;
+    </button>`;
   }).join("");
-  $$('[data-learning-kind]', list).forEach(button => button.addEventListener('click', () => {
-    openLearningFeedback(button.dataset.feedbackTask, button.dataset.learningKind).catch(error => showToast('读取失败', error.message));
-  }));
   $$('[data-teaching-id]', list).forEach((button) => button.addEventListener("click", async () => {
     try {
       await openTask(button.dataset.teachingId);
@@ -418,6 +410,7 @@ async function openTask(teachingId) {
 
 function renderTask() {
   const task = state.activeTask;
+  renderLearningFeedbackButtons();
   populateSubjects();
   subjectSelect.value=taskSubject(task);
   subjectSelect.title=taskSubject(task);
@@ -498,6 +491,20 @@ function renderMessages(scrollToLatest = false) {
   });
 }
 
+function renderLearningFeedbackButtons() {
+  const container = $('#taskLearningFeedback');
+  const task = state.tasks.find(item => item.teaching_id === state.activeTask?.teaching_id);
+  const feedback = state.session?.status === 'submitted' ? task?.learning_feedback || {} : {};
+  const buttons = [];
+  if (feedback.thinking_ready) buttons.push('<button type="button" class="secondary-button learning-feedback-button" data-learning-kind="thinking">我的思维反馈</button>');
+  if (feedback.examples_ready) buttons.push('<button type="button" class="secondary-button learning-feedback-button" data-learning-kind="examples">优秀对话示例</button>');
+  container.hidden = !buttons.length;
+  container.innerHTML = buttons.join('');
+  $$('[data-learning-kind]', container).forEach(button => button.addEventListener('click', () => {
+    openLearningFeedback(state.activeTask.teaching_id, button.dataset.learningKind).catch(error => showToast('读取失败', error.message));
+  }));
+}
+
 async function refreshLearningFeedbackStatus() {
   const session = state.session;
   if (!session || session.status !== 'submitted') return;
@@ -506,6 +513,7 @@ async function refreshLearningFeedbackStatus() {
   const task = state.tasks.find(item => item.teaching_id === session.teaching_id);
   if (task) task.learning_feedback = latest;
   renderHistory();
+  renderLearningFeedbackButtons();
 }
 
 let learningPanelRequest = 0;
@@ -519,6 +527,7 @@ async function openLearningFeedback(teachingId, kind) {
   const task = state.tasks.find(item => item.teaching_id === teachingId);
   if (task) task.learning_feedback = value.status;
   renderHistory();
+  renderLearningFeedbackButtons();
   if (kind === 'thinking') {
     const report = value.thinking_feedback;
     if (!report) { showToast('老师还未推送思维反馈'); return; }

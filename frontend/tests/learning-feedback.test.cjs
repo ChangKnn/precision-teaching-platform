@@ -8,28 +8,27 @@ function load(names, values) {
   for (const name of names) vm.runInContext(source.match(new RegExp(`(?:async )?function ${name}\\([^]*?\\n\\}`))[0], c);
   return c;
 }
-test('sidebar feedback controls are disabled before submission and become ready independently', () => {
-  const list = {innerHTML:''}, count = {};
-  const tasks = [
-    {teaching_id:'a',title:'未提交',session_status:'in_progress',learning_feedback:{thinking_ready:true,examples_ready:true}},
-    {teaching_id:'b',title:'反馈已到',session_status:'submitted',learning_feedback:{thinking_ready:true,examples_ready:false}},
-    {teaching_id:'c',title:'示例已到',session_status:'submitted',learning_feedback:{thinking_ready:false,examples_ready:true}}
-  ];
-  const c = load(['renderHistory'], {escapeHtml:value=>String(value || ''),state:{tasks}, $:selector=>selector==='#historyList'?list:count,$$:()=>[],studentTaskTitle:task=>task.title,formatTime:()=>''});
-  c.renderHistory();
-  const blocks = list.innerHTML.split('<div class="history-task">').slice(1);
-  assert.equal(blocks.length,3);
-  assert.equal((blocks[0].match(/ disabled/g)||[]).length,2);
-  assert.match(blocks[1], /data-learning-kind="thinking" class="task-feedback-button ready"/);
-  assert.match(blocks[1], /data-learning-kind="examples" class="task-feedback-button" disabled/);
-  assert.match(blocks[2], /data-learning-kind="examples" class="task-feedback-button ready"/);
+test('task feedback toolbar is hidden without content and shows only available feedback', () => {
+  const toolbar = {innerHTML:'', hidden:false};
+  const task = {teaching_id:'a',learning_feedback:{thinking_ready:true,examples_ready:true}};
+  const state = {tasks:[task],activeTask:task,session:{status:'in_progress'}};
+  const c = load(['renderLearningFeedbackButtons'], {state,$:()=>toolbar,$$:()=>[]});
+  c.renderLearningFeedbackButtons();
+  assert.equal(toolbar.hidden,true);assert.equal(toolbar.innerHTML,'');
+  state.session.status='submitted';task.learning_feedback={thinking_ready:true,examples_ready:false};
+  c.renderLearningFeedbackButtons();
+  assert.equal(toolbar.hidden,false);assert.match(toolbar.innerHTML,/我的思维反馈/);assert.doesNotMatch(toolbar.innerHTML,/优秀对话示例/);
+  task.learning_feedback={thinking_ready:false,examples_ready:true};c.renderLearningFeedbackButtons();
+  assert.match(toolbar.innerHTML,/优秀对话示例/);assert.doesNotMatch(toolbar.innerHTML,/我的思维反馈/);
+  task.learning_feedback={};c.renderLearningFeedbackButtons();assert.equal(toolbar.hidden,true);assert.equal(toolbar.innerHTML,'');
+  state.activeTask={teaching_id:'other'};c.renderLearningFeedbackButtons();assert.equal(toolbar.hidden,true);
 });
 test('submitted polling checks lightweight status without reloading conversation or overwriting drafts', async () => {
   let poll; const paths=[];
   const state={session:{id:'s',teaching_id:'t',status:'submitted'},tasks:[{teaching_id:'t'}]};
   const c=load(['refreshLearningFeedbackStatus','stopReportPolling','startReportPolling'],{
     state,document:{hidden:false},window:{clearInterval(){},setInterval(fn){poll=fn;return 1;}},
-    api:async path=>{paths.push(path);return {thinking_ready:true,examples_ready:true};},renderHistory(){},
+    api:async path=>{paths.push(path);return {thinking_ready:true,examples_ready:true};},renderHistory(){},renderLearningFeedbackButtons(){},
     renderMessages(){throw Error('should not redraw conversation');}
   });
   c.startReportPolling();await poll();

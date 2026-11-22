@@ -323,12 +323,9 @@ body .login-panel { min-height: calc(var(--student-viewport-height, 100dvh) - 56
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
-.history-task { margin-bottom: 12px; min-width: 0; }
-.task-feedback-actions { display: grid; gap: 6px; padding: 0 10px 4px 30px; }
-.task-feedback-button { padding: 9px 11px; border: 1px solid rgba(255,255,255,.09); border-radius: 7px; text-align: left; font-size: 12px; line-height: 1.4; color: #789490; background: rgba(0,0,0,.1); }
-.task-feedback-button:disabled { cursor: default; opacity: .65; }
-.task-feedback-button.ready { color: #ddfff2; background: #245c52; border-color: #4b8f7f; cursor: pointer; }
-.task-feedback-button.ready:hover, .task-feedback-button.ready:focus-visible { background: #307565; outline: 2px solid #9dd9c5; outline-offset: 1px; }
+.task-learning-feedback { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.learning-feedback-button { color: #175f53; background: #eef8f3; border-color: #bdd9cd; font-size: 13px; padding: 10px 16px; }
+.learning-feedback-button:hover { background: #dff0e7; border-color: #78ae95; }
 .dialogue-examples { max-height: min(65vh, 680px); overflow-y: auto; margin-top: 18px; min-width: 0; }
 .dialogue-example { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 14px; overflow: hidden; }
 .dialogue-example summary { padding: 15px; background: #edf6f3; color: #175b51; font-weight: 650; cursor: pointer; }

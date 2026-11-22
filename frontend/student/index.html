@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#123f3c">
   <title>思阶学生端｜诊断学习空间</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23123f3c'/%3E%3Ctext x='32' y='43' text-anchor='middle' font-size='34' font-family='sans-serif' fill='white'%3E思%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="student.css?v=20261122-learning-sharing-v1">
+  <link rel="stylesheet" href="student.css?v=20261122-feedback-toolbar-v1">
   <link rel="stylesheet" href="/filing.css?v=20261111-compact-student">
   <link rel="stylesheet" href="/notifications.css?v=20261111-mobile-overflow">
   <link rel="stylesheet" href="/vendor/mathlive/mathlive-fonts.css">
@@ -116,6 +116,7 @@
 
       <div class="conversation-scroll" id="conversationScroll">
         <div class="conversation-inner">
+          <div class="task-learning-feedback" id="taskLearningFeedback" aria-label="本次任务反馈" hidden></div>
           <section class="task-card" id="taskCard" aria-labelledby="taskCardTitle" hidden>
             <div class="task-card-top">
               <span class="task-tag">本次诊断任务</span>
@@ -198,6 +199,6 @@
   <script src="/math-text.js?v=20261018"></script>
   <script src="/notifications.js?v=20261019-error-only-v1"></script>
   <script src="voice-input.js?v=20261103-responsive-v1"></script>
-  <script src="student.js?v=20261122-learning-sharing-v1"></script>
+  <script src="student.js?v=20261122-feedback-toolbar-v1"></script>
 </body>
 </html>
