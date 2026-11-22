@@ -7,10 +7,13 @@ window.LessonMaterials = (() => {
   function render() {
     const documents = state?.documents || [];
     el('lessonMaterialsList').innerHTML = documents.map(d => `<li><a href="${escape(d.download_url)}">${escape(d.name)}</a><button type="button" class="text-button" data-remove-lesson-material="${escape(d.id)}" ${busy?'disabled':''}>移除</button></li>`).join('');
+    el('lessonMaterialsList').hidden = !documents.length;
+    el('lessonMaterialsStatus').hidden = !busy && !documents.length;
     el('lessonMaterialsReview').hidden = !documents.length;
     el('lessonMaterialsText').value = state?.text || '';
     el('lessonMaterialsStatus').textContent = busy ? '正在处理…' : state ? state.confirmed ? '已核对并保存' : documents.length ? '请核对提取内容' : '尚未上传' : '正在读取…';
     el('lessonMaterialsFile').disabled = busy || !state;
+    el('uploadLessonMaterials').disabled = busy || !state;
     el('confirmLessonMaterials').disabled = busy;
     el('lessonMaterialsText').disabled = busy;
   }
@@ -23,15 +26,17 @@ window.LessonMaterials = (() => {
       if (token !== serial) return;
       state = data; render();
     } catch (error) {
-      if (token === serial) el('lessonMaterialsStatus').textContent = `读取失败：${error.message}`;
+      if (token === serial) { el('lessonMaterialsStatus').hidden = false; el('lessonMaterialsStatus').textContent = `读取失败：${error.message}`; }
     }
   }
   async function mutate(operation) {
     if (busy || !state) return;
     const id = teachingId, token = serial;
     busy = true;
+    el('lessonMaterialsStatus').hidden = false;
     el('lessonMaterialsStatus').textContent = '正在处理…';
     el('lessonMaterialsFile').disabled = true;
+    el('uploadLessonMaterials').disabled = true;
     el('confirmLessonMaterials').disabled = true;
     el('lessonMaterialsText').disabled = true;
     try {
@@ -48,6 +53,7 @@ window.LessonMaterials = (() => {
       if (token === serial) {
         busy = false;
         el('lessonMaterialsFile').disabled = false;
+        el('uploadLessonMaterials').disabled = false;
         el('confirmLessonMaterials').disabled = false;
         el('lessonMaterialsText').disabled = false;
         if (state && !dirty && !el('lessonMaterialsStatus').textContent.startsWith('操作失败')) render();
@@ -59,6 +65,7 @@ window.LessonMaterials = (() => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
+    el('lessonMaterialsStatus').hidden = false;
     if (file.size > 10*1024*1024) { el('lessonMaterialsStatus').textContent='单份资料最多10MB'; return; }
     if (dirty) { el('lessonMaterialsStatus').textContent='请先保存下方修改，再上传其他文件'; return; }
     mutate(id => window.PlatformAPI.request(path(id), {method:'POST',headers:{'Content-Type':'application/octet-stream','X-File-Name':encodeURIComponent(file.name),'X-Material-Version':state.revision},body:file}));
@@ -69,6 +76,10 @@ window.LessonMaterials = (() => {
     }
   });
   document.addEventListener('click', event => {
+    if (event.target.closest('#uploadLessonMaterials')) {
+      if (!el('lessonMaterialsFile').disabled) el('lessonMaterialsFile').click();
+      return;
+    }
     if (event.target.closest('#confirmLessonMaterials')) {
       mutate(id => window.PlatformAPI.request(path(id), {method:'PUT',body:JSON.stringify({revision:state.revision,text:el('lessonMaterialsText').value})}));
     }

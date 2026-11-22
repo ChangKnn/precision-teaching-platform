@@ -6,7 +6,7 @@
   <meta name="description" content="支持教师开展精准诊断、反馈与课堂干预设计的研究原型。">
   <title>思阶｜AI 精准教学工作台</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="styles.css?v=20261122-lesson-upload-layout-v1">
+  <link rel="stylesheet" href="styles.css?v=20261122-simple-lesson-upload-v1">
   <link rel="stylesheet" href="/filing.css?v=20261018">
   <link rel="stylesheet" href="notifications.css?v=20261018-persistent">
   <link rel="stylesheet" href="vendor/mathlive/mathlive-fonts.css">
@@ -427,15 +427,12 @@
                 <label><span class="basis-field-heading"><span>教学重点与难点</span><button type="button" class="help-dot" data-intervention-help="focus-difficulty" aria-label="查看教学重点与难点填写提示">?</button></span><textarea id="teachingFocusAnalysis" rows="3" placeholder="请结合班级诊断，填写本课的教学重点与难点。"></textarea></label>
                 <div class="basis-context-field teaching-time-field"><span class="basis-field-heading"><span>教学时间</span><button type="button" class="help-dot" data-intervention-help="teaching-time" aria-label="查看教学时间设置提示">?</button></span><div class="teaching-time-control"><label>方案总时长<div class="unit-input"><input id="interventionDurationMinutes" type="number" value="45" min="10" step="5" inputmode="numeric" aria-label="干预方案总时长"><span>分钟</span></div></label></div><small>该时长用于生成后续学习活动及分配各活动时间。</small></div>
                 <label><span class="basis-field-heading"><span>课堂与技术条件</span><button type="button" class="help-dot" data-intervention-help="classroom-technology" aria-label="查看课堂与技术条件填写提示">?</button></span><textarea id="teachingEnvironmentConditions" rows="3" placeholder="例如班级人数、可用设备、分组条件与 AI 支持边界。"></textarea></label>
-                <section class="lesson-conception-section"><h3>课堂教学设计构想（选填）</h3>
-                  <label for="teacherLessonConception">教学思路<textarea id="teacherLessonConception" rows="3" placeholder="可简要说明本课的教学思路；如有必须保留的设计，请明确写出。"></textarea></label>
-                  <div class="lesson-materials-card">
-                    <div class="intervention-section-heading"><div><h3>当前教学设计方案（选填）</h3><p>已有教案或课件可直接上传，作为后续教学设计的参考。</p></div><span id="lessonMaterialsStatus" class="autosave-state" aria-live="polite">正在读取…</span></div>
-                    <label class="lesson-materials-upload">上传教案或课件<input id="lessonMaterialsFile" type="file" accept=".docx,.pdf,.pptx" disabled></label>
-                    <small class="muted">支持 Word（DOCX）、PDF、PPTX，最多5份，每份10MB。资料仅供教师备课使用。</small>
-                    <ul id="lessonMaterialsList" class="lesson-materials-list"></ul>
-                    <div id="lessonMaterialsReview" hidden><label>核对教学内容与思路<textarea id="lessonMaterialsText" rows="9" maxlength="24000" placeholder="请核对并补充本课内容、课件图表含义、教学顺序及需要保留的设计。"></textarea></label><p class="muted">图片、图表、公式和扫描页可能未完整提取，请补充后保存。当前未做图片识别。</p><div class="panel-actions right"><button type="button" class="button primary" id="confirmLessonMaterials">保存并用于教学设计</button></div></div>
-                  </div>
+                <section class="lesson-conception-section">
+                  <label for="teacherLessonConception">课堂教学设计构想（选填）<textarea id="teacherLessonConception" rows="3" placeholder="可简要说明本课的教学思路；如有必须保留的设计，请明确写出。"></textarea></label>
+                  <div class="lesson-upload-actions"><button type="button" class="button" id="uploadLessonMaterials" aria-controls="lessonMaterialsFile" title="支持 DOCX、PDF、PPTX，最多5份，每份10MB" disabled>上传教学设计方案</button><span id="lessonMaterialsStatus" class="autosave-state" aria-live="polite" hidden></span></div>
+                  <input id="lessonMaterialsFile" type="file" accept=".docx,.pdf,.pptx" hidden disabled>
+                  <ul id="lessonMaterialsList" class="lesson-materials-list" hidden></ul>
+                  <div id="lessonMaterialsReview" hidden><label>核对教学内容与思路<textarea id="lessonMaterialsText" rows="6" maxlength="24000" placeholder="请核对本课内容、教学顺序及需要保留的设计。"></textarea></label><p class="muted">请补充未完整提取的图片或图表内容后保存。</p><div class="panel-actions right"><button type="button" class="button primary" id="confirmLessonMaterials">保存并用于教学设计</button></div></div>
                 </section>
               </div>
               <div class="profile-reference"><span>已引用教师档案</span><b>重视学生表达与同伴讨论，习惯用典型错误组织全班追问</b><button class="text-button" data-page="profile">修改教师档案</button></div>
@@ -654,7 +651,7 @@
   <script src="role-knowledge.js?v=20261027-concise-v1"></script>
   <dialog id="goalPathGuideDialog" class="goal-path-guide-dialog" aria-labelledby="goalPathGuideTitle"><header class="goal-guide-dialog-heading"><h2 id="goalPathGuideTitle"></h2><button type="button" class="button small" data-close-goal-guide aria-label="关闭设计帮助" autofocus>关闭</button></header><div id="goalPathGuideBody"></div></dialog>
   <script src="goal-path-guides.js?v=20261101-concise-v1"></script>
-  <script src="lesson-materials.js?v=20261120-lesson-materials-v1"></script>
+  <script src="lesson-materials.js?v=20261122-simple-lesson-upload-v1"></script>
   <script src="learning-sharing.js?v=20261122-learning-sharing-v1"></script>
   <script src="app.js?v=20261122-learning-sharing-v1"></script>
 </body>
