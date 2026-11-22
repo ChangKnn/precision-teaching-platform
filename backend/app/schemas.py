@@ -117,6 +117,7 @@ class StudentMessageCreate(BaseModel):
 
 
 class StudentTaskSubmit(BaseModel):
+    activity_feedback: str = Field(default="", max_length=12000)
     submitted_text: str = Field(default="", max_length=12000)
     task_version_id: str | None = Field(default=None, max_length=80)
 

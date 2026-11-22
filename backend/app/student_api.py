@@ -249,6 +249,7 @@ def serialize_session(session: dict) -> dict:
         "started_at": session["started_at"],
         "submitted_at": session["submitted_at"],
         "submitted_text": session.get("submitted_text"),
+        "activity_feedback": session.get("activity_feedback") or "",
         "task": version_task(version) if version else None,
         "task_version_id": version['id'] if version else None,
         "task_version_number": version['revision'] if version else None,
@@ -826,6 +827,7 @@ def submit_task(
         raise HTTPException(status_code=409, detail="该任务已经提交")
     check_client_task_version(payload.task_version_id, session)
     submitted_text = payload.submitted_text.strip()
+    activity_feedback = payload.activity_feedback.strip()
     now = utc_now()
     with database() as connection:
         connection.execute('BEGIN IMMEDIATE')
@@ -835,10 +837,10 @@ def submit_task(
         connection.execute(
             """
             UPDATE student_task_sessions
-            SET status = 'submitted', submitted_text = ?, submitted_at = ?, last_active_at = ?
+            SET status = 'submitted', submitted_text = ?, activity_feedback = ?, submitted_at = ?, last_active_at = ?
             WHERE id = ?
             """,
-            (submitted_text, now, now, session_id),
+            (submitted_text, activity_feedback, now, now, session_id),
         )
         connection.execute("DELETE FROM student_diagnosis_reports WHERE session_id = ?", (session_id,))
     refresh_feedback_counts(session["teaching_id"])

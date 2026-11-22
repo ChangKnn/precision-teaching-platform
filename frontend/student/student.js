@@ -645,7 +645,7 @@ function openSubmit() {
     showToast('请等待当前 AI 回复后再提交');
     return;
   }
-  $("#submittedText").value = state.session.submitted_text || "";
+  $("#submittedText").value = state.session.activity_feedback || "";
   submitDialog.dataset.taskVersionId = state.session.task_version_id || '';
   updateSubmissionSummary();
   renderSubmissionPhotos();
@@ -727,13 +727,13 @@ $("#confirmSubmitButton").addEventListener("click", async () => {
   if (state.photoBusy) { showToast('请等待图片处理完成'); return; }
   if (state.voiceBusy) { showToast('请先停止语音输入并等待最后一句识别完成'); return; }
   if (state.typing) { showToast('请等待当前 AI 回复后再提交'); return; }
-  const submittedText = $("#submittedText").value.trim();
+  const activityFeedback = $("#submittedText").value.trim();
   const button = $("#confirmSubmitButton");
   setBusy(button, true, "正在提交…", "确认提交给老师");
   try {
     state.session = await api(`/api/student/sessions/${encodeURIComponent(state.session.id)}/submit`, {
       method: "POST",
-      body: JSON.stringify({ submitted_text: submittedText, task_version_id: submitDialog.dataset.taskVersionId || state.session.task_version_id })
+      body: JSON.stringify({ activity_feedback: activityFeedback, task_version_id: submitDialog.dataset.taskVersionId || state.session.task_version_id })
     });
     state.tasks = state.tasks.map((task) => task.teaching_id === state.activeTask.teaching_id
       ? { ...task, session_status: "submitted", submitted_at: state.session.submitted_at }

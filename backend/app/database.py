@@ -390,6 +390,7 @@ def initialize_database() -> None:
         started_at TEXT NOT NULL,
         last_active_at TEXT NOT NULL,
         submitted_text TEXT,
+        activity_feedback TEXT,
         dialogue_config_json TEXT,
         submitted_at TEXT,
         UNIQUE (student_id, teaching_id)
@@ -607,6 +608,8 @@ def initialize_database() -> None:
         }
         if "submitted_text" not in session_columns:
             connection.execute("ALTER TABLE student_task_sessions ADD COLUMN submitted_text TEXT")
+        if "activity_feedback" not in session_columns:
+            connection.execute("ALTER TABLE student_task_sessions ADD COLUMN activity_feedback TEXT")
         if "dialogue_config_json" not in session_columns:
             connection.execute("ALTER TABLE student_task_sessions ADD COLUMN dialogue_config_json TEXT")
         if "task_version_id" not in session_columns:

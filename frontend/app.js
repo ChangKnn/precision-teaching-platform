@@ -817,7 +817,7 @@ function renderStudentResultDetail(result) {
         return `<div class="record-message ${message.role === 'student' ? 'student' : 'ai'}"><b>${message.role === 'student' ? '学生' : 'AI'}${message.task_version_number ? ` · 任务第 ${Number(message.task_version_number)} 版` : ''}</b><p>${escapeHTML(message.content)}</p><time>${escapeHTML(formatUpdatedAt(message.created_at))}</time></div>`;
       }).join('')}</div>
     </section>
-    <section class="submitted-work"><div class="record-section-heading"><div><h3>最终作答文本</h3><p>${result.submitted_text ? "学生提交的成果原文。" : "学生未填写，可依据对话记录继续分析。"}</p></div></div>${submittedWork}</section>${photoHTML}
+    ${result.submitted_text ? `<section class="submitted-work"><div class="record-section-heading"><div><h3>最终作答文本</h3></div></div>${submittedWork}</section>` : ""}<section class="student-activity-feedback"><div class="record-section-heading"><div><h3>学生建议收集</h3></div></div><p style="white-space: pre-wrap">${escapeHTML(result.activity_feedback || "未填写")}</p></section>${photoHTML}
   </article>${reportCard}${renderCustomIndividualReport(result)}`;
   if (result._generating) {
     panel.querySelectorAll('[data-generate-student-report]').forEach(button => {
