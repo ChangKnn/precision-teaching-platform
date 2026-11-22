@@ -6,7 +6,7 @@
   <meta name="description" content="支持教师开展精准诊断、反馈与课堂干预设计的研究原型。">
   <title>思阶｜AI 精准教学工作台</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="styles.css?v=20261122-simple-lesson-upload-v1">
+  <link rel="stylesheet" href="styles.css?v=20261122-auto-learning-feedback-v1">
   <link rel="stylesheet" href="/filing.css?v=20261018">
   <link rel="stylesheet" href="notifications.css?v=20261018-persistent">
   <link rel="stylesheet" href="vendor/mathlive/mathlive-fonts.css">
@@ -333,7 +333,6 @@
           <div id="feedbackWorkspaceContent">
           <div class="filter-bar card"><label>班级<select id="feedbackClassSelect"></select></label><label>精准教学<select id="feedbackTeachingName" disabled><option>基本不等式中的模型与论证</option></select></label><label>诊断任务<select id="feedbackTaskName"><option>课前 · 围绳面积最大方案论证</option></select></label><span class="status success" id="feedbackSubmissionStatus">40/40 已提交</span></div>
 
-          <article class="card learning-sharing-card" id="learningSharing" hidden></article>
           <div class="analysis-process card"><div class="done"><i>1</i><span>证据整理<small>对话＋文字成果</small></span></div><div id="analysisRubricStep"><i>2</i><span>AI 分析<small id="analysisRubricStatus">等待量规确认</small></span></div><div class="current"><i>3</i><span>个体报告审核<small id="analysisReviewStatus">等待学生报告</small></span></div><div><i>4</i><span>反馈阶段确认<small id="feedbackProgressStatus">阶段待确认</small></span></div></div>
 
           <div class="feedback-tabs"><button data-feedback-tab="students">学生会话记录与分析结果</button><button class="active" data-feedback-tab="class">班级学生思维结构情况</button></div>
@@ -652,7 +651,6 @@
   <dialog id="goalPathGuideDialog" class="goal-path-guide-dialog" aria-labelledby="goalPathGuideTitle"><header class="goal-guide-dialog-heading"><h2 id="goalPathGuideTitle"></h2><button type="button" class="button small" data-close-goal-guide aria-label="关闭设计帮助" autofocus>关闭</button></header><div id="goalPathGuideBody"></div></dialog>
   <script src="goal-path-guides.js?v=20261101-concise-v1"></script>
   <script src="lesson-materials.js?v=20261122-simple-lesson-upload-v1"></script>
-  <script src="learning-sharing.js?v=20261122-learning-sharing-v1"></script>
-  <script src="app.js?v=20261122-learning-sharing-v1"></script>
+  <script src="app.js?v=20261122-auto-learning-feedback-v1"></script>
 </body>
 </html>

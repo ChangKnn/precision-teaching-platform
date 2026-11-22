@@ -1,18 +1,15 @@
-"""Teacher-reviewed feedback and dialogue examples, persisted for submitted students."""
+"""Automatically share AI diagnoses and strong, same-task dialogue examples."""
 from __future__ import annotations
 import json
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
-from .database import database, fetch_all, fetch_one, utc_now, write_audit
+from threading import RLock
+from .database import database, fetch_all, fetch_one, utc_now
 from .student_api import owned_session, require_student, student_feedback_for_row
 
 router = APIRouter(prefix='/api')
 LEVELS = {'P': '前结构', 'U': '单点结构', 'M': '多点结构', 'R': '关联结构', 'EA': '抽象拓展结构'}
 
-
-class ExampleSelection(BaseModel):
-    session_ids: list[str] = Field(min_length=2, max_length=2)
-
+_sync_lock = RLock()
 
 def eligible_rows(teaching_id: str, classroom_id: str) -> list[dict]:
     return fetch_all('''SELECT sts.*, s.name AS student_name, r.generated_json,
@@ -80,79 +77,65 @@ def learning_feedback(session_id: str, student: dict = Depends(require_student))
             'status': feedback_status(session)}
 
 
-@router.get('/precision-teachings/{teaching_id}/classrooms/{classroom_id}/learning-sharing')
-def sharing_state(teaching_id: str, classroom_id: str) -> dict:
-    rows = eligible_rows(teaching_id, classroom_id)
-    rows.sort(key=lambda row: -list(LEVELS).index(diagnosis(row).get('level')) if diagnosis(row).get('level') in LEVELS else 1)
-    candidates = []
-    for row in rows:
-        level = diagnosis(row).get('level')
-        if level not in LEVELS:
-            continue
-        candidates.append({'session_id': row['id'], 'student_name': row['student_name'],
-                           'task_version_id': row.get('task_version_id') or '', 'task_version_number': row.get('task_version_number'), 'level': level, 'level_name': LEVELS[level]})
-    publications = fetch_all('''SELECT task_version_id, examples_json, pushed_at FROM class_dialogue_examples
-        WHERE teaching_id=? AND classroom_id=?''', (teaching_id, classroom_id))
-    return {'candidates': candidates, 'publications': [
-        {'task_version_id': row['task_version_id'], 'session_ids': [item['session_id'] for item in json.loads(row['examples_json'])],
-         'pushed_at': row['pushed_at']} for row in publications]}
+def sync_automatic_learning(teaching_id: str, classroom_id: str) -> dict:
+    """Reuse AI diagnoses without further model calls or teacher confirmation.
 
-
-@router.post('/precision-teachings/{teaching_id}/classrooms/{classroom_id}/learning-sharing/thinking-feedback')
-def push_thinking_feedback(teaching_id: str, classroom_id: str) -> dict:
-    rows = [row for row in eligible_rows(teaching_id, classroom_id) if diagnosis(row).get('level') in LEVELS]
-    if not rows:
-        raise HTTPException(status_code=409, detail='请先完成学生的思维诊断')
-    now = utc_now()
-    with database() as connection:
+    Rank examples once every submission in that task version has been analyzed.
+    Keep existing valid examples while additional submissions await analysis.
+    """
+    changed_feedback = changed_examples = 0
+    with _sync_lock, database() as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        rows = [row for row in eligible_rows(teaching_id, classroom_id) if diagnosis(row).get('level') in LEVELS]
+        now = utc_now()
         for row in rows:
             text = f"### 本次思维结构\n{LEVELS[diagnosis(row)['level']]}\n\n" + student_feedback_for_row(row)
-            connection.execute('''INSERT INTO student_learning_feedback (session_id, report_text, pushed_at)
-                VALUES (?,?,?) ON CONFLICT(session_id) DO UPDATE SET report_text=excluded.report_text, pushed_at=excluded.pushed_at''',
-                (row['id'], text, now))
-    write_audit('push_thinking_feedback', 'precision_teaching', teaching_id, {'classroom_id': classroom_id, 'count': len(rows)})
-    return {'pushed_count': len(rows), 'pushed_at': now}
-
-
-@router.get('/precision-teachings/{teaching_id}/classrooms/{classroom_id}/learning-sharing/dialogues/{session_id}')
-def preview_dialogue(teaching_id: str, classroom_id: str, session_id: str) -> dict:
-    row = next((item for item in eligible_rows(teaching_id, classroom_id) if item['id'] == session_id), None)
-    if not row:
-        raise HTTPException(status_code=404, detail='没有可推荐的已分析对话')
-    return {'messages': current_messages(row)}
-
-
-@router.post('/precision-teachings/{teaching_id}/classrooms/{classroom_id}/learning-sharing/examples')
-def push_examples(teaching_id: str, classroom_id: str, payload: ExampleSelection) -> dict:
-    if len(set(payload.session_ids)) != 2:
-        raise HTTPException(status_code=422, detail='请选择两名不同学生的对话')
-    by_id = {row['id']: row for row in eligible_rows(teaching_id, classroom_id)}
-    rows = [by_id.get(id) for id in payload.session_ids]
-    if any(row is None or diagnosis(row).get('level') not in LEVELS for row in rows):
-        raise HTTPException(status_code=422, detail='请从本班已完成思维诊断的学生中选择')
-    versions = {row.get('task_version_id') or '' for row in rows}
-    if len(versions) != 1:
-        raise HTTPException(status_code=422, detail='请选择同一任务版本的两份对话')
-    examples = []
-    for index, row in enumerate(rows):
-        messages = current_messages(row)
-        if not {'student', 'ai'}.issubset({m['role'] for m in messages}):
-            raise HTTPException(status_code=422, detail='所选记录缺少完整的学生与 AI 对话')
-        examples.append({'session_id': row['id'], 'title': f'对话示例{index+1}',
-                         'level_name': LEVELS[diagnosis(row)['level']], 'messages': messages})
-    now = utc_now()
-    with database() as connection:
-        connection.execute('''INSERT INTO class_dialogue_examples
-            (teaching_id,classroom_id,task_version_id,examples_json,pushed_at) VALUES (?,?,?,?,?)
-            ON CONFLICT(teaching_id,classroom_id,task_version_id) DO UPDATE SET
-            examples_json=excluded.examples_json,pushed_at=excluded.pushed_at''',
-            (teaching_id, classroom_id, next(iter(versions)), json.dumps(examples, ensure_ascii=False), now))
-    write_audit('push_dialogue_examples', 'precision_teaching', teaching_id, {'classroom_id': classroom_id, 'count': 2})
-    return sharing_state(teaching_id, classroom_id)
-
-
-@router.delete('/precision-teachings/{teaching_id}/classrooms/{classroom_id}/learning-sharing/examples')
-def withdraw_examples(teaching_id: str, classroom_id: str) -> dict:
-    with database() as connection:
-        connection.execute('DELETE FROM class_dialogue_examples WHERE teaching_id=? AND classroom_id=?', (teaching_id, classroom_id))
-    return sharing_state(teaching_id, classroom_id)
+            saved = connection.execute('SELECT report_text FROM student_learning_feedback WHERE session_id=?', (row['id'],)).fetchone()
+            if saved and saved['report_text'] == text:
+                continue
+            connection.execute('''INSERT INTO student_learning_feedback (session_id,report_text,pushed_at) VALUES (?,?,?)
+                ON CONFLICT(session_id) DO UPDATE SET report_text=excluded.report_text,pushed_at=excluded.pushed_at''',
+                (row['id'],text,now))
+            changed_feedback += 1
+        submissions = fetch_all('''SELECT sts.id, COALESCE(sts.task_version_id,'') AS version
+            FROM student_task_sessions sts JOIN students s ON s.id=sts.student_id
+            WHERE sts.teaching_id=? AND s.classroom_id=? AND sts.status='submitted' ''', (teaching_id,classroom_id))
+        groups = {}
+        for submission in submissions:
+            groups.setdefault(submission['version'],set()).add(submission['id'])
+        existing = {item['task_version_id']: item['examples_json'] for item in fetch_all(
+            'SELECT task_version_id,examples_json FROM class_dialogue_examples WHERE teaching_id=? AND classroom_id=?',
+            (teaching_id,classroom_id))}
+        for version in set(groups) | set(existing):
+            candidates = [row for row in rows if (row.get('task_version_id') or '') == version]
+            valid_ids = {row['id'] for row in candidates}
+            prior = json.loads(existing.get(version,'[]'))
+            if groups.get(version) != valid_ids:
+                if prior and not all(item['session_id'] in valid_ids for item in prior):
+                    connection.execute('DELETE FROM class_dialogue_examples WHERE teaching_id=? AND classroom_id=? AND task_version_id=?',
+                        (teaching_id,classroom_id,version))
+                continue
+            strong = [row for row in candidates if diagnosis(row)['level'] in ('R','EA')]
+            strong.sort(key=lambda row: (-list(LEVELS).index(diagnosis(row)['level']),row['id']))
+            examples = []
+            for row in strong:
+                messages = current_messages(row)
+                if not {'student','ai'}.issubset({m['role'] for m in messages}):
+                    continue
+                examples.append({'session_id':row['id'],'title':f'对话示例{len(examples)+1}',
+                    'level_name':LEVELS[diagnosis(row)['level']],'messages':messages})
+                if len(examples) == 2:
+                    break
+            if len(examples) != 2:
+                connection.execute('DELETE FROM class_dialogue_examples WHERE teaching_id=? AND classroom_id=? AND task_version_id=?',
+                    (teaching_id,classroom_id,version))
+                continue
+            if prior == examples:
+                continue
+            connection.execute('''INSERT INTO class_dialogue_examples
+                (teaching_id,classroom_id,task_version_id,examples_json,pushed_at) VALUES (?,?,?,?,?)
+                ON CONFLICT(teaching_id,classroom_id,task_version_id) DO UPDATE SET
+                examples_json=excluded.examples_json,pushed_at=excluded.pushed_at''',
+                (teaching_id,classroom_id,version,json.dumps(examples,ensure_ascii=False),now))
+            changed_examples += 1
+    return {'feedback_updated':changed_feedback,'example_sets_updated':changed_examples}

@@ -430,7 +430,7 @@ function renderTask() {
   messageInput.disabled = state.taskLoading || !state.session || (submitted && !reportReady);
   messageInput.placeholder = reportReady
     ? "结合老师的反馈，说说你现在的理解……"
-    : submitted ? "等待老师推送反馈报告" : "说说你现在的想法……";
+    : submitted ? "等待思维反馈" : "说说你现在的想法……";
   resizeComposer();
 }
 
@@ -530,15 +530,15 @@ async function openLearningFeedback(teachingId, kind) {
   renderLearningFeedbackButtons();
   if (kind === 'thinking') {
     const report = value.thinking_feedback;
-    if (!report) { showToast('老师还未推送思维反馈'); return; }
+    if (!report) { showToast('暂无思维反馈'); return; }
     $('#studentReportTitle').textContent = '我的思维反馈';
     $('#reportTaskTitle').textContent = studentTaskTitle(state.activeTask);
-    $('#reportPushedAt').textContent = `教师于 ${new Date(report.pushed_at).toLocaleString('zh-CN')} 推送`;
+    $('#reportPushedAt').textContent = `更新于 ${new Date(report.pushed_at).toLocaleString('zh-CN')}`;
     $('#studentReportText').innerHTML = renderReportMarkdown(report.report_text);
     TaskMath.typeset($('#studentReportText'));
     if (!$('#reportDialog').open) $('#reportDialog').showModal();
   } else {
-    if (!value.examples.length) { showToast('老师还未推送对话示例'); return; }
+    if (!value.examples.length) { showToast('暂无对话示例'); return; }
     $('#examplesTaskTitle').textContent = studentTaskTitle(state.activeTask);
     $('#dialogueExamples').innerHTML = value.examples.map((example, index) => `<details class="dialogue-example" ${index === 0?'open':''}><summary>${escapeHtml(example.title)} · ${escapeHtml(example.level_name)}</summary><div>${example.messages.map(message => `<article class="example-message ${message.role === 'student'?'student':'ai'}"><b>${message.role === 'student'?'同学':'AI'}</b><div>${renderReportMarkdown(message.content)}</div></article>`).join('')}</div></details>`).join('');
     TaskMath.typeset($('#dialogueExamples'));

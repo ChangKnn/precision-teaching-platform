@@ -1108,6 +1108,12 @@ def _generate_student_report(session_id: str, background_tasks: BackgroundTasks,
         write_audit("generate", "student_diagnosis_report", session_id, {"job_id": job_id, "skill": skill.key})
         refresh_feedback_counts(context["teaching_id"])
         classroom = fetch_one("SELECT classroom_id FROM students WHERE id = ?", (context["student_id"],))
+        if classroom:
+            try:
+                from .learning_feedback import sync_automatic_learning
+                sync_automatic_learning(context["teaching_id"], classroom["classroom_id"])
+            except Exception as feedback_error:
+                write_audit("automatic_feedback_failed", "student_diagnosis_report", session_id, {"error":str(feedback_error)[:500]})
         if classroom and not lightweight:
             try:
                 queue_class_report(context["teaching_id"], classroom["classroom_id"], background_tasks)

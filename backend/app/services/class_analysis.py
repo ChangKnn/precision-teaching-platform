@@ -65,6 +65,8 @@ def analyze_class(teaching_id, classroom_id):
                     failures.append(f'{jobs[job]}（{reason}）')
         if failures:
             raise ValueError(f'{len(failures)}名学生分析未完成：'+ '、'.join(failures) +'。请检查并重试；成功结果已保留，尚未生成不完整班级报告')
+        from ..learning_feedback import sync_automatic_learning
+        sync_automatic_learning(*key)
         background=BackgroundTasks()
         if not queue_class_report(*key,background,force=True):
             raise ValueError('已提交学生尚未全部完成分析，请重试')
