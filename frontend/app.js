@@ -3884,25 +3884,25 @@ document.addEventListener("click", async event => {
       return;
     }
     if (!context.teaching_content_and_curriculum_analysis || !context.teaching_focus_and_difficulty_analysis) {
-      showToast("请先在“当前教学设计方案”填写并保存两项教学分析");
+      showToast("请先在“设计依据”填写并保存两项教学分析");
       setInterventionStep(1);
       return;
     }
     if (!context.teaching_environment_and_ai_support_conditions) {
-      showToast("请先在“当前教学设计方案”填写“课堂与技术条件”，再保存分析");
+      showToast("请先在“设计依据”填写“课堂与技术条件”，再保存分析");
       setInterventionStep(1);
       document.getElementById("teachingEnvironmentConditions").focus();
       return;
     }
     if (!Number.isInteger(context.planned_duration_minutes) || context.planned_duration_minutes < 10 || context.planned_duration_minutes > 300) {
-      showToast("请在“当前教学设计方案”填写 10–300 分钟的教学时间");
+      showToast("请在“设计依据”填写 10–300 分钟的教学时间");
       setInterventionStep(1);
       document.getElementById("interventionDurationMinutes").focus();
       return;
     }
     const savedAnalysis = serverState?.goalPath?.teacher_analysis;
     if (!savedAnalysis || savedAnalysis.content_analysis !== context.teaching_content_and_curriculum_analysis || savedAnalysis.focus_analysis !== context.teaching_focus_and_difficulty_analysis) {
-      showToast("请先在“当前教学设计方案”保存当前两项教学分析，再生成目标与路径");
+      showToast("请先在“设计依据”保存当前两项教学分析，再生成目标与路径");
       setInterventionStep(1);
       return;
     }
