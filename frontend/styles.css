@@ -1662,3 +1662,8 @@ body { font-size: 16px; }
 .sharing-message { padding: 12px; margin: 10px 0; border-left: 3px solid #86bcb4; background: white; }
 .sharing-message.student { border-left-color: #176761; }
 .sharing-message p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 0; }
+
+.lesson-conception-section { grid-column: 1 / -1; border-top: 1px solid #dce7e3; padding-top: 20px; }
+.lesson-conception-section > h3 { margin: 0 0 14px; color: #175e54; font-size: 18px; }
+.lesson-conception-section .lesson-materials-card { margin-top: 20px; padding: 18px; background: #f7faf8; border: 1px solid #dce7e3; border-radius: 10px; }
+.lesson-conception-section .lesson-materials-card h3 { margin: 0 0 7px; font-size: 16px; }
