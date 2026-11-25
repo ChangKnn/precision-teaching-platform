@@ -75,7 +75,10 @@ def _restore_typical_evidence(result, payload):
                 selected.append({'student_id': sid, 'student_name': student['student']['student_name'],
                                  'source_ref': source['ref'], 'quote': source['quote'], 'interpretation': source['interpretation']})
         if not selected:
-            raise ValueError(f"{level['level']}层级的个体诊断缺少可核验的证据，请先更新个体诊断")
+            from .no_response import is_no_response
+            members = [s for s in students.values() if s['diagnosis']['level'] == level['level']]
+            if not members or not all(is_no_response(s) for s in members):
+                raise ValueError(f"{level['level']}层级的个体诊断缺少可核验的证据，请先更新个体诊断")
         level['typical_evidence'] = selected
 
 

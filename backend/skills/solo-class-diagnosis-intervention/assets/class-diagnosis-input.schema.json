@@ -173,7 +173,7 @@
             },
             "evidence": {
               "type": "array",
-              "minItems": 1,
+              "minItems": 0,
               "items": {
                 "type": "object",
                 "additionalProperties": true,
@@ -282,8 +282,50 @@
               }
             }
           }
+        },
+        "no_response": {
+          "type": "boolean"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "no_response": {
+                "const": true
+              }
+            },
+            "required": [
+              "no_response"
+            ]
+          },
+          "then": {
+            "properties": {
+              "diagnosis": {
+                "properties": {
+                  "level": {
+                    "const": "P"
+                  },
+                  "evidence": {
+                    "maxItems": 0
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "diagnosis": {
+                "properties": {
+                  "evidence": {
+                    "minItems": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

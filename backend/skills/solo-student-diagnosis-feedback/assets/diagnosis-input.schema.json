@@ -167,13 +167,7 @@
     },
     "human_ai_dialogue": {
       "type": "array",
-      "minItems": 1,
-      "contains": {
-        "type": "object",
-        "properties": {"role": {"const": "student"}},
-        "required": ["role"]
-      },
-      "minContains": 1,
+      "minItems": 0,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -187,6 +181,10 @@
     },
     "submitted_text": {"type": ["string", "null"]}
   },
+  "allOf": [{"anyOf": [
+    {"properties": {"human_ai_dialogue": {"contains": {"type": "object", "properties": {"role": {"const": "student"}}, "required": ["role"]}, "minContains": 1}}},
+    {"properties": {"submitted_text": {"type": "string", "minLength": 1}}, "required": ["submitted_text"]}
+  ]}],
   "$defs": {
     "rubricLevel": {
       "type": "object",

@@ -2,7 +2,7 @@
 name: solo-class-diagnosis-intervention
 description: 聚合全班由 solo-student-diagnosis-feedback 生成的个体 SOLO 诊断结果，统计 P/U/M/R/EA 分布，形成班级整体与分层分析、教学重难点、分组建议及供下游方案设计使用的干预设计依据。用于教师需要把个体诊断转化为班级教学决策输入时；不重新定级学生，也不设计具体课堂活动或完整教案。
 metadata:
-  version: 1.1.3
+  version: 1.1.4
 ---
 
 # 班级 SOLO 聚合诊断与精准教学建议
@@ -128,3 +128,7 @@ level_group_name 保存对应 teaching_design.task 的短名称；具体困难�
 - `scripts/aggregate_distribution.py`：从 JSON 输入确定性统计五级分布；
 - `scripts/validate_contract.py`：修改本 Skill 后执行契约与不变量验证；
 - `tests/behavior-cases.json`：人工或模型前向测试用的边界案例。
+
+## 无发言记录
+
+输入中 `no_response: true` 表示已提交但无学生发言或文字作答，由程序按规则记为前结构。正常计入人数和分组，不再次定级；说明暂无思维证据，具体困难有待了解，不推断能力或态度。此类记录的 evidence 为空，不编造原话；某层全部为此类记录时 typical_evidence 为空，其典型依据与困难说明使用未作答的事实。

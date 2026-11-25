@@ -982,8 +982,6 @@ def build_student_diagnosis_input(session_id: str) -> tuple[dict, dict]:
     if context["rubric_status"] != "confirmed" or not context["current_json"]:
         raise HTTPException(status_code=409, detail="请先确认当前诊断任务的 SOLO 分析标准")
     messages = version_history(session_id, version)
-    if not any(item["role"] == "student" for item in messages):
-        raise HTTPException(status_code=422, detail="至少需要一条学生发言才能生成个体报告")
     contents = [item.strip() for item in context["content"].splitlines() if item.strip()]
     payload = {
         "precision_teaching_context": {
@@ -1023,6 +1021,9 @@ def generate_student_report(session_id: str, background_tasks: BackgroundTasks, 
 def _generate_student_report(session_id: str, background_tasks: BackgroundTasks, lightweight: bool = False) -> dict:
     skill = load_skill("solo_student_diagnosis_feedback")
     payload, context = build_student_diagnosis_input(session_id)
+    if not any(item['role'] == 'student' and item['content'].strip() for item in payload['human_ai_dialogue']) and not (payload.get('submitted_text') or '').strip():
+        from .services.no_response import record_no_response
+        return record_no_response(session_id, payload, context, skill, lightweight)
     try:
         import jsonschema
 

@@ -624,7 +624,7 @@
         },
         "typical_evidence": {
           "type": "array",
-          "minItems": 1,
+          "minItems": 0,
           "items": {
             "$ref": "#/$defs/evidenceRef"
           }

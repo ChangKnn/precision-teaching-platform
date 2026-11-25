@@ -214,7 +214,9 @@ def validate_class_result(result: dict, payload: dict) -> None:
             evidence["interpretation"] = source["interpretation"]
             verified_evidence.append(evidence)
         if not verified_evidence:
-            raise ValueError("班级报告缺少可追溯的典型证据")
+            from .no_response import is_no_response
+            if not members or not all(is_no_response(source_by_id[sid]) for sid in members):
+                raise ValueError("班级报告缺少可追溯的典型证据")
         item["typical_evidence"] = verified_evidence
     for alert in result.get('individual_attention', []):
         student = source_by_id.get(alert['student_id'])
